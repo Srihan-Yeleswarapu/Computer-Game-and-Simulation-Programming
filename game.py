@@ -127,7 +127,7 @@ class FireRescueWorld(BaseWorld):
             summary="Navigate smoke, dodge flames, and carry survivors out",
             duration=48.0,
         )
-        self.bounds = (220.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
+        self.bounds = (60.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
         self.survivors: list[dict[str, float | str]] = []
         self.flames: list[dict[str, float]] = []
         self.smoke: list[dict[str, float]] = []
@@ -366,6 +366,7 @@ class ChefRushWorld(BaseWorld):
         self.spills: list[dict[str, float]] = []
         self.tickets: list[dict[str, float]] = []
         self.ticket_spawn = 9.0
+        self.warning = ""
 
     def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT - 90)
@@ -377,6 +378,7 @@ class ChefRushWorld(BaseWorld):
         self.step_progress = 0.0
         self.tickets = []
         self.ticket_spawn = 8.0
+        self.warning = ""
         self.recipe = random.choice(
             [
                 ["Knife Skills", "Sear Protein", "Deglaze", "Plate"],
@@ -448,11 +450,13 @@ class ChefRushWorld(BaseWorld):
                 self.step_progress = 0.0
                 player.speed = 240.0
                 self.timer = min(self.duration + 4, self.timer + 3.0)
+        self.warning = ""
         for station in self.stations:
             if self.step < len(self.recipe) and station["name"] == self.recipe[self.step]:
                 continue
-            if math.hypot(player.x - station["x"], player.y - station["y"]) < player.size + 20:
-                self.timer = max(0.0, self.timer - dt * 5)
+            if math.hypot(player.x - station["x"], player.y - station["y"]) < player.size + 10:
+                self.timer = max(0.0, self.timer - dt * 1)
+                self.warning = "Wrong Station!"
         if self.step >= len(self.recipe):
             self.finished = True
             self.success = True
@@ -579,6 +583,8 @@ class ChefRushWorld(BaseWorld):
             ttl_bar = clamp(self.tickets[0]["ttl"] / 7.5, 0.0, 1.0)
             canvas.create_rectangle(window[0] + 10, window[3] + 8, window[2] - 10, window[3] + 16, outline="#72c2ff", width=2)
             canvas.create_rectangle(window[0] + 12, window[3] + 10, window[0] + 12 + (window[2] - window[0] - 24) * ttl_bar, window[3] + 14, fill="#ffd166", outline="")
+        if self.warning:
+            canvas.create_text(WIDTH / 2, HEIGHT / 2 + 60, text=self.warning, fill="#ff4d4d", font=("Helvetica", 16, "bold"))
         canvas.create_rectangle(x1 - 10, y1 - 10, x2 + 10, y2 + 10, outline="#6a7c88", width=2)
         player.draw(canvas)
         if self.finished:
@@ -606,6 +612,7 @@ class BugHuntWorld(BaseWorld):
         self.deploy_progress = 0.0
         self.deploy_point = {"x": WIDTH / 2, "y": HEIGHT - 120}
         self.leak = {"x": WIDTH / 2, "y": HEIGHT / 2 + 40, "r": 40.0}
+        self.warning = ""
 
     def reset(self, player: Player) -> None:
         player.reset(140, 140)
@@ -616,6 +623,7 @@ class BugHuntWorld(BaseWorld):
         self.index = 0
         self.patch_progress = 0.0
         self.deploy_progress = 0.0
+        self.warning = ""
         self.leak["r"] = 40.0
         self.nodes = [
             {"name": "Telemetry", "x": 200, "y": 200, "color": "#8be9fd"},
@@ -644,7 +652,7 @@ class BugHuntWorld(BaseWorld):
         x1, y1, x2, y2 = self.bounds
         player.speed = 260.0
         player.update(dt, keys, self.bounds)
-        self.leak["r"] = clamp(self.leak["r"] + dt * 12.0, 40.0, 180.0)
+        self.leak["r"] = clamp(self.leak["r"] + dt * 4.0, 40.0, 130.0)
         leak_dist = math.hypot(player.x - self.leak["x"], player.y - self.leak["y"])
         if leak_dist < self.leak["r"]:
             player.speed = 180.0
@@ -682,11 +690,13 @@ class BugHuntWorld(BaseWorld):
                 self.finished = True
                 self.success = True
                 self.message = "Build is green and deployed. QA is happy!"
+        self.warning = ""
         for i, node in enumerate(self.nodes):
             if i == self.index:
                 continue
             if math.hypot(player.x - node["x"], player.y - node["y"]) < player.size + 18:
-                self.timer = max(0.0, self.timer - dt * 4)
+                self.timer = max(0.0, self.timer - dt * 0.5)
+                self.warning = "Wrong Node!"
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
@@ -794,6 +804,8 @@ class BugHuntWorld(BaseWorld):
             font=("Helvetica", 12, "bold"),
         )
         canvas.create_text(20, HEIGHT - 80, anchor="w", text="Hold on glowing nodes to patch them in order, dodge glitches, avoid the memory leak pool, then deploy at the console.", fill=TEXT, font=("Helvetica", 11))
+        if self.warning:
+            canvas.create_text(WIDTH / 2, HEIGHT / 2 + 80, text=self.warning, fill="#ff4d4d", font=("Helvetica", 16, "bold"))
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)
@@ -885,8 +897,9 @@ class CareerGame:
         for i in range(12):
             offset = (time.time() * 20 + i * 80) % (WIDTH + 200) - 200
             self.canvas.create_oval(offset, 60 + i * 28, offset + 120, 160 + i * 28, outline="#0f4c75", width=2)
-        self.canvas.create_text(WIDTH / 2, 70, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 26, "bold"))
-        self.canvas.create_text(WIDTH / 2, 110, text="Jump into a mini-world and try the job for yourself.", fill="#d8e7ff", font=("Helvetica", 14))
+        self.canvas.create_text(WIDTH / 2, 70, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 28, "bold"))
+        self.canvas.create_text(WIDTH / 2, 110, text="Jump into a mini-world and try the job for yourself.", fill="#d8e7ff", font=("Helvetica", 16))
+        self.canvas.create_text(WIDTH / 2, 140, text="Press 1, 2, or 3 to Start", fill="#ffd700", font=("Helvetica", 14, "bold"))
         portals = [
             ("1", "Firefighter", "Rescue survivors and dodge fire", "#23486e"),
             ("2", "Chef", "Finish the dinner rush in order", "#25563f"),
