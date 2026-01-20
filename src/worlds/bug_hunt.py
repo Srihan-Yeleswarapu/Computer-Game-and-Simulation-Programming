@@ -23,7 +23,7 @@ class BugHuntWorld(BaseWorld):
         self.leak = {"x": WIDTH / 2, "y": HEIGHT / 2 + 40, "r": 40.0}
         self.warning = ""
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         player.reset(140, 140)
         self.timer = self.duration
         self.finished = False
@@ -41,10 +41,8 @@ class BugHuntWorld(BaseWorld):
             {"name": "UI", "x": WIDTH / 2 - 180, "y": HEIGHT / 2 + 100, "color": "#ffb86c"},
             {"name": "Netcode", "x": WIDTH - 220, "y": HEIGHT - 160, "color": "#ff6e6e"},
         ]
-        
-        num_glitches = 5 + int(difficulty * 1.5)
         self.glitches = []
-        for _ in range(num_glitches):
+        for _ in range(5):
             self.glitches.append(
                 {
                     "x": random.randint(180, WIDTH - 180),

@@ -14,7 +14,7 @@ class BaseWorld:
         self.bounds: tuple[float, float, float, float] = (0.0, 0.0, WIDTH, HEIGHT)
         self.warning = ""
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:  # pragma: no cover - interface
+    def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:  # pragma: no cover - interface

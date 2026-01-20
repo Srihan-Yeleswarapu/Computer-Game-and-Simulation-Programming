@@ -26,7 +26,7 @@ class DoctorWorld(BaseWorld):
             {"sym": "Chest Pain, Nausea", "diag": "Heart Attack", "treat": "CPR/Defib"},
         ]
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         self.timer = self.duration
         self.finished = False
         self.success = False
@@ -37,12 +37,9 @@ class DoctorWorld(BaseWorld):
         self.selected_treatment = ""
         self.feedback = ""
         
-        # Difficulty Scaling
-        num_patients = 3 + int(difficulty / 3) # 3 to 6
-        
-        # Generate patients
+        # Generate 3 patients
         self.patients = []
-        for _ in range(num_patients):
+        for _ in range(3):
             case = random.choice(self.symptoms_db)
             self.patients.append({
                 "name": f"Patient {random.randint(100, 999)}",

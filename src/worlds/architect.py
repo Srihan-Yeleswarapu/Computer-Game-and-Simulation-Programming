@@ -32,7 +32,7 @@ class ArchitectWorld(BaseWorld):
         self.wind_timer = 0.0
         self.stability = 100.0
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT - 80)
         self.timer = self.duration
         self.finished = False
@@ -45,15 +45,7 @@ class ArchitectWorld(BaseWorld):
         self.stability = 100.0
         self.wind_timer = 0.0
         
-        # Scale costs based on difficulty
-        # Base Costs: 10, 15, 20, 25
-        scalar = 1.0 + (difficulty * 0.25) # Max ~3.75x
-        self.room_types = [
-            {"name": "Lobby", "color": "#e1e1e1", "cost": int(10 * scalar)},
-            {"name": "Books", "color": "#8b4513", "cost": int(15 * scalar)},
-            {"name": "Eco-Roof", "color": "#7cfc00", "cost": int(20 * scalar)},
-            {"name": "Elevator", "color": "#708090", "cost": int(25 * scalar)},
-        ]
+        # Pre-place foundation
         for i in range(self.grid_w):
             self.blocks.append({"gx": i, "gy": self.grid_h, "type": "Foundation", "fixed": True})
 

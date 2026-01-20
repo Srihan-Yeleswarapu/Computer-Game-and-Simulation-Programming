@@ -22,7 +22,7 @@ class FireRescueWorld(BaseWorld):
         self.heat = 0.0
         self.spread_cap = 12
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         start_x = self.bounds[0] + 20
         player.reset(start_x, HEIGHT / 2)
         self.timer = self.duration
@@ -32,12 +32,6 @@ class FireRescueWorld(BaseWorld):
         self.saved = 0
         self.heat = 0.0
         self.carrying = None
-        
-        # Difficulty Scaling
-        num_flames = 7 + int(difficulty * 1.5)
-        num_smoke = 10 + int(difficulty)
-        self.spread_cap = 12 + int(difficulty * 0.5)
-        
         self.survivors = [
             {
                 "x": random.randint(320, 860),
@@ -48,7 +42,7 @@ class FireRescueWorld(BaseWorld):
             for _ in range(5)
         ]
         self.flames = []
-        for _ in range(num_flames):
+        for _ in range(7):
             self.flames.append(
                 {
                     "x": random.randint(240, WIDTH - 40),
@@ -66,7 +60,7 @@ class FireRescueWorld(BaseWorld):
                 "r": random.uniform(32, 55),
                 "rise": random.uniform(6, 18),
             }
-            for _ in range(num_smoke)
+            for _ in range(10)
         ]
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:

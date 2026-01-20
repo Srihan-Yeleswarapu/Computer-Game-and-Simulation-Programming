@@ -25,14 +25,13 @@ class MarineWorld(BaseWorld):
         self.scan_target: dict | None = None
         self.scan_timer = 0.0
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, 80) # Start near surface
         self.timer = self.duration
         self.finished = False
         self.success = False
         self.message = ""
         self.oxygen = 100.0
-        self.oxygen_drain = 1.5 + (difficulty * 0.15) # Scaled drain
         self.scanned_count = 0
         self.collected_count = 0
         self.scanner_active = False
@@ -95,7 +94,7 @@ class MarineWorld(BaseWorld):
         player.vy = clamp(player.vy, -180, 180)
         
         # Oxygen drain
-        self.oxygen = max(0.0, self.oxygen - dt * self.oxygen_drain)
+        self.oxygen = max(0.0, self.oxygen - dt * 1.5)
         if self.oxygen <= 0:
             self.finished = True
             self.success = False

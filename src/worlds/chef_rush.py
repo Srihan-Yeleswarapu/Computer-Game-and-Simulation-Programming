@@ -23,17 +23,16 @@ class ChefRushWorld(BaseWorld):
         self.ticket_spawn = 9.0
         self.warning = ""
 
-    def reset(self, player: Player, difficulty: int = 0) -> None:
+    def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT - 90)
-        # Scaled Duration: Less time per level
-        self.timer = max(15.0, self.duration - (difficulty * 2.0))
+        self.timer = self.duration
         self.finished = False
         self.success = False
         self.message = ""
         self.step = 0
         self.step_progress = 0.0
         self.tickets = []
-        self.ticket_spawn = max(4.0, 8.0 - (difficulty * 0.3))
+        self.ticket_spawn = 8.0
         self.warning = ""
         self.recipe = random.choice(
             [
