@@ -127,7 +127,7 @@ class FireRescueWorld(BaseWorld):
             summary="Navigate smoke, dodge flames, and carry survivors out",
             duration=48.0,
         )
-        self.bounds = (60.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
+        self.bounds = (80.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
         self.survivors: list[dict[str, float | str]] = []
         self.flames: list[dict[str, float]] = []
         self.smoke: list[dict[str, float]] = []
@@ -137,7 +137,7 @@ class FireRescueWorld(BaseWorld):
         self.spread_cap = 12
 
     def reset(self, player: Player) -> None:
-        start_x = self.bounds[0] + 20
+        start_x = self.bounds[0] + 30
         player.reset(start_x, HEIGHT / 2)
         self.timer = self.duration
         self.finished = False
@@ -148,8 +148,8 @@ class FireRescueWorld(BaseWorld):
         self.carrying = None
         self.survivors = [
             {
-                "x": random.randint(320, 860),
-                "y": random.randint(100, HEIGHT - 100),
+                "x": random.randint(int(self.bounds[0] + 140), int(self.bounds[2] - 80)),
+                "y": random.randint(int(self.bounds[1] + 60), int(self.bounds[3] - 60)),
                 "state": "trapped",
                 "progress": 0.0,
             }
@@ -159,8 +159,8 @@ class FireRescueWorld(BaseWorld):
         for _ in range(7):
             self.flames.append(
                 {
-                    "x": random.randint(240, WIDTH - 40),
-                    "y": random.randint(80, HEIGHT - 80),
+                    "x": random.randint(int(self.bounds[0] + 80), int(self.bounds[2] - 40)),
+                    "y": random.randint(int(self.bounds[1] + 40), int(self.bounds[3] - 40)),
                     "dx": random.choice([-1, 1]) * random.uniform(60, 110),
                     "dy": random.choice([-1, 1]) * random.uniform(50, 100),
                     "r": random.randint(20, 30),
@@ -212,7 +212,7 @@ class FireRescueWorld(BaseWorld):
                 puff["y"] = y2 + random.uniform(10, 40)
                 puff["x"] = random.uniform(x1, x2)
         # Survivor handling: pick up, carry, and evacuate to the door
-        door_zone = (80, HEIGHT / 2 - 40, 220, HEIGHT / 2 + 40)
+        door_zone = (80, HEIGHT / 2 - 50, 220, HEIGHT / 2 + 50)
         if not self.carrying:
             for survivor in self.survivors:
                 dist = math.hypot(player.x - survivor["x"], player.y - survivor["y"])
@@ -235,6 +235,11 @@ class FireRescueWorld(BaseWorld):
                 self.carrying["state"] = "saved"
                 self.saved += 1
                 self.carrying = None
+        if door_zone[0] <= player.x <= door_zone[2] and door_zone[1] <= player.y <= door_zone[3]:
+            for survivor in self.survivors:
+                if survivor["state"] == "freed":
+                    survivor["state"] = "saved"
+                    self.saved += 1
         self.survivors = [s for s in self.survivors if s["state"] != "saved"]
         for flame in self.flames:
             if math.hypot(player.x - flame["x"], player.y - flame["y"]) < player.size + flame["r"]:
