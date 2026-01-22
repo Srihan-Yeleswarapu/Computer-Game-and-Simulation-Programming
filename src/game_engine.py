@@ -9,6 +9,7 @@ from .worlds.bug_hunt import BugHuntWorld
 from .worlds.marine import MarineWorld
 from .worlds.architect import ArchitectWorld
 from .worlds.doctor import DoctorWorld
+import audioop  # raw audio processing helpers
 
 from .save_system import SaveSystem
 
@@ -209,7 +210,102 @@ class GameEngine:
 
             # Footer
             self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
+        def start_music(self):
+            # Start background music if supported.
+            if self._music_started:
+                return
+            try:
+                import winsound
+            except ImportError:
+                return
+    
+            # Load and loop the background track if available.
+            music_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "backgroundMusic.m4a")
+            )
+            if not os.path.exists(music_path):
+                return
+    
+            faded_path = self.create_faded_wav(music_path, fade_seconds=6, volume_scale=0.5)
+            if not faded_path:
+                return
+            self._music_temp_path = faded_path
+            self._music_started = True
+            winsound.PlaySound(self._music_temp_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
 
+    def stop_music(self):
+        # Stop playback and clean up temp files.
+        try:
+            import winsound
+            winsound.PlaySound(None, winsound.SND_PURGE)
+        except ImportError:
+            pass
+        if self._music_temp_path and os.path.exists(self._music_temp_path):
+            try:
+                os.remove(self._music_temp_path)
+            except OSError:
+                pass
+        self._music_temp_path = None
+        self._music_started = False
+
+    def create_faded_wav(self, input_path: str, fade_seconds: int = 3, volume_scale: float = 1.0):
+        # Read a wav file and apply fade-in/out for smoother looping.
+        try:
+            with wave.open(input_path, "rb") as wf:
+                params = wf.getparams()
+                frames = wf.readframes(wf.getnframes())
+        except (wave.Error, FileNotFoundError):
+            return None
+
+        # Apply a fade-in/out and optional volume scaling to avoid harsh loops.
+        frame_bytes = params.sampwidth * params.nchannels
+        if frame_bytes <= 0:
+            return None
+
+        total_frames = params.nframes
+        fade_frames = int(params.framerate * fade_seconds)
+        fade_frames = min(fade_frames, max(0, total_frames // 2))
+        if fade_frames <= 0:
+            return input_path
+
+        # Convert frames to a mutable bytearray for processing.
+        data = bytearray(frames)
+        volume_scale = max(0.0, min(volume_scale, 1.0))
+
+        # Fade in.
+        for i in range(fade_frames):
+            scale = (i / fade_frames) * volume_scale
+            start = i * frame_bytes
+            end = start + frame_bytes
+            data[start:end] = audioop.mul(data[start:end], params.sampwidth, scale)
+
+        # Fade out.
+        for i in range(fade_frames):
+            scale = ((fade_frames - i) / fade_frames) * volume_scale
+            start = (total_frames - fade_frames + i) * frame_bytes
+            end = start + frame_bytes
+            data[start:end] = audioop.mul(data[start:end], params.sampwidth, scale)
+
+        # Apply mid-section scaling if requested.
+        if volume_scale < 1.0:
+            mid_start = fade_frames * frame_bytes
+            mid_end = (total_frames - fade_frames) * frame_bytes
+            if mid_end > mid_start:
+                data[mid_start:mid_end] = audioop.mul(
+                    data[mid_start:mid_end], params.sampwidth, volume_scale
+                )
+
+        try:
+            temp_fd, temp_path = tempfile.mkstemp(suffix=".wav")
+            os.close(temp_fd)
+            # Write the processed audio to a temp file.
+            with wave.open(temp_path, "wb") as wf:
+                wf.setparams(params)
+                wf.writeframes(bytes(data))
+            return temp_path
+        except OSError:
+            return None
+            
     def run(self) -> None:
         self.last_time = time.time()
         self.loop()
