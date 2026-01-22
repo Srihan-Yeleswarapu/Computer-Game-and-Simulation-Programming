@@ -213,28 +213,28 @@ class GameEngine:
 
             # Footer
             self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
-        def start_music(self):
-            # Start background music if supported.
-            if self._music_started:
-                return
-            try:
-                import winsound
-            except ImportError:
-                return
-    
-            # Load and loop the background track if available.
-            music_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__),  "..", "backgroundMusic.m4a")
-            )
-            if not os.path.exists(music_path):
-                return
-    
-            faded_path = self.create_faded_wav(music_path, fade_seconds=6, volume_scale=0.5)
-            if not faded_path:
-                return
-            self._music_temp_path = faded_path
-            self._music_started = True
-            winsound.PlaySound(self._music_temp_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
+    def start_music(self):
+        # Start background music if supported.
+        if self._music_started:
+            return
+        try:
+            import winsound
+        except ImportError:
+            return
+
+        # Load and loop the background track if available.
+        music_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__),  "..", "backgroundMusic.m4a")
+        )
+        if not os.path.exists(music_path):
+            return
+
+        faded_path = self.create_faded_wav(music_path, fade_seconds=6, volume_scale=0.5)
+        if not faded_path:
+            return
+        self._music_temp_path = faded_path
+        self._music_started = True
+        winsound.PlaySound(self._music_temp_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
 
     def stop_music(self):
         # Stop playback and clean up temp files.
