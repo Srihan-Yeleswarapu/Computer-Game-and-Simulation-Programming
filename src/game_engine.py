@@ -310,3 +310,4 @@ class GameEngine:
         self.last_time = time.time()
         self.loop()
         self.root.mainloop()
+        self.start_music()
