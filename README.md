@@ -9,7 +9,7 @@ An arcade-style set of mini-worlds that let players sample different careers. Ea
 
 ## Controls
 - Move: Arrow keys or WASD
-- Select a world: Press `1`, `2`, or `3` on the hub, or click a portal card
+- Select a world: Press `1`, `2`, `3`, `4`, `5`, or `6`  on the hub, or click a portal card
 - After finishing a world: Press `Space` to return to the hub
 
 ## Worlds
@@ -18,7 +18,7 @@ An arcade-style set of mini-worlds that let players sample different careers. Ea
 - Software Engineer: Patch code nodes in order while dodging "glitches" that reset your position and waste time.
 - Marine Biologist: Dive, scan fish, and collect samples before O2 runs out.
 - Architect: Design a stable Eco-Library that withstands the wind test.
-- Doctor:
+- Doctor: Diagnose and provide solutions for sick patients. 
 
 Each mini-world has a countdown clock, reactive hazards, and tailored tasks to keep the difficulty engaging.
 
