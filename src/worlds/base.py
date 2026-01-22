@@ -30,9 +30,12 @@ class BaseWorld:
             self.message = "Time ran out!"
 
     def draw_hud(self, canvas: tk.Canvas) -> None:
+        # HUD Background Bar for better contrast
+        canvas.create_rectangle(0, 0, WIDTH, 50, fill="#000000", outline="", stipple="gray50") # Semi-transparent effect via stipple if alpha not supported
+
         canvas.create_text(
             20,
-            20,
+            25,
             anchor="w",
             fill=TEXT,
             font=("Helvetica", 14, "bold"),
@@ -40,7 +43,7 @@ class BaseWorld:
         )
         canvas.create_text(
             WIDTH - 20,
-            20,
+            25,
             anchor="e",
             fill=TEXT,
             font=("Helvetica", 14, "bold"),

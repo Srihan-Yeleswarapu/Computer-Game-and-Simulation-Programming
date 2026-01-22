@@ -38,6 +38,7 @@ class GameEngine:
         self.message = "Use WASD or arrow keys. Press keys to enter a career world."
         self.keys: set[str] = set()
         self.last_time = time.time()
+        self.high_contrast = False
         
         self.root.bind("<KeyPress>", self.on_key_press)
         self.root.bind("<KeyRelease>", self.on_key_release)
@@ -48,6 +49,10 @@ class GameEngine:
         if self.state == "menu":
             if event.keysym in self.worlds:
                 self.start_world(event.keysym)
+            if event.keysym.lower() == "h":
+                self.high_contrast = not self.high_contrast
+                self.draw_menu()
+
         if self.state == "result" and event.keysym == "space":
             self.return_to_menu()
 
@@ -127,45 +132,83 @@ class GameEngine:
 
     def draw_menu(self) -> None:
         self.canvas.delete("all")
-        # Background
-        for i in range(8):
-            shade = 18 + i * 5
-            self.canvas.create_rectangle(
-                0, i * (HEIGHT / 8), WIDTH, (i + 1) * (HEIGHT / 8),
-                fill=f"#{shade:02x}{(shade+10):02x}{(shade+18):02x}", outline=""
-            )
         
-        # Header
-        self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 28, "bold"))
-        self.canvas.create_text(WIDTH / 2, 90, text="Jump into a mini-world and try the job for yourself.", fill="#d8e7ff", font=("Helvetica", 14))
-        
-        # Portals List Compact
-        portals = [
-            ("1", "Firefighter", "#23486e"), ("2", "Chef", "#25563f"),
-            ("3", "Engineer", "#50346e"), ("4", "Marine Bio", "#008b8b"),
-            ("5", "Architect", "#cd853f"), ("6", "Doctor", "#ff69b4")
-        ]
-        
-        # Grid layout for portals 4x2
-        start_x = 100
-        start_y = 160
-        gap_x = 200
-        gap_y = 120
-        
-        for i, (key, title, color) in enumerate(portals):
-            col = i % 4
-            row = i // 4
-            x = start_x + col * gap_x
-            y = start_y + row * gap_y
+        if self.high_contrast:
+            # High Contrast Mode (Black BG, Yellow/White Text)
+            self.canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#000000")
             
-            completed = key in self.save_system.data["completed_worlds"]
-            outline = "#0f0" if completed else "#666"
+            # Header
+            self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#FFFF00", font=("Helvetica", 28, "bold"))
+            self.canvas.create_text(WIDTH / 2, 90, text="High Contrast Mode Enabled (Press 'H' to toggle)", fill="#FFFFFF", font=("Helvetica", 14))
             
-            self.canvas.create_rectangle(x, y, x+180, y+100, fill=color, outline=outline, width=3)
-            self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#fff", font=("Helvetica", 12, "bold"), justify="center")
+            portals = [
+                ("1", "Firefighter"), ("2", "Chef"),
+                ("3", "Engineer"), ("4", "Marine Bio"),
+                ("5", "Architect"), ("6", "Doctor")
+            ]
+            
+            # Grid layout for portals 4x2
+            start_x = 100
+            start_y = 160
+            gap_x = 200
+            gap_y = 120
+            
+            for i, (key, title) in enumerate(portals):
+                col = i % 4
+                row = i // 4
+                x = start_x + col * gap_x
+                y = start_y + row * gap_y
+                
+                completed = key in self.save_system.data["completed_worlds"]
+                outline = "#00FF00" if completed else "#FFFFFF" # Bright Green vs White
+                
+                self.canvas.create_rectangle(x, y, x+180, y+100, fill="#000000", outline=outline, width=5)
+                self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#FFFFFF", font=("Helvetica", 14, "bold"), justify="center")
 
-        # Footer
-        self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
+            # Footer
+            self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#FFFF00", font=("Helvetica", 14, "bold"))
+
+        else:
+            # Standard Aesthetic Mode
+            # Background
+            for i in range(8):
+                shade = 18 + i * 5
+                self.canvas.create_rectangle(
+                    0, i * (HEIGHT / 8), WIDTH, (i + 1) * (HEIGHT / 8),
+                    fill=f"#{shade:02x}{(shade+10):02x}{(shade+18):02x}", outline=""
+                )
+            
+            # Header
+            self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 28, "bold"))
+            self.canvas.create_text(WIDTH / 2, 90, text="Jump into a mini-world and try the job for yourself. (Press 'H' for High Contrast)", fill="#d8e7ff", font=("Helvetica", 14))
+            
+            # Portals List Compact
+            portals = [
+                ("1", "Firefighter", "#23486e"), ("2", "Chef", "#25563f"),
+                ("3", "Engineer", "#50346e"), ("4", "Marine Bio", "#008b8b"),
+                ("5", "Architect", "#cd853f"), ("6", "Doctor", "#ff69b4")
+            ]
+            
+            # Grid layout for portals 4x2
+            start_x = 100
+            start_y = 160
+            gap_x = 200
+            gap_y = 120
+            
+            for i, (key, title, color) in enumerate(portals):
+                col = i % 4
+                row = i // 4
+                x = start_x + col * gap_x
+                y = start_y + row * gap_y
+                
+                completed = key in self.save_system.data["completed_worlds"]
+                outline = "#0f0" if completed else "#666"
+                
+                self.canvas.create_rectangle(x, y, x+180, y+100, fill=color, outline=outline, width=3)
+                self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#fff", font=("Helvetica", 12, "bold"), justify="center")
+
+            # Footer
+            self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
 
     def run(self) -> None:
         self.last_time = time.time()
