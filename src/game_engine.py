@@ -221,7 +221,7 @@ class GameEngine:
     
             # Load and loop the background track if available.
             music_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "..", "..", "backgroundMusic.m4a")
+                os.path.join(os.path.dirname(__file__),  "..", "backgroundMusic.m4a")
             )
             if not os.path.exists(music_path):
                 return
