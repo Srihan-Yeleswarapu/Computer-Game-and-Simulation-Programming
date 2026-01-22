@@ -10,6 +10,9 @@ from .worlds.marine import MarineWorld
 from .worlds.architect import ArchitectWorld
 from .worlds.doctor import DoctorWorld
 import audioop  # raw audio processing helpers
+import os
+import wave
+import tempfile
 
 from .save_system import SaveSystem
 
