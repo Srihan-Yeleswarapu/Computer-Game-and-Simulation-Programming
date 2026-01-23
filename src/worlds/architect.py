@@ -4,7 +4,7 @@ import tkinter as tk
 from ..utils import WIDTH, HEIGHT, TEXT, clamp
 from ..player import Player
 from .base import BaseWorld
-
+import time
 class ArchitectWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
