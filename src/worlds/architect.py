@@ -97,6 +97,13 @@ class ArchitectWorld(BaseWorld):
             # Wind gusts
             base_wind = (10.0 - self.wind_timer) * 1.5  # Scale to keep wind magnitude reasonable
             gust = random.uniform(-10.0, 45.0)
+            
+            # INNOVATION: Simulated Earthquake in the final 3 seconds
+            quake = 0.0
+            if self.wind_timer < 3.0:
+                 quake = math.sin(time.time() * 20) * 15.0
+                 self.offset_x = WIDTH // 2 - (self.grid_w * self.grid_size) // 2 + quake
+            
             self.wind_force = clamp(base_wind + gust, 0.0, 200.0)
             
             # Physics Simulation
