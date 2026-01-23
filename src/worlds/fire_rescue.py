@@ -228,14 +228,14 @@ class FireRescueWorld(BaseWorld):
             font=("Helvetica", 12, "bold"),
             text=f"Survivors: {self.saved}/5",
         )
-        canvas.create_text(
-            20,
-            HEIGHT - 40,
-            anchor="w",
-            fill=TEXT,
-            font=("Helvetica", 11),
-            text="Tip: free trapped survivors by staying near, then carry them to the red door. Flames drain your clock and spread.",
-        )
+        # canvas.create_text(
+        #     20,
+        #     HEIGHT - 40,
+        #     anchor="w",
+        #     fill=TEXT,
+        #     font=("Helvetica", 11),
+        #     text="Tip: free trapped survivors by staying near, then carry them to the red door. Flames drain your clock and spread.",
+        # )
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)

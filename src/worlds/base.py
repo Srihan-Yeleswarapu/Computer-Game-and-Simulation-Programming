@@ -58,16 +58,16 @@ class BaseWorld:
         )
         
         # Draw Hint in Center
-        if self.hints:
-             hint_text = self.hints[self.current_hint_index]
-             canvas.create_text(
-                 WIDTH / 2,
-                 25,
-                 anchor="center",
-                 fill="#ffff00", 
-                 font=("Helvetica", 12, "italic"),
-                 text=hint_text
-             )
+        # if self.hints:
+        #      hint_text = self.hints[self.current_hint_index]
+        #      canvas.create_text(
+        #          WIDTH / 2,
+        #          25,
+        #          anchor="center",
+        #          fill="#ffff00", 
+        #          font=("Helvetica", 12, "italic"),
+        #          text=hint_text
+        #      )
 
         canvas.create_text(
             WIDTH - 20,
