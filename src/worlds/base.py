@@ -20,6 +20,8 @@ class BaseWorld:
             "Tip: Press ESC to abort the mission."
         ]
         self.grade = "-"
+        self.hint_display_timer = 0.0
+        self.current_hint_index = 0
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
