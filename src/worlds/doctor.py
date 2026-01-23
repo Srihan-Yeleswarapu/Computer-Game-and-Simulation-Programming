@@ -84,6 +84,12 @@ class DoctorWorld(BaseWorld):
             if self.health_score > 0:
                 self.finished = True
                 self.success = True
+                
+                if self.health_score >= 100: self.grade = "S"
+                elif self.health_score >= 80: self.grade = "A"
+                elif self.health_score >= 50: self.grade = "B"
+                else: self.grade = "C"
+                
                 self.message = "Shift complete. Patients are stable."
             else:
                 self.finished = True

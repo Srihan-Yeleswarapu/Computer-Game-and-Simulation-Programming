@@ -183,6 +183,12 @@ class ArchitectWorld(BaseWorld):
                 if self.stability > 0 and count > 10 and has_roof:
                      self.finished = True
                      self.success = True
+                     
+                     if self.stability >= 95: self.grade = "S"
+                     elif self.stability >= 80: self.grade = "A"
+                     elif self.stability >= 60: self.grade = "B"
+                     else: self.grade = "C"
+                     
                      self.message = f"Design Verified. Integrity: {int(self.stability)}%"
                 else:
                      self.finished = True

@@ -131,7 +131,7 @@ class GameEngine:
                  # Find key associated with world
                  for k, v in self.worlds.items():
                      if v == self.active_world:
-                         self.save_system.mark_world_complete(k)
+                         self.save_system.mark_world_complete(k, self.active_world.grade)
                          break
 
         self.state = "menu"
@@ -187,10 +187,15 @@ class GameEngine:
                 y = start_y + row * gap_y
                 
                 completed = key in self.save_system.data["completed_worlds"]
+                grade = self.save_system.data.get("world_grades", {}).get(key, "-")
                 outline = "#00FF00" if completed else "#FFFFFF" # Bright Green vs White
                 
                 self.canvas.create_rectangle(x, y, x+180, y+100, fill="#000000", outline=outline, width=5)
-                self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#FFFFFF", font=("Helvetica", 14, "bold"), justify="center")
+                
+                label = f"[{key}]\n{title}"
+                if completed: label += f"\nRank: {grade}"
+                
+                self.canvas.create_text(x+90, y+50, text=label, fill="#FFFFFF", font=("Helvetica", 14, "bold"), justify="center")
 
             # Footer
             self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#FFFF00", font=("Helvetica", 14, "bold"))
@@ -229,10 +234,18 @@ class GameEngine:
                 y = start_y + row * gap_y
                 
                 completed = key in self.save_system.data["completed_worlds"]
+                grade = self.save_system.data.get("world_grades", {}).get(key, "-")
                 outline = "#0f0" if completed else "#666"
                 
                 self.canvas.create_rectangle(x, y, x+180, y+100, fill=color, outline=outline, width=3)
                 self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#fff", font=("Helvetica", 12, "bold"), justify="center")
+                
+                if completed:
+                     # Draw Grade Badge
+                     badges = {"S": "#ffd700", "A": "#c0c0c0", "B": "#cd7f32", "C": "#a0522d"}
+                     badge_col = badges.get(grade, "#fff")
+                     self.canvas.create_oval(x+140, y+60, x+170, y+90, fill=badge_col, outline="#fff", width=2)
+                     self.canvas.create_text(x+155, y+75, text=grade, fill="#000", font=("Helvetica", 12, "bold"))
 
             # Footer
             self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))

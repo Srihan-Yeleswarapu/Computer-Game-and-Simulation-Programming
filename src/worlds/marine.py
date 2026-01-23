@@ -159,6 +159,12 @@ class MarineWorld(BaseWorld):
         if self.collected_count >= 3 and self.scanned_count >= 3:
             self.finished = True
             self.success = True
+            
+            if self.oxygen > 70: self.grade = "S"
+            elif self.oxygen > 50: self.grade = "A"
+            elif self.oxygen > 20: self.grade = "B"
+            else: self.grade = "C"
+            
             self.message = "Research complete! The reef data is secured."
 
         self.draw(canvas, player)

@@ -129,9 +129,18 @@ class FireRescueWorld(BaseWorld):
                 if self.heat > 40:
                     player.reset(self.bounds[0] + 20, HEIGHT / 2)
                     self.heat = 0.0
+        if self.saved >= 3 and self.timer <= 0:
+            # Time out but enough saved
+            self.finished = True
+            self.success = True
+            self.grade = "C" if self.saved == 3 else "B"
+            self.message = f"Mission passed. {self.saved}/5 survivors rescued."
+            
         if self.saved >= 5:
             self.finished = True
             self.success = True
+            time_bonus = self.timer > 10.0
+            self.grade = "S" if time_bonus else "A"
             self.message = "All survivors are safe! You cleared the building."
         self.draw(canvas, player)
 

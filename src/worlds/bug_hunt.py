@@ -98,6 +98,12 @@ class BugHuntWorld(BaseWorld):
             if self.deploy_progress >= 0.99:
                 self.finished = True
                 self.success = True
+                
+                if self.timer > 20: self.grade = "S"
+                elif self.timer > 10: self.grade = "A"
+                elif self.timer > 5: self.grade = "B"
+                else: self.grade = "C"
+                
                 self.message = "Build is green and deployed. QA is happy!"
         self.warning = ""
         for i, node in enumerate(self.nodes):

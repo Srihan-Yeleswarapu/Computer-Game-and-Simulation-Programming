@@ -19,8 +19,7 @@ class BaseWorld:
             "Tip: Complete the objective to win.",
             "Tip: Press ESC to abort the mission."
         ]
-        self.current_hint_index = 0
-        self.hint_display_timer = 0.0
+        self.grade = "-"
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -81,5 +80,10 @@ class BaseWorld:
         # Default result screen if not overridden
         color = "#50fa7b" if self.success else "#ff5555"
         canvas.create_rectangle(WIDTH / 2 - 240, HEIGHT / 2 - 80, WIDTH / 2 + 240, HEIGHT / 2 + 80, fill="#222b3b", outline=color, width=3)
-        canvas.create_text(WIDTH / 2, HEIGHT / 2 - 20, text=self.message, fill=TEXT, font=("Helvetica", 14, "bold"))
+        
+        msg = self.message
+        if self.success and self.grade != "-":
+            msg += f" | Rank: {self.grade}"
+            
+        canvas.create_text(WIDTH / 2, HEIGHT / 2 - 20, text=msg, fill=TEXT, font=("Helvetica", 14, "bold"))
         canvas.create_text(WIDTH / 2, HEIGHT / 2 + 30, text="Press SPACE to return to the career hub.", fill="#d0ffe2", font=("Helvetica", 12, "bold"))

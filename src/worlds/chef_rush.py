@@ -115,6 +115,12 @@ class ChefRushWorld(BaseWorld):
         if self.step >= len(self.recipe):
             self.finished = True
             self.success = True
+            
+            if self.timer > 20: self.grade = "S"
+            elif self.timer > 10: self.grade = "A"
+            elif self.timer > 5: self.grade = "B"
+            else: self.grade = "C"
+            
             self.message = "Dish up! You finished every station in order."
         # Expedite tickets at the pass
         self.ticket_spawn -= dt
