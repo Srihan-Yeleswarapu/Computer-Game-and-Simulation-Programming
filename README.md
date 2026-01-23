@@ -34,6 +34,21 @@ We chose **Python** for this project due to its:
 ## Attributions
 1.  **Background Music**: ElevenLabs is used for background music
 
+## Graphics Development & Appropriateness
+
+### Tooling: Procedural Vector Art
+All game graphics were developed using **native `tkinter.Canvas` primitives** (rectangles, ovals, polygons, arcs). We chose this approach to:
+1.  **Eliminate Dependencies**: The game requires zero external image files or libraries like `PIL`, ensuring 100% portability.
+2.  **Performance**: Vector-based drawing is highly efficient for the 60 FPS animation loop.
+
+### Concept-Appropriate Asset Design
+Graphics were procedurally drawn to match the professional concepts of each world:
+-   **Software Engineer**: Uses a high-contrast dark-mode palette, mimicking a code IDE with floating glitch nodes and scanline CRT effects.
+-   **Medical Simulation**: Employs a clean, clinical blue-and-white theme with active EKG heart-beat monitor animations.
+-   **Marine Biology**: Features deep-sea gradients, simulated water-bubbles, and species-specific fish shapes with anatomical tail-pivot simulations.
+-   **Architecture**: Uses an engineering grid blueprint style with background crane silhouettes to establish the "construction site" setting.
+-   **Fire Rescue**: Utilizes a smoky, high-stakes aesthetic with flickering flame arcs and heat-shimmer effects.
+
 ## Architecture: Modular `BaseWorld` System
 The core of the game is built on a scalable **inheritance-based architecture**:
 -   **`BaseWorld`**: An abstract base class defining the contract for every mini-game (`reset`, `update`, `draw`, `cleanup`). It handles shared logic like the countdown timer and success/fail states.
