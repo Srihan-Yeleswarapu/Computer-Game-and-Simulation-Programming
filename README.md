@@ -30,6 +30,9 @@ We chose **Python** for this project due to its:
 2.  **Cross-Platform capabilities**: The code runs seamlessly on Windows, macOS, and Linux.
 3.  **Readability**: Python's clean syntax is ideal for defining complex game logic (like physics simulations) in a way that is easy to debug and extend.
 
+## Attributions
+1.  **Background Music**: ElevenLabs is used for background music
+
 ## Architecture: Modular `BaseWorld` System
 The core of the game is built on a scalable **inheritance-based architecture**:
 -   **`BaseWorld`**: An abstract base class defining the contract for every mini-game (`reset`, `update`, `draw`, `cleanup`). It handles shared logic like the countdown timer and success/fail states.
