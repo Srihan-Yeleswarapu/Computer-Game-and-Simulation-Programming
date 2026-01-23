@@ -28,6 +28,7 @@ Each mini-world has a countdown clock, reactive hazards, and tailored tasks to k
 We chose **Python** for this project due to its:
 1.  **Standard Library Simplicity**: Python's `tkinter` allows for rapid GUI development without external dependencies, making the game easy to run on any machine with Python installed.
 2.  **Cross-Platform capabilities**: The code runs seamlessly on Windows, macOS, and Linux.
+    - Note: Windows is the only OS with audio functionality
 3.  **Readability**: Python's clean syntax is ideal for defining complex game logic (like physics simulations) in a way that is easy to debug and extend.
 
 ## Attributions
