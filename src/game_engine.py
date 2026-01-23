@@ -40,6 +40,17 @@ class GameEngine:
         self.keys: set[str] = set()
         self.last_time = time.time()
         self.high_contrast = False
+        self.mouse_x = 0
+        self.mouse_y = 0
+        
+        self.descriptions = {
+            "1": "Navigate a burning building, dodge flames, and carry survivors to safety.",
+            "2": "Prepare raw ingredients and serve orders quickly in a chaotic kitchen.",
+            "3": "Patch code nodes in sequence while dodging glitches.",
+            "4": "Clean up the ocean and protect marine life.",
+            "5": "Design and build structures according to blueprints.",
+            "6": "Diagnose patients and administer treatments in a hospital."
+        }
         
         pygame.mixer.init()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -47,6 +58,11 @@ class GameEngine:
         self.root.bind("<KeyPress>", self.on_key_press)
         self.root.bind("<KeyRelease>", self.on_key_release)
         self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<Motion>", self.on_mouse_move)
+
+    def on_mouse_move(self, event: tk.Event) -> None:
+        self.mouse_x = event.x
+        self.mouse_y = event.y
 
     def on_key_press(self, event: tk.Event) -> None:
         self.keys.add(event.keysym)
@@ -56,6 +72,8 @@ class GameEngine:
             if event.keysym.lower() == "h":
                 self.high_contrast = not self.high_contrast
                 self.draw_menu()
+            if event.keysym == "?" or event.keysym == "slash":
+                self.state = "help"
 
         if self.state == "result" and event.keysym == "space":
             self.return_to_menu()
@@ -71,6 +89,9 @@ class GameEngine:
                  self.message = "Mission Aborted."
             elif self.state == "result":
                  self.return_to_menu()
+            elif self.state == "help":
+                 self.state = "menu"
+                 self.message = "Use WASD or arrow keys. Press keys to enter a career world."
 
     def on_key_release(self, event: tk.Event) -> None:
         self.keys.discard(event.keysym)
@@ -131,6 +152,8 @@ class GameEngine:
                 self.state = "result"
         elif self.state == "result" and self.active_world:
             self.active_world.draw(self.canvas, self.player)
+        elif self.state == "help":
+            self.draw_help()
             
         self.root.after(16, self.loop)
 
@@ -143,7 +166,7 @@ class GameEngine:
             
             # Header
             self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#FFFF00", font=("Helvetica", 28, "bold"))
-            self.canvas.create_text(WIDTH / 2, 90, text="High Contrast Mode Enabled (Press 'H' to toggle)", fill="#FFFFFF", font=("Helvetica", 14))
+            self.canvas.create_text(WIDTH / 2, 90, text="High Contrast Mode Enabled (Press 'H' to toggle | Press '?' for Help)", fill="#FFFFFF", font=("Helvetica", 14))
             
             portals = [
                 ("1", "Firefighter"), ("2", "Chef"),
@@ -184,7 +207,7 @@ class GameEngine:
             
             # Header
             self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 28, "bold"))
-            self.canvas.create_text(WIDTH / 2, 90, text="Jump into a mini-world and try the job for yourself. (Press 'H' for High Contrast)", fill="#d8e7ff", font=("Helvetica", 14))
+            self.canvas.create_text(WIDTH / 2, 90, text="Jump into a mini-world and try the job for yourself. (Press 'H' for High Contrast | '?' for Help)", fill="#d8e7ff", font=("Helvetica", 14))
             
             # Portals List Compact
             portals = [
@@ -213,6 +236,55 @@ class GameEngine:
 
             # Footer
             self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
+
+            # Tooltip Logic
+            self.draw_tooltips(portals, start_x, start_y, gap_x, gap_y)
+
+    def draw_tooltips(self, portals, start_x, start_y, gap_x, gap_y):
+        for i, (key, title, *_) in enumerate(portals):
+            col = i % 4
+            row = i // 4
+            x = start_x + col * gap_x
+            y = start_y + row * gap_y
+            
+            if x <= self.mouse_x <= x + 180 and y <= self.mouse_y <= y + 100:
+                desc = self.descriptions.get(key, "Explore this career.")
+                # Draw tooltip box
+                tx = self.mouse_x + 10
+                ty = self.mouse_y + 10
+                self.canvas.create_rectangle(tx, ty, tx + 300, ty + 60, fill="#111", outline="#fff", width=2)
+                self.canvas.create_text(tx + 150, ty + 30, text=desc, fill="#fff", font=("Helvetica", 10), width=280)
+
+    def draw_help(self) -> None:
+        self.canvas.delete("all")
+        # Background
+        self.canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#1a1a2e")
+        
+        # Title
+        self.canvas.create_text(WIDTH / 2, 80, text="How to Play", fill="#e94560", font=("Helvetica", 32, "bold"))
+        
+        # Content
+        lines = [
+            "Welcome to Career Worlds!",
+            "",
+            "Controls:",
+            "- WASD or Arrow Keys: Move your character",
+            "- SPACE: Interact (depends on career)",
+            "- ESC: Return to Menu / Abort Mission",
+            "- H: Toggle High Contrast Mode",
+            "",
+            "Objective:",
+            "Choose a career portal from the main hub.",
+            "Complete the mini-game task before time runs out.",
+            "Master all 6 professions to win!",
+            "",
+            "Press ESC to return to the hub."
+        ]
+        
+        start_y = 160
+        for line in lines:
+            self.canvas.create_text(WIDTH / 2, start_y, text=line, fill="#fff", font=("Helvetica", 16))
+            start_y += 35
     def start_music(self):
         try:
             music_path = os.path.abspath(

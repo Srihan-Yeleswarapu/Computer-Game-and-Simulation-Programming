@@ -13,6 +13,14 @@ class BaseWorld:
         self.message = ""
         self.bounds: tuple[float, float, float, float] = (0.0, 0.0, WIDTH, HEIGHT)
         self.warning = ""
+        self.hints = [
+            "Tip: Use WASD or Arrow Keys to move.",
+            "Tip: Watch the timer in the top right!",
+            "Tip: Complete the objective to win.",
+            "Tip: Press ESC to abort the mission."
+        ]
+        self.current_hint_index = 0
+        self.hint_display_timer = 0.0
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -28,6 +36,12 @@ class BaseWorld:
             self.finished = True
             self.success = False
             self.message = "Time ran out!"
+        
+        # Cycle hints every 4 seconds
+        self.hint_display_timer += dt
+        if self.hint_display_timer > 4.0:
+            self.hint_display_timer = 0.0
+            self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
 
     def draw_hud(self, canvas: tk.Canvas) -> None:
         # HUD Background Bar for better contrast
@@ -41,6 +55,19 @@ class BaseWorld:
             font=("Helvetica", 14, "bold"),
             text=f"{self.name}   |   {self.summary}",
         )
+        
+        # Draw Hint in Center
+        if self.hints:
+             hint_text = self.hints[self.current_hint_index]
+             canvas.create_text(
+                 WIDTH / 2,
+                 25,
+                 anchor="center",
+                 fill="#ffff00", 
+                 font=("Helvetica", 12, "italic"),
+                 text=hint_text
+             )
+
         canvas.create_text(
             WIDTH - 20,
             25,
