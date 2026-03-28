@@ -48,6 +48,7 @@ class GameEngine:
         self.fps = 0.0
         self.mouse_x = 0
         self.mouse_y = 0
+        self.music_on = True
         
         # Load Logo
         self.logo_img: tk.PhotoImage | None = None
@@ -78,6 +79,22 @@ class GameEngine:
 
     def on_key_press(self, event: tk.Event) -> None:
         self.keys.add(event.keysym)
+        
+        # Toggle music with Alt+S
+        # event.state is an integer bitmask (131072 or 0x20000 often refers to Alt on Windows)
+        try:
+            state = int(event.state)
+            is_alt = (state & 131072 != 0) or (state & 4 != 0) or (state & 0x20000 != 0)
+            if event.keysym.lower() == "s" and is_alt:
+                self.music_on = not self.music_on
+                if self.music_on:
+                    self.start_music()
+                else:
+                    self.stop_music()
+                return
+        except (ValueError, TypeError):
+            pass
+
         if self.state == "title" and event.keysym.lower() == "space":
             self.state = "menu"
             
