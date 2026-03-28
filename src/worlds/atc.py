@@ -6,33 +6,31 @@ from src.utils import WIDTH, HEIGHT, TEXT
 from src.player import Player
 from src.worlds.base import BaseWorld
 from typing import Any, cast
-from typing import Any, cast
 
 class ATCWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Air Traffic Control",
             summary="Coordinate approach vectors to land aircraft safely",
-            duration=90.0,
+            duration=70.0,
         )
         self.briefing = [
-             "TRAFFIC ALERT: Five aircraft are entering your airspace simultaneously.",
-             "As the Lead Controller, you must guide every flight safely",
+             "TRAFFIC ALERT: Extremely heavy volume entering airspace.",
+             "As the Lead Controller, you must guide flights safely",
              "to the primary landing strip without any mid-air collisions.",
-             "Draw specific flight paths for each arrival using your mouse.",
-             "Warning: If any planes come too close, you will be decertified immediately!"
+             "Survive the 70 second rush to clear your shift.",
+             "Warning: Colliding planes will fail the shift and reduce your grade!"
         ]
         self.hints = [
              "Tip: Click and drag from a plane to draw its new flight path.",
              "Tip: Planes will automatically land once they touch the runway zone.",
              "Tip: Watch the separation between aircraft – don't let them overlap!",
-             "Tip: Guide 5 planes to a safe landing to finish the scenario."
+             "Tip: Survive until the timer runs out."
         ]
         self.planes = []
         self.landed_count = 0
         self.spawn_timer = 1.0
         self.plane_limit = 20
-        self.landed_goal = 20
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
@@ -189,11 +187,16 @@ class ATCWorld(BaseWorld):
             self.success = False
             self.message = "Operational safety compromised! Mid-air collision detected."
             self.shake = 8.0
+            survival_time = 70.0 - self.timer
+            if survival_time > 50: self.grade = "A"
+            elif survival_time > 30: self.grade = "B"
+            else: self.grade = "C"
             
-        if self.landed_count >= self.landed_goal:
+        if self.timer <= 0 and not crashed:
             self.finished = True
             self.success = True
-            self.message = f"Skies Clear! All {self.landed_goal} flights landed safely. Great work."
+            self.message = "Shift over! Skies navigated safely."
+            self.grade = "S"
             
         self.update_particles(dt)
         self.draw(canvas, player)
@@ -250,7 +253,7 @@ class ATCWorld(BaseWorld):
         canvas.create_line(player.x, player.y-10, player.x, player.y+10, fill="#ff0")
         
         # HUD
-        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count}/{self.landed_goal}", fill="#0f0", font=("Helvetica", 14, "bold"))
+        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count}", fill="#0f0", font=("Helvetica", 14, "bold"))
         
         canvas.create_text(20, HEIGHT-30, anchor="w", text="Move Mouse/WASD to position director. Hold SPACE on a plane to draw its approach path.", fill="#0f0", font=("Helvetica", 11))
 

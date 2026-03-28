@@ -12,6 +12,16 @@ from src.worlds.marine import MarineWorld
 from src.worlds.architect import ArchitectWorld
 from src.worlds.doctor import DoctorWorld
 from src.worlds.atc import ATCWorld
+from src.worlds.pilot import PilotWorld
+from src.worlds.software_developer import SoftwareDeveloperWorld
+from src.worlds.psychologist import PsychologistWorld
+from src.worlds.entrepreneur import EntrepreneurWorld
+from src.worlds.electrician import ElectricianWorld
+from src.worlds.game_developer import GameDeveloperWorld
+from src.worlds.data_scientist import DataScientistWorld
+from src.worlds.ai_engineer import AIEngineerWorld
+from src.worlds.cybersecurity_analyst import CybersecurityAnalystWorld
+from src.worlds.robotics_engineer import RoboticsEngineerWorld
 import os
 import pygame
 
@@ -35,7 +45,18 @@ class GameEngine:
             "4": MarineWorld(),
             "5": ArchitectWorld(),
             "6": DoctorWorld(),
+            "6": DoctorWorld(),
             "7": ATCWorld(),
+            "8": PilotWorld(),
+            "9": SoftwareDeveloperWorld(),
+            "0": PsychologistWorld(),
+            "q": EntrepreneurWorld(),
+            "w": ElectricianWorld(),
+            "e": GameDeveloperWorld(),
+            "r": DataScientistWorld(),
+            "t": AIEngineerWorld(),
+            "y": CybersecurityAnalystWorld(),
+            "u": RoboticsEngineerWorld(),
         }
         
         self.active_world: BaseWorld | None = None
@@ -140,21 +161,21 @@ class GameEngine:
         if self.state != "menu":
             return
             
-        keys = ["1", "2", "3", "4", "5", "6", "7"]
-        start_x = 100
-        start_y = 160
-        gap_x = 200
-        gap_y = 120
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "q", "w", "e", "r", "t", "y", "u"]
+        start_x = 40
+        start_y = 90
+        gap_x = 185
+        gap_y = 100
         
         for i, key in enumerate(keys):
             if key not in self.worlds: continue
             
-            col = i % 4
-            row = i // 4
+            col = i % 5
+            row = i // 5
             x = start_x + col * gap_x
             y = start_y + row * gap_y
             
-            if x <= event.x <= x + 180 and y <= event.y <= y + 100:
+            if x <= event.x <= x + 160 and y <= event.y <= y + 80:
                 self.start_world(key)
                 return
 
@@ -180,7 +201,7 @@ class GameEngine:
         comp_count = len(self.save_system.data["completed_worlds"])
         
         # Check for Grand Finale
-        if comp_count >= 7:
+        if comp_count >= 17:
              all_b_or_higher = True
              ranks = {"S": 5, "A": 4, "B": 3, "C": 2, "-": 1}
              for w_id in self.worlds:
@@ -190,7 +211,7 @@ class GameEngine:
              if all_b_or_higher:
                  self.state = "victory"
 
-        self.message = f"{comp_count}/7 Professions Mastered | Pick a portal"
+        self.message = f"{comp_count}/17 Professions Mastered | Pick a portal"
 
     def loop(self, *args: Any) -> None:
         now = time.time()
@@ -249,129 +270,74 @@ class GameEngine:
     def draw_menu(self) -> None:
         self.canvas.delete("all")
         
+        # Background
         if self.high_contrast:
-            # High Contrast Mode (Black BG, Yellow/White Text)
             self.canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#000000")
-            
-            # Header
-            self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#FFFF00", font=("Helvetica", 28, "bold"))
-            self.canvas.create_text(WIDTH / 2, 90, text="High Contrast Mode Enabled (Press 'H' to toggle | Press '?' for Help)", fill="#FFFFFF", font=("Helvetica", 14))
-            
-            portals = [
-                ("1", "Firefighter"), ("2", "Chef"),
-                ("3", "Engineer"), ("4", "Marine Bio"),
-                ("5", "Architect"), ("6", "Doctor"),
-                ("7", "ATC")
-            ]
-            
-            # Grid layout for portals 4x2
-            start_x = 100
-            start_y = 160
-            gap_x = 200
-            gap_y = 120
-            
-            for i, (key, title) in enumerate(portals):
-                col = i % 4
-                row = i // 4
-                x = start_x + col * gap_x
-                y = start_y + row * gap_y
-                
-                completed = key in self.save_system.data["completed_worlds"]
-                grade = self.save_system.data.get("world_grades", {}).get(key, "-")
-                outline = "#00FF00" if completed else "#FFFFFF" # Bright Green vs White
-                
-                self.canvas.create_rectangle(x, y, x+180, y+100, fill="#000000", outline=outline, width=5)
-                
-                label = f"[{key}]\n{title}"
-                if completed: label += f"\nRank: {grade}"
-                
-                self.canvas.create_text(x+90, y+50, text=label, fill="#FFFFFF", font=("Helvetica", 14, "bold"), justify="center")
-
-            # Footer
-            self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#FFFF00", font=("Helvetica", 14, "bold"))
-
+            self.canvas.create_text(WIDTH / 2, 40, text="Career Worlds Hub", fill="#FFFF00", font=("Helvetica", 24, "bold"))
+            self.canvas.create_text(WIDTH / 2, 65, text="High Contrast Mode Enabled (Press 'H' to toggle | Press '?' for Help)", fill="#FFFFFF", font=("Helvetica", 14))
         else:
-            # Standard Aesthetic Mode
-            # Background
             for i in range(8):
                 shade = 18 + i * 5
                 self.canvas.create_rectangle(
                     0, i * (HEIGHT / 8), WIDTH, (i + 1) * (HEIGHT / 8),
                     fill=f"#{shade:02x}{(shade+10):02x}{(shade+18):02x}", outline=""
                 )
+            self.canvas.create_text(WIDTH / 2, 40, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 24, "bold"))
+            self.canvas.create_text(WIDTH / 2, 65, text="Jump into a mini-world! (Press 'H' for High Contrast | '?' for Help)", fill="#d8e7ff", font=("Helvetica", 14))
             
-            # Header
-            self.canvas.create_text(WIDTH / 2, 60, text="Career Worlds Hub", fill="#8ce1ff", font=("Helvetica", 28, "bold"))
-            self.canvas.create_text(WIDTH / 2, 90, text="Jump into a mini-world and try the job for yourself. (Press 'H' for High Contrast | '?' for Help)", fill="#d8e7ff", font=("Helvetica", 14))
+        keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "q", "w", "e", "r", "t", "y", "u"]
+        start_x = 40
+        start_y = 90
+        gap_x = 185
+        gap_y = 100
+        
+        for i, key in enumerate(keys):
+            if key not in self.worlds: continue
             
-            # Portals List Compact
-            portals = [
-                ("1", "Firefighter", "#23486e"), ("2", "Chef", "#25563f"),
-                ("3", "Engineer", "#50346e"), ("4", "Marine Bio", "#008b8b"),
-                ("5", "Architect", "#cd853f"), ("6", "Doctor", "#ff69b4"),
-                ("7", "ATC", "#2e8b57")
-            ]
-            
-            # Grid layout for portals 4x2
-            start_x = 100
-            start_y = 160
-            gap_x = 200
-            gap_y = 120
-            
-            for i, (key, title, color) in enumerate(portals):
-                col = i % 4
-                row = i // 4
-                x = start_x + col * gap_x
-                y = start_y + row * gap_y
-                
-                completed = key in self.save_system.data["completed_worlds"]
-                grade = self.save_system.data.get("world_grades", {}).get(key, "-")
-                outline = "#0f0" if completed else "#666"
-                
-                self.canvas.create_rectangle(x, y, x+180, y+100, fill=color, outline=outline, width=3)
-                self.canvas.create_text(x+90, y+50, text=f"[{key}]\n{title}", fill="#fff", font=("Helvetica", 12, "bold"), justify="center")
-                
-                if completed:
-                     # Draw Grade Badge
-                     badges = {"S": "#ffd700", "A": "#c0c0c0", "B": "#cd7f32", "C": "#a0522d"}
-                     badge_col = badges.get(grade, "#fff")
-                     self.canvas.create_oval(x+140, y+60, x+170, y+90, fill=badge_col, outline="#fff", width=2)
-                     self.canvas.create_text(x+155, y+75, text=grade, fill="#000", font=("Helvetica", 12, "bold"))
-
-            # Footer
-            self.canvas.create_text(WIDTH / 2, HEIGHT - 25, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
-
-            # Tooltip Logic
-            self.draw_tooltips(portals, start_x, start_y, gap_x, gap_y)
-
-    def draw_tooltips(self, portals, start_x, start_y, gap_x, gap_y):
-        for i, (key, title, *_) in enumerate(portals):
-            col = i % 4
-            row = i // 4
+            col = i % 5
+            row = i // 5
             x = start_x + col * gap_x
             y = start_y + row * gap_y
             
-            if x <= self.mouse_x <= x + 180 and y <= self.mouse_y <= y + 100:
-                world_obj = self.worlds.get(key)
-                desc = world_obj.summary if world_obj else "Explore this career."
+            world = self.worlds[key]
+            grade = self.save_system.get_grade(world.name)
+            
+            # Draw Portal Panel
+            color = "#00ff00" if grade and grade != "C" else "#444444"
+            if self.high_contrast: color = "#ffffff"
+            self.canvas.create_rectangle(x, y, x + 160, y + 80, fill="#222" if not self.high_contrast else "#000", outline=color, width=2)
+            self.canvas.create_text(x + 80, y + 25, text=world.name, fill="#fff", font=("Helvetica", 10, "bold"), width=150, justify="center")
+            self.canvas.create_text(x + 80, y + 50, text=f"Grade: {grade or '-'}", fill="#aaa", font=("Helvetica", 10))
+            self.canvas.create_text(x + 80, y + 68, text=f"[ {key.upper()} ]", fill="#ff0", font=("Helvetica", 9, "bold"))
+            
+        # Footer
+        self.canvas.create_text(WIDTH / 2, HEIGHT - 25, text=self.message, fill="#b9c7e6" if not self.high_contrast else "#FFFF00", font=("Helvetica", 12, "bold"))
+        self.draw_tooltips(keys, start_x, start_y, gap_x, gap_y)
+
+    def draw_tooltips(self, keys: list[str], start_x: int, start_y: int, gap_x: int, gap_y: int) -> None:
+        for i, key in enumerate(keys):
+            if key not in self.worlds: continue
+            col = i % 5
+            row = i // 5
+            x = start_x + col * gap_x
+            y = start_y + row * gap_y
+            
+            if x <= self.mouse_x <= x + 160 and y <= self.mouse_y <= y + 80:
+                world = self.worlds[key]
+                grade = self.save_system.get_grade(world.name)
+                
                 # Draw tooltip box
-                tx = self.mouse_x + 10
-                ty = self.mouse_y + 10
-                grade = self.save_system.data.get("world_grades", {}).get(key, "-")
+                tx = min(self.mouse_x + 10, WIDTH - 250)
+                ty = min(self.mouse_y + 10, HEIGHT - 90)
                 self.canvas.create_rectangle(tx, ty, tx + 240, ty + 80, fill="#111", outline="#fff", width=2)
-                self.canvas.create_text(tx + 120, ty + 20, text=f"{title} Mastery", fill="#5fb6ff", font=("Helvetica", 11, "bold"))
-                self.canvas.create_text(tx + 120, ty + 45, text=f"Best Grade: {grade}", fill="#fff", font=("Helvetica", 10))
-                self.canvas.create_text(tx + 120, ty + 65, text=desc, fill="#aaa", font=("Helvetica", 9), width=220)
+                self.canvas.create_text(tx + 120, ty + 20, text=f"{world.name} Mastery", fill="#5fb6ff", font=("Helvetica", 11, "bold"))
+                self.canvas.create_text(tx + 120, ty + 45, text=f"Best Grade: {grade or '-'}", fill="#fff", font=("Helvetica", 10))
+                self.canvas.create_text(tx + 120, ty + 65, text=world.summary, fill="#aaa", font=("Helvetica", 9), width=220)
 
     def draw_help(self) -> None:
         self.canvas.delete("all")
-        # Background
         self.canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#1a1a2e")
-        
-        # Title
         self.canvas.create_text(WIDTH / 2, 80, text="How to Play", fill="#e94560", font=("Helvetica", 32, "bold"))
-        
-        # Content
         lines = [
             "Welcome to Career Worlds!",
             "",
@@ -380,15 +346,15 @@ class GameEngine:
             "- SPACE: Interact (depends on career)",
             "- ESC: Return to Menu / Abort Mission",
             "- H: Toggle High Contrast Mode",
+            "- Alt+S: Toggle Music",
             "",
             "Objective:",
             "Choose a career portal from the main hub.",
             "Complete the mini-game task before time runs out.",
-            "Master all 6 professions to win!",
+            "Master ALL professions to win!",
             "",
             "Press ESC to return to the hub."
         ]
-        
         start_y = 160
         for line in lines:
             self.canvas.create_text(WIDTH / 2, start_y, text=line, fill="#fff", font=("Helvetica", 16))
