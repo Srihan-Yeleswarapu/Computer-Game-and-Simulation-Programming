@@ -31,8 +31,8 @@ class ATCWorld(BaseWorld):
         self.planes = []
         self.landed_count = 0
         self.spawn_timer = 1.0
-        self.plane_limit = 12
-        self.landed_goal = 12
+        self.plane_limit = 20
+        self.landed_goal = 20
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
