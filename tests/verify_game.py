@@ -7,7 +7,11 @@ import math
 # Add parent directory to path to import game
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game import FireRescueWorld, ChefRushWorld, BugHuntWorld, Player, WIDTH, HEIGHT
+from src.worlds.fire_rescue import FireRescueWorld
+from src.worlds.chef_rush import ChefRushWorld
+from src.worlds.bug_hunt import BugHuntWorld
+from src.player import Player
+from src.utils import WIDTH, HEIGHT
 
 class MockCanvas:
     def create_rectangle(self, *args, **kwargs): pass
@@ -35,7 +39,7 @@ class TestGameWinnable(unittest.TestCase):
         self.player.x = 100
         self.player.y = HEIGHT / 2
         # Update with no keys to trigger bounds check
-        world.update(0.1, self.canvas, self.player, set())
+        world.update(0.1, self.canvas, self.player, set(), (0, 0))
         
         print(f"Player X after update at door: {self.player.x}")
         self.assertTrue(self.player.x < 220, "Player should be able to reach the rescue door area")
@@ -50,7 +54,7 @@ class TestGameWinnable(unittest.TestCase):
             
             # 2. Wait for pickup (1.0 progress / 1.4 rate ~= 0.8s)
             for _ in range(10): # 1 second
-                world.update(0.1, self.canvas, self.player, set())
+                world.update(0.1, self.canvas, self.player, set(), (0, 0))
                 if world.carrying: break
             
             self.assertIsNotNone(world.carrying, f"Failed to pick up survivor {i+1}")
@@ -60,7 +64,7 @@ class TestGameWinnable(unittest.TestCase):
             self.player.y = HEIGHT / 2
             
             # 4. Update to drop off
-            world.update(0.1, self.canvas, self.player, set())
+            world.update(0.1, self.canvas, self.player, set(), (0, 0))
             
         self.assertTrue(world.finished, "World should be finished")
         self.assertTrue(world.success, "World should be won")
@@ -84,7 +88,7 @@ class TestGameWinnable(unittest.TestCase):
             # Wait for progress
             start_timer = world.timer
             for _ in range(15): # 1.5s
-                world.update(0.1, self.canvas, self.player, set())
+                world.update(0.1, self.canvas, self.player, set(), (0, 0))
                 if world.step > i: break
             
             # Check we advanced
@@ -111,7 +115,7 @@ class TestGameWinnable(unittest.TestCase):
             self.player.y = target["y"]
             
             for _ in range(10):
-                world.update(0.1, self.canvas, self.player, set())
+                world.update(0.1, self.canvas, self.player, set(), (0, 0))
                 if world.index > i: break
             
             self.assertEqual(world.index, i + 1, f"Failed to patch node {i}")
@@ -120,7 +124,7 @@ class TestGameWinnable(unittest.TestCase):
         self.player.x = world.deploy_point["x"]
         self.player.y = world.deploy_point["y"]
         for _ in range(10):
-            world.update(0.1, self.canvas, self.player, set())
+            world.update(0.1, self.canvas, self.player, set(), (0, 0))
             
         self.assertTrue(world.finished, "World should be finished")
         self.assertTrue(world.success, "World should be won")

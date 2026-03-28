@@ -1,9 +1,10 @@
 import random
 import math
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT, clamp, lerp
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT, clamp, lerp
+from src.player import Player
+from src.worlds.base import BaseWorld
+from typing import Any, cast
 
 class FireRescueWorld(BaseWorld):
     def __init__(self) -> None:
@@ -12,12 +13,13 @@ class FireRescueWorld(BaseWorld):
             summary="Navigate smoke, dodge flames, and carry survivors out",
             duration=48.0,
         )
+        self.DOOR_ZONE = (80, HEIGHT / 2 - 40, 220, HEIGHT / 2 + 40)
         # Fix applied: bounds starting at 60.0 to allow door access
         self.bounds = (60.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
-        self.survivors: list[dict[str, float | str]] = []
-        self.flames: list[dict[str, float]] = []
-        self.smoke: list[dict[str, float]] = []
-        self.carrying: dict[str, float | str] | None = None
+        self.survivors: list[dict[str, Any]] = []
+        self.flames: list[dict[str, Any]] = []
+        self.smoke: list[dict[str, Any]] = []
+        self.carrying: dict[str, Any] | None = None
         self.saved = 0
         self.heat = 0.0
         self.spread_cap = 12
@@ -63,7 +65,7 @@ class FireRescueWorld(BaseWorld):
             for _ in range(10)
         ]
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -98,14 +100,14 @@ class FireRescueWorld(BaseWorld):
                 puff["y"] = y2 + random.uniform(10, 40)
                 puff["x"] = random.uniform(x1, x2)
         # Survivor handling: pick up, carry, and evacuate to the door
-        door_zone = (80, HEIGHT / 2 - 40, 220, HEIGHT / 2 + 40)
         if not self.carrying:
             for survivor in self.survivors:
                 dist = math.hypot(player.x - survivor["x"], player.y - survivor["y"])
                 if survivor["state"] == "trapped" and dist < player.size + 16:
                     survivor["state"] = "freeing"
                 if survivor["state"] == "freeing":
-                    survivor["progress"] = clamp(survivor.get("progress", 0.0) + dt * 1.4, 0.0, 1.0)
+                    progress = float(survivor.get("progress", 0.0))
+                    survivor["progress"] = clamp(progress + dt * 1.4, 0.0, 1.0)
                     if survivor["progress"] >= 0.99:
                         survivor["state"] = "freed"
                 elif survivor["state"] == "freed" and dist < player.size + 14:
@@ -113,12 +115,14 @@ class FireRescueWorld(BaseWorld):
                     self.carrying = survivor
                     break
                 else:
-                    survivor["progress"] = clamp(survivor.get("progress", 0.0) - dt * 0.5, 0.0, 1.0)
-        if self.carrying:
-            self.carrying["x"] = lerp(self.carrying["x"], player.x + 14, clamp(dt * 8, 0, 1))
-            self.carrying["y"] = lerp(self.carrying["y"], player.y - 28, clamp(dt * 8, 0, 1))
-            if door_zone[0] <= player.x <= door_zone[2] and door_zone[1] <= player.y <= door_zone[3]:
-                self.carrying["state"] = "saved"
+                    progress = float(survivor.get("progress", 0.0))
+                    survivor["progress"] = clamp(progress - dt * 0.5, 0.0, 1.0)
+        carrying = self.carrying
+        if carrying is not None:
+            carrying["x"] = lerp(float(carrying["x"]), player.x + 14, clamp(dt * 8, 0, 1))
+            carrying["y"] = lerp(float(carrying["y"]), player.y - 28, clamp(dt * 8, 0, 1))
+            if self.DOOR_ZONE[0] <= player.x <= self.DOOR_ZONE[2] and self.DOOR_ZONE[1] <= player.y <= self.DOOR_ZONE[3]:
+                carrying["state"] = "saved"
                 self.saved += 1
                 self.carrying = None
         self.survivors = [s for s in self.survivors if s["state"] != "saved"]
@@ -165,9 +169,11 @@ class FireRescueWorld(BaseWorld):
         for i in range(int((y2 - y1) // 40)):
             yi = y1 + i * 40
             canvas.create_line(x1, yi, x2, yi, fill="#3e4457", dash=(6, 6))
-        canvas.create_rectangle(80, HEIGHT / 2 - 40, 200, HEIGHT / 2 + 40, fill="#c24747", outline="#d97e7e", width=3)
-        canvas.create_polygon(200, HEIGHT / 2 - 30, 220, HEIGHT / 2, 200, HEIGHT / 2 + 30, fill="#ffd166", outline="#ffb703", width=3)
-        canvas.create_text(120, HEIGHT / 2 - 55, anchor="w", fill="#ffdd99", font=("Helvetica", 13, "bold"), text="Crew door")
+        
+        dx1, dy1, dx2, dy2 = self.DOOR_ZONE
+        canvas.create_rectangle(dx1, dy1, dx2, dy2, fill="#c24747", outline="#d97e7e", width=3)
+        canvas.create_polygon(dx2, dy1 + 10, dx2 + 20, (dy1 + dy2)/2, dx2, dy2 - 10, fill="#ffd166", outline="#ffb703", width=3)
+        canvas.create_text(dx1 + 40, dy1 - 15, anchor="w", fill="#ffdd99", font=("Helvetica", 13, "bold"), text="Crew door")
         for puff in self.smoke:
             canvas.create_oval(
                 puff["x"] - puff["r"],
@@ -208,10 +214,12 @@ class FireRescueWorld(BaseWorld):
             color = "#f7d08a" if survivor["state"] == "trapped" else "#9ef3b2" if survivor["state"] == "freed" else "#b6f5ff"
             outline = "#f0a202" if survivor["state"] == "trapped" else "#4ba25f" if survivor["state"] == "freed" else "#79c7ff"
             canvas.create_oval(sx - 14, sy - 14, sx + 14, sy + 14, fill=color, outline=outline, width=2)
-            tag_text = "TRAPPED" if survivor["state"] == "trapped" else "FREE" if survivor["state"] == "freed" else "CARRY"
+            tag_text = str(survivor["state"]).upper()
+            if tag_text == "FREEING": tag_text = "FREEING..."
+            elif tag_text == "FREED": tag_text = "FREE"
             canvas.create_text(sx, sy - 22, text=tag_text, fill="#e5ffe5", font=("Helvetica", 8, "bold"))
             if survivor["state"] in {"trapped", "freeing"}:
-                bar = survivor.get("progress", 0.0)
+                bar = float(survivor.get("progress", 0.0))
                 canvas.create_rectangle(sx - 16, sy + 16, sx + 16, sy + 22, outline="#ffe0a3", width=2)
                 canvas.create_rectangle(sx - 14, sy + 18, sx - 14 + 28 * bar, sy + 20, fill="#ffd166", outline="")
         canvas.create_rectangle(x1 - 12, y1 - 12, x2 + 12, y2 + 12, outline="#6d788f", width=2)

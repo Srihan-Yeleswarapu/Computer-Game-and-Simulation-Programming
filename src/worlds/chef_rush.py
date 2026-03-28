@@ -2,9 +2,10 @@ import random
 import math
 import time
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT, clamp
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT, clamp
+from src.player import Player
+from src.worlds.base import BaseWorld
+from typing import Any, cast
 
 class ChefRushWorld(BaseWorld):
     def __init__(self) -> None:
@@ -14,12 +15,12 @@ class ChefRushWorld(BaseWorld):
             duration=30.0,
         )
         self.bounds = (110.0, 100.0, WIDTH - 110.0, HEIGHT - 90.0)
-        self.stations: list[dict[str, float | str]] = []
+        self.stations: list[dict[str, Any]] = []
         self.recipe: list[str] = []
         self.step = 0
         self.step_progress = 0.0
-        self.spills: list[dict[str, float]] = []
-        self.tickets: list[dict[str, float]] = []
+        self.spills: list[dict[str, Any]] = []
+        self.tickets: list[dict[str, Any]] = []
         self.ticket_spawn = 9.0
         self.warning = ""
 
@@ -67,7 +68,7 @@ class ChefRushWorld(BaseWorld):
                 }
             )
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -91,9 +92,9 @@ class ChefRushWorld(BaseWorld):
             active_step = self.recipe[self.step]
             on_station = False
             for station in self.stations:
-                if station["name"] != active_step:
-                    continue
-                if math.hypot(player.x - station["x"], player.y - station["y"]) < player.size + 26:
+                sx = float(station["x"])
+                sy = float(station["y"])
+                if math.hypot(player.x - sx, player.y - sy) < player.size + 26:
                     on_station = True
                     break
             if on_station:
@@ -109,7 +110,7 @@ class ChefRushWorld(BaseWorld):
         for station in self.stations:
             if self.step < len(self.recipe) and station["name"] == self.recipe[self.step]:
                 continue
-            if math.hypot(player.x - station["x"], player.y - station["y"]) < player.size + 10:
+            if math.hypot(player.x - float(station["x"]), player.y - float(station["y"])) < player.size + 10:
                 self.timer = max(0.0, self.timer - dt * 1)
                 self.warning = "Wrong Station!"
         if self.step >= len(self.recipe):
@@ -185,42 +186,47 @@ class ChefRushWorld(BaseWorld):
             font=("Helvetica", 11),
         )
         for station in self.stations:
+            sx = float(station["x"])
+            sy = float(station["y"])
             outline = "#f8f8f0" if station["name"] == active_step else "#121212"
             canvas.create_oval(
-                station["x"] - 32,
-                station["y"] - 32,
-                station["x"] + 32,
-                station["y"] + 32,
+                sx - 32,
+                sy - 32,
+                sx + 32,
+                sy + 32,
                 fill="#0f1218",
                 outline="#1f242d",
                 width=3,
             )
             canvas.create_oval(
-                station["x"] - 26,
-                station["y"] - 26,
-                station["x"] + 26,
-                station["y"] + 26,
-                fill=station["color"],
+                sx - 26,
+                sy - 26,
+                sx + 26,
+                sy + 26,
+                fill=str(station["color"]),
                 outline=outline,
                 width=3,
             )
             if station["name"] == active_step:
+                sx = float(station["x"])
+                sy = float(station["y"])
                 canvas.create_oval(
-                    station["x"] - 40,
-                    station["y"] - 40,
-                    station["x"] + 40,
-                    station["y"] + 40,
+                    sx - 40,
+                    sy - 40,
+                    sx + 40,
+                    sy + 40,
                     outline="#fefefe",
                     width=2,
                     dash=(4, 4),
                 )
-                steam_y = station["y"] - 50 + math.sin(time.time() * 3) * 4
-                canvas.create_oval(station["x"] - 10, steam_y, station["x"] + 10, steam_y + 20, fill="#f0f8ff", outline="#c2d8ff", width=1)
-            canvas.create_text(station["x"], station["y"] - 38, text=station["name"], fill=TEXT, font=("Helvetica", 9, "bold"))
+                steam_y = sy - 50 + math.sin(time.time() * 3) * 4
+                canvas.create_oval(sx - 10, steam_y, sx + 10, steam_y + 20, fill="#f0f8ff", outline="#c2d8ff", width=1)
+            
+            canvas.create_text(sx, sy - 38, text=str(station["name"]), fill=TEXT, font=("Helvetica", 9, "bold"))
             if station["name"] == active_step and self.step < len(self.recipe):
                 bar = self.step_progress
-                canvas.create_rectangle(station["x"] - 30, station["y"] + 34, station["x"] + 30, station["y"] + 44, outline="#fefefe", width=2)
-                canvas.create_rectangle(station["x"] - 28, station["y"] + 36, station["x"] - 28 + 56 * bar, station["y"] + 42, fill="#ffd280", outline="")
+                canvas.create_rectangle(sx - 30, sy + 34, sx + 30, sy + 44, outline="#fefefe", width=2)
+                canvas.create_rectangle(sx - 28, sy + 36, sx - 28 + 56 * bar, sy + 42, fill="#ffd280", outline="")
         for spill in self.spills:
             canvas.create_oval(
                 spill["x"] - spill["r"] - 3,

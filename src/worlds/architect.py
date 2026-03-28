@@ -1,9 +1,9 @@
 import random
 import math
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT, clamp
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT, clamp
+from src.player import Player
+from src.worlds.base import BaseWorld
 import time
 class ArchitectWorld(BaseWorld):
     def __init__(self) -> None:
@@ -18,7 +18,7 @@ class ArchitectWorld(BaseWorld):
         self.offset_x = WIDTH // 2 - (self.grid_w * self.grid_size) // 2
         self.offset_y = HEIGHT // 2 - (self.grid_h * self.grid_size) // 2
         
-        self.blocks = [] # (grid_x, grid_y, type)
+        self.blocks: list[dict[str, Any]] = [] # (grid_x, grid_y, type)
         self.room_types = [
             {"name": "Lobby", "color": "#e1e1e1", "cost": 10},
             {"name": "Books", "color": "#8b4513", "cost": 15},
@@ -49,7 +49,7 @@ class ArchitectWorld(BaseWorld):
         for i in range(self.grid_w):
             self.blocks.append({"gx": i, "gy": self.grid_h, "type": "Foundation", "fixed": True})
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -73,9 +73,9 @@ class ArchitectWorld(BaseWorld):
             
             if "space" in keys:
                 if 0 <= gx < self.grid_w and 0 <= gy < self.grid_h:
-                    cost = self.room_types[self.selected_room]["cost"]
+                    cost = int(self.room_types[self.selected_room]["cost"])
                     # Check overlap
-                    occupied = any(b["gx"] == gx and b["gy"] == gy for b in self.blocks)
+                    occupied = any(int(b["gx"]) == gx and int(b["gy"]) == gy for b in self.blocks)
                     if not occupied and self.budget >= cost:
                         self.blocks.append({
                             "gx": gx,
@@ -84,7 +84,7 @@ class ArchitectWorld(BaseWorld):
                             "color": self.room_types[self.selected_room]["color"],
                             "fixed": False
                         })
-                        self.budget -= cost
+                        self.budget -= int(cost)
                         # Key debounce logic needed ideally, but naive approach works with fast ticks
                         
             # Test Button
@@ -147,8 +147,9 @@ class ArchitectWorld(BaseWorld):
 
                 # Wind Drag Calculation
                 # Higher blocks get more wind
-                height_factor = (self.grid_h - b["gy"]) / self.grid_h # 0 to 1
-                drag = self.wind_force * (0.5 + height_factor * 1.5)
+                gy = int(b["gy"])
+                height_factor = (self.grid_h - gy) / self.grid_h # 0 to 1
+                drag = float(self.wind_force) * (0.5 + height_factor * 1.5)
                 
                 # Material Strength
                 mat_type = b["type"]
@@ -161,7 +162,7 @@ class ArchitectWorld(BaseWorld):
                 # Support Bonus (Neighbors reinforce)
                 neighbors = 0
                 for other in self.blocks:
-                    if abs(other["gx"] - b["gx"]) + abs(other["gy"] - b["gy"]) == 1:
+                    if abs(int(other["gx"]) - int(b["gx"])) + abs(int(other["gy"]) - int(b["gy"])) == 1:
                         neighbors += 1
                 
                 strength += neighbors * 15.0

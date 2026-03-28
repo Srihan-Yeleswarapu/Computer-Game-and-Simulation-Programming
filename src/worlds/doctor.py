@@ -4,6 +4,7 @@ import tkinter as tk
 from ..utils import WIDTH, HEIGHT, TEXT
 from ..player import Player
 from .base import BaseWorld
+from typing import Any, cast
 
 class DoctorWorld(BaseWorld):
     def __init__(self) -> None:
@@ -49,7 +50,7 @@ class DoctorWorld(BaseWorld):
                 "status": "waiting"
             })
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return

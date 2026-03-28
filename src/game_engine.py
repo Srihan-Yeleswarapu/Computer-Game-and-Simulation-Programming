@@ -1,18 +1,20 @@
 import tkinter as tk
 import time
-from .utils import WIDTH, HEIGHT, BG
-from .player import Player
-from .worlds.base import BaseWorld
-from .worlds.fire_rescue import FireRescueWorld
-from .worlds.chef_rush import ChefRushWorld
-from .worlds.bug_hunt import BugHuntWorld
-from .worlds.marine import MarineWorld
-from .worlds.architect import ArchitectWorld
-from .worlds.doctor import DoctorWorld
+from typing import Any
+from src.utils import WIDTH, HEIGHT, BG
+from src.player import Player
+from src.worlds.base import BaseWorld
+from src.worlds.fire_rescue import FireRescueWorld
+from src.worlds.chef_rush import ChefRushWorld
+from src.worlds.bug_hunt import BugHuntWorld
+from src.worlds.marine import MarineWorld
+from src.worlds.architect import ArchitectWorld
+from src.worlds.doctor import DoctorWorld
+from src.worlds.atc import ATCWorld
 import os
 import pygame
 
-from .save_system import SaveSystem
+from src.save_system import SaveSystem
 
 # We will import new worlds here later
 
@@ -32,6 +34,7 @@ class GameEngine:
             "4": MarineWorld(),
             "5": ArchitectWorld(),
             "6": DoctorWorld(),
+            "7": ATCWorld(),
         }
         
         self.active_world: BaseWorld | None = None
@@ -42,15 +45,6 @@ class GameEngine:
         self.high_contrast = False
         self.mouse_x = 0
         self.mouse_y = 0
-        
-        self.descriptions = {
-            "1": "Navigate a burning building, dodge flames, and carry survivors to safety.",
-            "2": "Prepare raw ingredients and serve orders quickly in a chaotic kitchen.",
-            "3": "Patch code nodes in sequence while dodging glitches.",
-            "4": "Clean up the ocean and protect marine life.",
-            "5": "Design and build structures according to blueprints.",
-            "6": "Diagnose patients and administer treatments in a hospital."
-        }
         
         pygame.mixer.init()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -137,9 +131,9 @@ class GameEngine:
         self.state = "menu"
         self.active_world = None
         comp = len(self.save_system.data["completed_worlds"])
-        self.message = f"{comp}/6 Professions Mastered | Pick a portal"
+        self.message = f"{comp}/7 Professions Mastered | Pick a portal"
 
-    def loop(self) -> None:
+    def loop(self, *args: Any) -> None:
         now = time.time()
         dt = min(0.1, now - self.last_time)
         self.last_time = now
@@ -147,7 +141,7 @@ class GameEngine:
         if self.state == "menu":
             self.draw_menu()
         elif self.state == "world" and self.active_world:
-            self.active_world.update(dt, self.canvas, self.player, self.keys)
+            self.active_world.update(dt, self.canvas, self.player, self.keys, (self.mouse_x, self.mouse_y))
             if self.active_world.finished:
                 self.state = "result"
         elif self.state == "result" and self.active_world:
@@ -171,7 +165,8 @@ class GameEngine:
             portals = [
                 ("1", "Firefighter"), ("2", "Chef"),
                 ("3", "Engineer"), ("4", "Marine Bio"),
-                ("5", "Architect"), ("6", "Doctor")
+                ("5", "Architect"), ("6", "Doctor"),
+                ("7", "ATC")
             ]
             
             # Grid layout for portals 4x2
@@ -218,7 +213,8 @@ class GameEngine:
             portals = [
                 ("1", "Firefighter", "#23486e"), ("2", "Chef", "#25563f"),
                 ("3", "Engineer", "#50346e"), ("4", "Marine Bio", "#008b8b"),
-                ("5", "Architect", "#cd853f"), ("6", "Doctor", "#ff69b4")
+                ("5", "Architect", "#cd853f"), ("6", "Doctor", "#ff69b4"),
+                ("7", "ATC", "#2e8b57")
             ]
             
             # Grid layout for portals 4x2
@@ -248,7 +244,7 @@ class GameEngine:
                      self.canvas.create_text(x+155, y+75, text=grade, fill="#000", font=("Helvetica", 12, "bold"))
 
             # Footer
-            self.canvas.create_text(WIDTH / 2, HEIGHT - 40, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
+            self.canvas.create_text(WIDTH / 2, HEIGHT - 25, text=self.message, fill="#b9c7e6", font=("Helvetica", 12, "bold"))
 
             # Tooltip Logic
             self.draw_tooltips(portals, start_x, start_y, gap_x, gap_y)
@@ -261,7 +257,8 @@ class GameEngine:
             y = start_y + row * gap_y
             
             if x <= self.mouse_x <= x + 180 and y <= self.mouse_y <= y + 100:
-                desc = self.descriptions.get(key, "Explore this career.")
+                world_obj = self.worlds.get(key)
+                desc = world_obj.summary if world_obj else "Explore this career."
                 # Draw tooltip box
                 tx = self.mouse_x + 10
                 ty = self.mouse_y + 10
@@ -308,9 +305,12 @@ class GameEngine:
                 print(f"Music file not found: {music_path}")
                 return
             
-            pygame.mixer.music.load(music_path)
-            pygame.mixer.music.play(-1)
-            print(f"Playing music: {music_path}")
+            try:
+                pygame.mixer.music.load(music_path)
+                pygame.mixer.music.play(-1)
+                print(f"Playing music: {music_path}")
+            except pygame.error as e:
+                print(f"Pygame music error: {e}")
         except Exception as e:
             print(f"Error playing music: {e}")
 

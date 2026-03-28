@@ -1,9 +1,10 @@
 import random
 import math
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT, clamp, lerp
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT, clamp, lerp
+from src.player import Player
+from src.worlds.base import BaseWorld
+from typing import Any, cast
 
 class MarineWorld(BaseWorld):
     def __init__(self) -> None:
@@ -13,9 +14,9 @@ class MarineWorld(BaseWorld):
             duration=60.0,
         )
         self.bounds = (40.0, 40.0, WIDTH - 40.0, HEIGHT - 40.0)
-        self.fish: list[dict[str, float | str | bool]] = []
-        self.samples: list[dict[str, float | bool]] = []
-        self.bubbles: list[dict[str, float]] = []
+        self.fish: list[dict[str, Any]] = []
+        self.samples: list[dict[str, Any]] = []
+        self.bubbles: list[dict[str, Any]] = []
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
@@ -70,7 +71,7 @@ class MarineWorld(BaseWorld):
             
         self.bubbles = []
     
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -104,12 +105,12 @@ class MarineWorld(BaseWorld):
         # Fish movement
         x1, y1, x2, y2 = self.bounds
         for f in self.fish:
-            f["x"] += f["dx"] * dt
-            f["y"] += f["dy"] * dt
-            if f["x"] < x1 or f["x"] > x2:
-                f["dx"] *= -1
-            if f["y"] < y1 + 100 or f["y"] > y2: # Stay deep
-                f["dy"] *= -1
+            f["x"] = float(f["x"]) + float(f.get("dx", 0.0)) * dt
+            f["y"] = float(f["y"]) + float(f.get("dy", 0.0)) * dt
+            if float(f["x"]) < x1 or float(f["x"]) > x2:
+                f["dx"] = -float(f.get("dx", 0.0))
+            if float(f["y"]) < y1 + 100 or float(f["y"]) > y2: # Stay deep
+                f["dy"] = -float(f.get("dy", 0.0))
                 
         # Scanner Logic (Hold Space to scan nearby fish)
         # Assuming Space is added to keys in main engine update (need to check)
@@ -119,7 +120,9 @@ class MarineWorld(BaseWorld):
         min_dist = 100.0
         
         for f in self.fish:
-            d = math.hypot(player.x - f["x"], player.y - f["y"])
+            fx = float(f["x"])
+            fy = float(f["y"])
+            d = math.hypot(player.x - fx, player.y - fy)
             if d < min_dist:
                 min_dist = d
                 closest_fish = f
@@ -190,18 +193,21 @@ class MarineWorld(BaseWorld):
 
         # Fish
         for f in self.fish:
-            color = f["color"]
-            w = f["w"]
+            fx = float(f["x"])
+            fy = float(f["y"])
+            color = str(f["color"])
+            w = float(f["w"])
             # Simple fish shape
-            canvas.create_oval(f["x"]-w/2, f["y"]-10, f["x"]+w/2, f["y"]+10, fill=color, outline="")
+            canvas.create_oval(fx-w/2, fy-10, fx+w/2, fy+10, fill=color, outline="")
             # Tail
-            tail_x = f["x"] - w/2 if f["dx"] > 0 else f["x"] + w/2
-            canvas.create_polygon(tail_x, f["y"], tail_x + ( -10 if f["dx"]>0 else 10), f["y"]-10, tail_x + ( -10 if f["dx"]>0 else 10), f["y"]+10, fill=color)
+            fdx = float(f.get("dx", 0.0))
+            tail_x = fx - w/2 if fdx > 0 else fx + w/2
+            canvas.create_polygon(tail_x, fy, tail_x + ( -10 if fdx>0 else 10), fy-10, tail_x + ( -10 if fdx>0 else 10), fy+10, fill=color)
             
             if f["scanned"]:
-                canvas.create_text(f["x"], f["y"]-20, text="SCANNED", fill="#0f0", font=("Helvetica", 8, "bold"))
+                canvas.create_text(fx, fy-20, text="SCANNED", fill="#0f0", font=("Helvetica", 8, "bold"))
             elif self.scan_target == f:
-                 canvas.create_oval(f["x"]-w/2-5, f["y"]-15, f["x"]+w/2+5, f["y"]+15, outline="#fff", width=2, dash=(4,4))
+                 canvas.create_oval(fx-w/2-5, fy-15, fx+w/2+5, fy+15, outline="#fff", width=2, dash=(4,4))
                  
         # Bubbles
         for b in self.bubbles:

@@ -2,9 +2,10 @@ import random
 import math
 import time
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT, clamp
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT, clamp
+from src.player import Player
+from src.worlds.base import BaseWorld
+from typing import Any, cast
 
 class BugHuntWorld(BaseWorld):
     def __init__(self) -> None:
@@ -14,8 +15,8 @@ class BugHuntWorld(BaseWorld):
             duration=50.0,
         )
         self.bounds = (120.0, 110.0, WIDTH - 120.0, HEIGHT - 110.0)
-        self.nodes: list[dict[str, float | str | bool]] = []
-        self.glitches: list[dict[str, float]] = []
+        self.nodes: list[dict[str, Any]] = []
+        self.glitches: list[dict[str, Any]] = []
         self.index = 0
         self.patch_progress = 0.0
         self.deploy_progress = 0.0
@@ -53,7 +54,7 @@ class BugHuntWorld(BaseWorld):
                 }
             )
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -67,8 +68,8 @@ class BugHuntWorld(BaseWorld):
             player.speed = 180.0
             self.timer = max(0.0, self.timer - dt * 3)
         for glitch in self.glitches:
-            glitch["x"] += glitch["dx"] * dt
-            glitch["y"] += glitch["dy"] * dt
+            glitch["x"] = float(glitch["x"]) + float(glitch.get("dx", 0.0)) * dt
+            glitch["y"] = float(glitch["y"]) + float(glitch.get("dy", 0.0)) * dt
             if glitch["x"] < x1 + 20 or glitch["x"] > x2 - 20:
                 glitch["dx"] *= -1
             if glitch["y"] < y1 + 20 or glitch["y"] > y2 - 20:
@@ -79,7 +80,9 @@ class BugHuntWorld(BaseWorld):
                 break
         if self.index < len(self.nodes):
             target = self.nodes[self.index]
-            on_target = math.hypot(player.x - target["x"], player.y - target["y"]) < player.size + 18
+            tx = float(target["x"])
+            ty = float(target["y"])
+            on_target = math.hypot(player.x - tx, player.y - ty) < player.size + 18
             if on_target:
                 self.patch_progress = clamp(self.patch_progress + dt * 1.6, 0.0, 1.0)
             else:
@@ -109,7 +112,9 @@ class BugHuntWorld(BaseWorld):
         for i, node in enumerate(self.nodes):
             if i == self.index:
                 continue
-            if math.hypot(player.x - node["x"], player.y - node["y"]) < player.size + 18:
+            nx = float(node["x"])
+            ny = float(node["y"])
+            if math.hypot(player.x - nx, player.y - ny) < player.size + 18:
                 self.timer = max(0.0, self.timer - dt * 0.5)
                 self.warning = "Wrong Node!"
         self.draw(canvas, player)
@@ -150,34 +155,40 @@ class BugHuntWorld(BaseWorld):
             font=("Helvetica", 13, "bold"),
         )
         for i, node in enumerate(self.nodes):
+            nx = float(node["x"])
+            ny = float(node["y"])
             if i > 0:
                 prev = self.nodes[i - 1]
-                canvas.create_line(prev["x"], prev["y"], node["x"], node["y"], fill="#2dd8ff", width=4, dash=(4, 3))
-                canvas.create_line(prev["x"], prev["y"], node["x"], node["y"], fill="#0a1826", width=1)
+                px = float(prev["x"])
+                py = float(prev["y"])
+                canvas.create_line(px, py, nx, ny, fill="#2dd8ff", width=4, dash=(4, 3))
+                canvas.create_line(px, py, nx, ny, fill="#0a1826", width=1)
         for i, node in enumerate(self.nodes):
+            nx = float(node["x"])
+            ny = float(node["y"])
             glow = 8 if i == self.index else 4
             canvas.create_oval(
-                node["x"] - 26,
-                node["y"] - 26,
-                node["x"] + 26,
-                node["y"] + 26,
+                nx - 26,
+                ny - 26,
+                nx + 26,
+                ny + 26,
                 fill="",
-                outline=node["color"],
+                outline=str(node["color"]),
                 width=glow,
             )
             canvas.create_oval(
-                node["x"] - 20,
-                node["y"] - 20,
-                node["x"] + 20,
-                node["y"] + 20,
-                fill=node["color"],
+                nx - 20,
+                ny - 20,
+                nx + 20,
+                ny + 20,
+                fill=str(node["color"]),
                 outline="#0b101e",
                 width=3,
             )
-            canvas.create_text(node["x"], node["y"] - 32, text=node["name"], fill=TEXT, font=("Helvetica", 10, "bold"))
+            canvas.create_text(nx, ny - 32, text=str(node["name"]), fill=TEXT, font=("Helvetica", 10, "bold"))
             if i == self.index:
-                canvas.create_rectangle(node["x"] - 22, node["y"] + 26, node["x"] + 22, node["y"] + 36, outline="#fefefe", width=2)
-                canvas.create_rectangle(node["x"] - 20, node["y"] + 28, node["x"] - 20 + 40 * self.patch_progress, node["y"] + 34, fill="#50fa7b", outline="")
+                canvas.create_rectangle(nx - 22, ny + 26, nx + 22, ny + 36, outline="#fefefe", width=2)
+                canvas.create_rectangle(nx - 20, ny + 28, nx - 20 + 40 * self.patch_progress, ny + 34, fill="#50fa7b", outline="")
         scan_y = (time.time() * 70) % (y2 - y1) + y1
         canvas.create_rectangle(x1, scan_y, x2, scan_y + 12, fill="#1f5fff", outline="", stipple="gray25")
         for glitch in self.glitches:

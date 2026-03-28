@@ -2,8 +2,9 @@ import json
 import os
 import hmac
 import hashlib
+from typing import Any
 
-SECRET_KEY = b"secure_career_game_key_2025"
+SECRET_KEY = os.getenv("GAME_SECRET_KEY", "fallback_secure_key_2025").encode()
 
 # Get the directory where this file is located, then go up one level to project root
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,8 +12,8 @@ _project_root = os.path.dirname(_current_dir)
 SAVE_FILE = os.path.join(_project_root, "save_data.json")
 
 class SaveSystem:
-    def __init__(self):
-        self.data = {
+    def __init__(self) -> None:
+        self.data: dict[str, Any] = {
             "completed_worlds": [],
             "world_grades": {} 
         }
@@ -75,5 +76,4 @@ class SaveSystem:
             
         self.save()
 
-def clamp(value, low, high):
-    return max(low, min(high, value))
+

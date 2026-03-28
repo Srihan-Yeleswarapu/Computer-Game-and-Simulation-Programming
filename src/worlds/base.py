@@ -1,6 +1,6 @@
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT
-from ..player import Player
+from src.utils import WIDTH, HEIGHT, TEXT
+from src.player import Player
 
 class BaseWorld:
     def __init__(self, name: str, summary: str, duration: float) -> None:
@@ -26,7 +26,7 @@ class BaseWorld:
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:  # pragma: no cover - interface
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:  # pragma: no cover - interface
         raise NotImplementedError
 
     def tick_timer(self, dt: float) -> None:

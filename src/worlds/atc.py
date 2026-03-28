@@ -4,6 +4,8 @@ import tkinter as tk
 from ..utils import WIDTH, HEIGHT, TEXT
 from ..player import Player
 from .base import BaseWorld
+from typing import Any, cast
+from typing import Any, cast
 
 class ATCWorld(BaseWorld):
     def __init__(self) -> None:
@@ -35,7 +37,7 @@ class ATCWorld(BaseWorld):
         self.current_path = []
         self.selected_plane = None
 
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str]) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
@@ -52,12 +54,8 @@ class ATCWorld(BaseWorld):
         # Adapting to Arrow Keys cursor for ATC is hard. 
         # I will assume we can use the mouse bindings I added to GameEngine in next step or use Space to select.
         
-        # Actually, let's stick to the requested "Path Drawing" - this implies Mouse.
-        # Note: I haven't added mouse motion bindings to GameEngine yet. I need to do that.
-        # For now, let's use the player as a cursor moved by WASD.
-        # Hold SPACE to start drawing path for nearest plane.
-        
-        player.speed = 400.0 # Faster cursor
+        # Use real mouse position instead of hacked player cursor
+        player.x, player.y = mouse_pos
         player.update(dt, keys, (0,0,WIDTH,HEIGHT))
         
         # Spawn planes
@@ -88,7 +86,9 @@ class ATCWorld(BaseWorld):
                 nearest = None
                 min_dist = 50.0
                 for p in self.planes:
-                    d = math.hypot(player.x - p["x"], player.y - p["y"])
+                    px = float(p["x"])
+                    py = float(p["y"])
+                    d = math.hypot(player.x - px, player.y - py)
                     if d < min_dist:
                         min_dist = d
                         nearest = p
@@ -109,7 +109,9 @@ class ATCWorld(BaseWorld):
                     # Calculate new velocity based on first point
                     if self.current_path:
                         pt = self.current_path[0]
-                        angle = math.atan2(pt[1] - self.selected_plane["y"], pt[0] - self.selected_plane["x"])
+                        px = float(self.selected_plane["x"])
+                        py = float(self.selected_plane["y"])
+                        angle = math.atan2(pt[1] - py, pt[0] - px)
                         self.selected_plane["vx"] = math.cos(angle) * 60
                         self.selected_plane["vy"] = math.sin(angle) * 60
                 self.is_drawing = False
@@ -124,16 +126,18 @@ class ATCWorld(BaseWorld):
         crashed = False
         
         for p in self.planes:
+            px = float(p["x"])
+            py = float(p["y"])
             if p["path"]:
                 target = p["path"][0]
-                dx = target[0] - p["x"]
-                dy = target[1] - p["y"]
+                dx = target[0] - px
+                dy = target[1] - py
                 dist = math.hypot(dx, dy)
                 if dist < 10:
                     p["path"].pop(0)
                     if not p["path"]:
                          # Check landing - forgiving radius
-                         r_dist = math.hypot(p["x"] - runway["x"], p["y"] - runway["y"])
+                         r_dist = math.hypot(px - float(runway["x"]), py - float(runway["y"]))
                          if r_dist < 80: # Generous landing zone
                              p["landed"] = True
                              self.landed_count += 1
@@ -143,8 +147,8 @@ class ATCWorld(BaseWorld):
                     p["vx"] = math.cos(angle) * 60
                     p["vy"] = math.sin(angle) * 60
             
-            p["x"] += p["vx"] * dt
-            p["y"] += p["vy"] * dt
+            p["x"] = px + float(p.get("vx", 0.0)) * dt
+            p["y"] = py + float(p.get("vy", 0.0)) * dt
             
             # Boundary check - bounce or wrap? Bounce implies "Holding pattern" logic needed, wrap implies easy mode.
             # Let's just clamp and bounce
@@ -154,7 +158,7 @@ class ATCWorld(BaseWorld):
             # Collision detection
             for other in self.planes:
                 if p != other and not p["landed"] and not other["landed"]:
-                     if math.hypot(p["x"]-other["x"], p["y"]-other["y"]) < 20:
+                     if math.hypot(float(p["x"])-float(other["x"]), float(p["y"])-float(other["y"])) < 20:
                          crashed = True
         
         self.planes = [p for p in self.planes if not p["landed"]]
@@ -187,13 +191,15 @@ class ATCWorld(BaseWorld):
         
         # Planes
         for p in self.planes:
+            px = float(p["x"])
+            py = float(p["y"])
             color = "#0f0" if p == self.selected_plane else "#fff"
-            canvas.create_oval(p["x"]-8, p["y"]-8, p["x"]+8, p["y"]+8, fill=color, outline="")
-            canvas.create_text(p["x"], p["y"]-15, text="FLT", fill=color, font=("Helvetica", 8))
+            canvas.create_oval(px-8, py-8, px+8, py+8, fill=color, outline="")
+            canvas.create_text(px, py-15, text="FLT", fill=color, font=("Helvetica", 8))
             
             # Draw path
             if p["path"]:
-                pts = [(p["x"], p["y"])] + p["path"]
+                pts = [(px, py)] + p["path"]
                 # flatten
                 flat_pts = [c for pt in pts for c in pt]
                 if len(flat_pts) >= 4:
