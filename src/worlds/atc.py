@@ -81,11 +81,11 @@ class ATCWorld(BaseWorld):
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
             self.spawn_timer = random.uniform(2.0, 4.0)
             side = random.randint(0, 3)
-            # Spawn at edges
-            if side == 0: x, y = random.uniform(0, WIDTH), -20
-            elif side == 1: x, y = WIDTH+20, random.uniform(0, HEIGHT)
-            elif side == 2: x, y = random.uniform(0, WIDTH), HEIGHT+20
-            else: x, y = -20, random.uniform(0, HEIGHT)
+            # Spawn at edges, slightly inside so they don't instantly bounce
+            if side == 0: x, y = random.uniform(20, WIDTH-20), 20
+            elif side == 1: x, y = WIDTH-20, random.uniform(20, HEIGHT-20)
+            elif side == 2: x, y = random.uniform(20, WIDTH-20), HEIGHT-20
+            else: x, y = 20, random.uniform(20, HEIGHT-20)
             
             # Target center initially
             angle = math.atan2(HEIGHT/2 - y, WIDTH/2 - x)
@@ -114,10 +114,10 @@ class ATCWorld(BaseWorld):
                 if nearest:
                     self.is_drawing = True
                     self.selected_plane = nearest
-                    self.current_path = []
+                    self.current_path = [(player.x, player.y)]
             else:
                 # Add points to path
-                if len(self.current_path) == 0 or math.hypot(player.x - self.current_path[-1][0], player.y - self.current_path[-1][1]) > 20:
+                if len(self.current_path) == 0 or math.hypot(player.x - self.current_path[-1][0], player.y - self.current_path[-1][1]) > 15:
                     self.current_path.append((player.x, player.y))
         else:
             if self.is_drawing:
@@ -154,11 +154,7 @@ class ATCWorld(BaseWorld):
                 if dist < 10:
                     p["path"].pop(0)
                     if not p["path"]:
-                         # Check landing - forgiving radius
-                         r_dist = math.hypot(px - float(runway["x"]), py - float(runway["y"]))
-                         if r_dist < 80: # Generous landing zone
-                             p["landed"] = True
-                             self.landed_count += 1
+                         pass # Landing is handled globally now
                 else:
                     # Move towards target
                     angle = math.atan2(dy, dx)
@@ -176,8 +172,15 @@ class ATCWorld(BaseWorld):
             # Collision detection
             for other in self.planes:
                 if p != other and not p["landed"] and not other["landed"]:
-                     if math.hypot(float(p["x"])-float(other["x"]), float(p["y"])-float(other["y"])) < 20:
+                     if math.hypot(float(p["x"])-float(other["x"]), float(p["y"])-float(other["y"])) < 14:
                          crashed = True
+                         
+            # Universal Landing Check
+            if not p["landed"]:
+                r_dist = math.hypot(p["x"] - float(runway["x"]), p["y"] - float(runway["y"]))
+                if r_dist < 60:
+                     p["landed"] = True
+                     self.landed_count += 1
         
         self.planes = [p for p in self.planes if not p["landed"]]
         
