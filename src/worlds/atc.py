@@ -1,19 +1,33 @@
 import random
 import math
+import time
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT
+from src.player import Player
+from src.worlds.base import BaseWorld
 from typing import Any, cast
 from typing import Any, cast
 
 class ATCWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Air Traffic Controller",
-            summary="Draw flight paths to land planes safely without crashes",
+            name="Air Traffic Control",
+            summary="Coordinate approach vectors to land aircraft safely",
             duration=90.0,
         )
+        self.briefing = [
+             "TRAFFIC ALERT: Five aircraft are entering your airspace simultaneously.",
+             "As the Lead Controller, you must guide every flight safely",
+             "to the primary landing strip without any mid-air collisions.",
+             "Draw specific flight paths for each arrival using your mouse.",
+             "Warning: If any planes come too close, you will be decertified immediately!"
+        ]
+        self.hints = [
+             "Tip: Click and drag from a plane to draw its new flight path.",
+             "Tip: Planes will automatically land once they touch the runway zone.",
+             "Tip: Watch the separation between aircraft – don't let them overlap!",
+             "Tip: Guide 5 planes to a safe landing to finish the scenario."
+        ]
         self.planes = []
         self.landed_count = 0
         self.spawn_timer = 2.0
@@ -36,6 +50,8 @@ class ATCWorld(BaseWorld):
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
+        self.shake = 0.0
+        self.particles = []
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -166,23 +182,37 @@ class ATCWorld(BaseWorld):
         if crashed:
             self.finished = True
             self.success = False
-            self.message = "CRASH DETECTED! Airspace unsafe."
+            self.message = "Operational safety compromised! Mid-air collision detected."
+            self.shake = 8.0
             
         if self.landed_count >= 5:
             self.finished = True
             self.success = True
-            self.message = "All flights landed safely. Good calm under pressure."
-
+            self.message = "Skies Clear! All flights landed safely. Great work."
+            
+        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
         
-        # Radar BG
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#001a00", outline="")
+        # Radar BG with Shake
+        sx, sy = 0, 0
+        if self.shake > 0:
+             sx = random.uniform(-self.shake, self.shake)
+             sy = random.uniform(-self.shake, self.shake)
+        
+        bg = "#071207" if not self.high_contrast else "#000000"
+        canvas.create_rectangle(sx, sy, WIDTH+sx, HEIGHT+sy, fill=bg)
+        
         # Grid lines
-        for i in range(10):
-            canvas.create_oval(WIDTH/2 - i*50, HEIGHT/2 - i*50, WIDTH/2 + i*50, HEIGHT/2 + i*50, outline="#003300")
+        for i in range(1, 10):
+            canvas.create_oval(WIDTH/2 - i*50 + sx, HEIGHT/2 - i*50 + sy, WIDTH/2 + i*50 + sx, HEIGHT/2 + i*50 + sy, outline="#1a3d1a")
+        
+        # Radar sweep animation (micro-animation)
+        sweep = (time.time() * 2) % (math.pi * 2)
+        cx, cy = WIDTH / 2 + sx, HEIGHT / 2 + sy
+        canvas.create_line(cx, cy, cx + math.cos(sweep) * 800, cy + math.sin(sweep) * 800, fill="#1a3d1a", width=2) if not self.high_contrast else None
         
         # Runway
         r = self.runways[0]

@@ -1,18 +1,31 @@
 import random
 import math
 import tkinter as tk
-from ..utils import WIDTH, HEIGHT, TEXT
-from ..player import Player
-from .base import BaseWorld
+from src.utils import WIDTH, HEIGHT, TEXT
+from src.player import Player
+from src.worlds.base import BaseWorld
 from typing import Any, cast
 
 class DoctorWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Doctor",
-            summary="Diagnose patients and perform treatments",
+            name="ER Physician",
+            summary="Diagnose and treat emergency patients in real-time",
             duration=60.0,
         )
+        self.briefing = [
+             "EMERGENCY ADMISSION: A patient has arrived with critical symptoms.",
+             "As the attending physician, you must analyze the diagnostic data",
+             "and select the correct treatments from the medical database.",
+             "Every second counts in the ER – if the patient's vitals drop",
+             "below the safety threshold, you will fail the rotation."
+        ]
+        self.hints = [
+             "Tip: Read the symptoms carefully before choosing a diagnosis.",
+             "Tip: Using the wrong treatment will decrease the patient's health score.",
+             "Tip: Once diagnosed, pick the matching treatment to stabilize them.",
+             "Tip: You must successfully treat 3 patients to complete your shift."
+        ]
         self.patients = []
         self.current_patient = 0
         self.health_score = 100
@@ -37,6 +50,8 @@ class DoctorWorld(BaseWorld):
         self.diagnosis_stage = True
         self.selected_treatment = ""
         self.feedback = ""
+        self.shake = 0.0
+        self.particles = []
         
         # Generate 3 patients
         self.patients = []

@@ -10,9 +10,22 @@ class MarineWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Marine Biologist",
-            summary="Dive, scan fish, and collect samples before O2 runs out",
-            duration=60.0,
+            summary="Dive, scan fish, and collect specimens in the deep reef",
+            duration=62.0,
         )
+        self.briefing = [
+             "RESEARCH MISSION: Deep-sea specimens are needed for a critical study.",
+             "Pilot your specialized research gear through the coral trenches",
+             "to scan 5 rare fish species and collect 3 bioluminescent samples.",
+             "Watch your oxygen levels – the deeper you go, the faster it drains.",
+             "Avoid the stinging jellyfish and jagged rocks at the trench floor!"
+        ]
+        self.hints = [
+             "Tip: Hold the left mouse button near a fish to scan it.",
+             "Tip: Collect samples by moving directly over the glowing items.",
+             "Tip: Watch the blue Oxygen Bar! Don't let it run dry.",
+             "Tip: Scans take a few seconds – stay close to your target!"
+        ]
         self.bounds = (40.0, 40.0, WIDTH - 40.0, HEIGHT - 40.0)
         self.fish: list[dict[str, Any]] = []
         self.samples: list[dict[str, Any]] = []
@@ -38,6 +51,8 @@ class MarineWorld(BaseWorld):
         self.scanner_active = False
         self.scan_target = None
         self.scan_timer = 0.0
+        self.shake = 0.0
+        self.particles = []
         
         # Populate world
         self.fish = []

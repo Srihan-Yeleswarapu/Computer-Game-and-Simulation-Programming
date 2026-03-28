@@ -8,10 +8,23 @@ import time
 class ArchitectWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Architect",
+            name="Lead Architect",
             summary="Design a stable Eco-Library that withstands the wind test",
             duration=90.0,
         )
+        self.briefing = [
+             "URGENT PROJECT: A sudden windstorm is testing the city plan!",
+             "As the Lead Architect, you must design an Eco-Library",
+             "that maintains its center of mass during the structural test.",
+             "Balance different room types while managing your budget constraints.",
+             "Warning: If the library's sway exceeds limits, it will be a failure!"
+        ]
+        self.hints = [
+             "Tip: Click the grid to place the selected room type.",
+             "Tip: Use keys 1-4 to switch between room types.",
+             "Tip: Once built, press SPACE to trigger the structural wind test.",
+             "Tip: A wider base usually leads to better vertical stability."
+        ]
         self.grid_size = 40
         self.grid_w = 12
         self.grid_h = 8

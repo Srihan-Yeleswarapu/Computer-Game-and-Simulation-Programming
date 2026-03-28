@@ -10,10 +10,23 @@ from typing import Any, cast
 class BugHuntWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Software Engineer",
-            summary="Patch code nodes in sequence while dodging glitches",
+            name="Systems Engineer",
+            summary="Secure the network infrastructure before the integrity breach",
             duration=50.0,
         )
+        self.briefing = [
+             "DATABASE BREACH! The mainframe is under a massive glitch attack.",
+             "As a senior systems engineer, you must trace the network nodes",
+             "and patch the corrupt hex-vectors in the correct architectural order.",
+             "One wrong move, and the entire database goes offline forever.",
+             "Secure the 4 major nodes before the glitches take over the system."
+        ]
+        self.hints = [
+             "Tip: Follow the node sequence listed in the terminal display.",
+             "Tip: Stay within the node radius to complete the patching process.",
+             "Tip: Red glitch leaks will drain your system integrity (and time!).",
+             "Tip: Once nodes are patched, head to the final Deploy point."
+        ]
         self.bounds = (120.0, 110.0, WIDTH - 120.0, HEIGHT - 110.0)
         self.nodes: list[dict[str, Any]] = []
         self.glitches: list[dict[str, Any]] = []
@@ -34,6 +47,8 @@ class BugHuntWorld(BaseWorld):
         self.patch_progress = 0.0
         self.deploy_progress = 0.0
         self.warning = ""
+        self.shake = 0.0
+        self.particles = []
         self.leak["r"] = 40.0
         self.nodes = [
             {"name": "Telemetry", "x": 200, "y": 200, "color": "#8be9fd"},

@@ -10,10 +10,23 @@ from typing import Any, cast
 class ChefRushWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Chef Rush",
-            summary="Assemble dishes in the right order while dodging kitchen chaos",
-            duration=30.0,
+            name="Executive Chef",
+            summary="Assemble signature dishes during the evening dinner rush",
+            duration=32.0,
         )
+        self.briefing = [
+             "KITCHEN ALERT: The restaurant critic just walked into the dining room!",
+             "As the Executive Chef, you must prepare the evening's special souffle",
+             "by visiting the Prep, Stove, and Plating stations in correct sequence.",
+             "Avoid the oily spills on the floor and keep an eye on the pending tickets.",
+             "If you are too slow, the critic will leave and the restaurant's reputation will suffer."
+        ]
+        self.hints = [
+             "Tip: Follow the recipe checklist in the top-left corner.",
+             "Tip: Spills will slow you down significantly. Path around them!",
+             "Tip: Stand on a station to complete that step of the recipe.",
+             "Tip: Watch the step progress bar above the player icon."
+        ]
         self.bounds = (110.0, 100.0, WIDTH - 110.0, HEIGHT - 90.0)
         self.stations: list[dict[str, Any]] = []
         self.recipe: list[str] = []
@@ -35,6 +48,8 @@ class ChefRushWorld(BaseWorld):
         self.tickets = []
         self.ticket_spawn = 8.0
         self.warning = ""
+        self.shake = 0.0
+        self.particles = []
         self.recipe = random.choice(
             [
                 ["Knife Skills", "Sear Protein", "Deglaze", "Plate"],
@@ -141,6 +156,13 @@ class ChefRushWorld(BaseWorld):
                 remaining_tickets.append(ticket)
         self.tickets = remaining_tickets
         self.draw(canvas, player)
+
+    def calculate_grade(self) -> str:
+        if not self.success: return "-"
+        if self.timer > 15: return "S" # Masterful efficiency
+        if self.timer > 10: return "A"
+        if self.timer > 5: return "B"
+        return "C"
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")

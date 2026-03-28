@@ -13,6 +13,19 @@ class FireRescueWorld(BaseWorld):
             summary="Navigate smoke, dodge flames, and carry survivors out",
             duration=48.0,
         )
+        self.briefing = [
+             "EMERGENCY CALL: A high-rise building is currently ablaze downtown.",
+             "As a senior firefighter, your mission is to locate 3 survivors",
+             "trapped in the smoke-filled upper floors.",
+             "Avoid the rapidly spreading flames and guide them back to the fire exit.",
+             "Warning: Smoke inhalation and heat exhaustion will limit your time!"
+        ]
+        self.hints = [
+             "Tip: Stay low! Use WASD to navigate the floor plan.",
+             "Tip: Touch a survivor to pick them up, then head to the yellow door.",
+             "Tip: Only one survivor can be carried at a time.",
+             "Tip: Speed is life! But watch out for the fire's growth."
+        ]
         self.DOOR_ZONE = (80, HEIGHT / 2 - 40, 220, HEIGHT / 2 + 40)
         # Fix applied: bounds starting at 60.0 to allow door access
         self.bounds = (60.0, 60.0, WIDTH - 40.0, HEIGHT - 60.0)
@@ -129,6 +142,7 @@ class FireRescueWorld(BaseWorld):
         for flame in self.flames:
             if math.hypot(player.x - flame["x"], player.y - flame["y"]) < player.size + flame["r"]:
                 self.heat += dt * 35
+                self.shake = 4.0
                 self.timer = max(0.0, self.timer - dt * 3)
                 if self.heat > 40:
                     player.reset(self.bounds[0] + 20, HEIGHT / 2)

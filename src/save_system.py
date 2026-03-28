@@ -17,6 +17,7 @@ class SaveSystem:
             "completed_worlds": [],
             "world_grades": {} 
         }
+        self.integrity_error = False
         print(f"[SaveSystem] Save file location: {SAVE_FILE}")
         self.load()
 
@@ -47,6 +48,7 @@ class SaveSystem:
             # Verify HMAC
             if self.get_signature(payload) != signature:
                 print("Save file signature mismatch. Resetting data.")
+                self.integrity_error = True
                 self.data = {"completed_worlds": [], "world_grades": {}}
                 return
             
