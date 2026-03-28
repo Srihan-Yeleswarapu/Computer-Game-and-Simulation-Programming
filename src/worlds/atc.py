@@ -30,7 +30,9 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 2.0
+        self.spawn_timer = 1.0
+        self.plane_limit = 12
+        self.landed_goal = 12
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
@@ -46,7 +48,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 2.0
+        self.spawn_timer = 1.0
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -76,8 +78,8 @@ class ATCWorld(BaseWorld):
         
         # Spawn planes
         self.spawn_timer -= dt
-        if self.spawn_timer <= 0 and len(self.planes) < 5:
-            self.spawn_timer = random.uniform(3.0, 6.0)
+        if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
+            self.spawn_timer = random.uniform(2.0, 4.0)
             side = random.randint(0, 3)
             # Spawn at edges
             if side == 0: x, y = random.uniform(0, WIDTH), -20
@@ -185,10 +187,10 @@ class ATCWorld(BaseWorld):
             self.message = "Operational safety compromised! Mid-air collision detected."
             self.shake = 8.0
             
-        if self.landed_count >= 5:
+        if self.landed_count >= self.landed_goal:
             self.finished = True
             self.success = True
-            self.message = "Skies Clear! All flights landed safely. Great work."
+            self.message = f"Skies Clear! All {self.landed_goal} flights landed safely. Great work."
             
         self.update_particles(dt)
         self.draw(canvas, player)
@@ -245,9 +247,9 @@ class ATCWorld(BaseWorld):
         canvas.create_line(player.x, player.y-10, player.x, player.y+10, fill="#ff0")
         
         # HUD
-        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count}/5", fill="#0f0", font=("Helvetica", 14, "bold"))
+        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count}/{self.landed_goal}", fill="#0f0", font=("Helvetica", 14, "bold"))
         
-        canvas.create_text(20, HEIGHT-30, anchor="w", text="WASD triggers cursor. Hold SPACE on a plane to draw landing path to RWY 09.", fill="#0f0", font=("Helvetica", 11))
+        canvas.create_text(20, HEIGHT-30, anchor="w", text="Move Mouse/WASD to position director. Hold SPACE on a plane to draw its approach path.", fill="#0f0", font=("Helvetica", 11))
 
         if self.finished:
             self.draw_result(canvas)

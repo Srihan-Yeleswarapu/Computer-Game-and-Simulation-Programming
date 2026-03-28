@@ -107,10 +107,11 @@ class ChefRushWorld(BaseWorld):
             active_step = self.recipe[self.step]
             on_station = False
             for station in self.stations:
-                sx = float(station["x"])
-                sy = float(station["y"])
-                if math.hypot(player.x - sx, player.y - sy) < player.size + 26:
-                    on_station = True
+                if station["name"] == active_step:
+                    sx = float(station["x"])
+                    sy = float(station["y"])
+                    if math.hypot(player.x - sx, player.y - sy) < player.size + 26:
+                        on_station = True
                     break
             if on_station:
                 self.step_progress = clamp(self.step_progress + dt * 1.4, 0.0, 1.0)

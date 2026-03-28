@@ -123,7 +123,7 @@ class GameEngine:
         if self.state != "menu":
             return
             
-        keys = ["1", "2", "3", "4", "5", "6"]
+        keys = ["1", "2", "3", "4", "5", "6", "7"]
         start_x = 100
         start_y = 160
         gap_x = 200

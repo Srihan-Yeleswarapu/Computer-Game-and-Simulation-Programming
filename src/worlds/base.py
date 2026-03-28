@@ -66,34 +66,36 @@ class BaseWorld:
         return "C"
 
     def draw_hud(self, canvas: tk.Canvas) -> None:
-        # HUD Background Bar
+        # HUD Background Bar (Compact)
         bg_color = "#000000" if self.high_contrast else "#111111"
-        canvas.create_rectangle(0, 0, WIDTH, 50, fill=bg_color, outline="")
+        canvas.create_rectangle(0, 0, WIDTH, 40, fill=bg_color, outline="")
 
+        # Title on the left
         canvas.create_text(
+            15,
             20,
-            25,
             anchor="w",
             fill="#ffff00" if self.high_contrast else TEXT,
             font=("Helvetica", 14, "bold"),
-            text=f"{self.name}   |   {self.summary}",
+            text=self.name,
         )
         
-        # Draw Hint in Center
+        # Draw Hint at the Bottom
         if self.hints:
              hint_text = self.hints[self.current_hint_index]
              canvas.create_text(
                  WIDTH / 2,
-                 25,
+                 HEIGHT - 20,
                  anchor="center",
                  fill="#ffff00" if self.high_contrast else ACCENT, 
                  font=("Helvetica", 11, "italic"),
                  text=hint_text
              )
 
+        # Timer on the right
         canvas.create_text(
-            WIDTH - 20,
-            25,
+            WIDTH - 15,
+            20,
             anchor="e",
             fill="#ffffff" if self.high_contrast else TEXT,
             font=("Helvetica", 14, "bold"),
