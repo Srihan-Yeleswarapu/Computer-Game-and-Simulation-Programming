@@ -48,13 +48,20 @@ class GameEngine:
         self.fps = 0.0
         self.mouse_x = 0
         self.mouse_y = 0
+        
+        # Load Logo
         self.logo_img: tk.PhotoImage | None = None
-        self.logo_path = os.path.join(os.path.dirname(__file__), "..", "career_worlds_logo_1774679748475.png")
+        self.logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png"))
+        
+        # Fallback search if the previous doesn't work (e.g. current directory)
+        if not os.path.exists(self.logo_path):
+             self.logo_path = os.path.join(os.getcwd(), "assets", "logo.png")
+             
         try:
              self.logo_img = tk.PhotoImage(file=self.logo_path)
         except:
              pass
-        
+
         pygame.mixer.init()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
@@ -63,13 +70,15 @@ class GameEngine:
         self.canvas.bind("<Button-1>", self.on_click)
         self.canvas.bind("<Motion>", self.on_mouse_move)
 
+        self.root.after(16, self.loop)
+
     def on_mouse_move(self, event: tk.Event) -> None:
         self.mouse_x = event.x
         self.mouse_y = event.y
 
     def on_key_press(self, event: tk.Event) -> None:
         self.keys.add(event.keysym)
-        if self.state == "title" and event.keysym == "space":
+        if self.state == "title" and event.keysym.lower() == "space":
             self.state = "menu"
             
         elif self.state == "menu":
@@ -194,12 +203,7 @@ class GameEngine:
         if self.debug_mode:
             self.draw_debug()
             
-        self.logo_path = os.path.join(os.path.dirname(__file__), "..", "career_worlds_logo_1774679748475.png")
-        self.logo_img = None # Placeholder load
-        try:
-             self.logo_img = tk.PhotoImage(file=self.logo_path)
-        except:
-             pass
+        self.root.after(16, self.loop)
 
     def draw_title(self) -> None:
         self.canvas.delete("all")
