@@ -39,11 +39,12 @@ class PsychologistWorld(BaseWorld):
         self.particles = []
         
         self.patients = [
-            {"x": WIDTH/4, "y": HEIGHT/4, "stress": 20.0, "rate": 2.5},
-            {"x": WIDTH*3/4, "y": HEIGHT/4, "stress": 30.0, "rate": 3.0},
-            {"x": WIDTH/4, "y": HEIGHT*3/4, "stress": 10.0, "rate": 4.0},
-            {"x": WIDTH*3/4, "y": HEIGHT*3/4, "stress": 40.0, "rate": 2.0},
+            {"x": WIDTH/4, "y": HEIGHT/4, "stress": 20.0, "rate": 2.5, "bubble": "", "bubble_timer": 0.0},
+            {"x": WIDTH*3/4, "y": HEIGHT/4, "stress": 30.0, "rate": 3.0, "bubble": "", "bubble_timer": 0.0},
+            {"x": WIDTH/4, "y": HEIGHT*3/4, "stress": 10.0, "rate": 4.0, "bubble": "", "bubble_timer": 0.0},
+            {"x": WIDTH*3/4, "y": HEIGHT*3/4, "stress": 40.0, "rate": 2.0, "bubble": "", "bubble_timer": 0.0},
         ]
+        self.spike_options = ["Failed Interview", "Bad Grade", "Lost Wallet", "Missed Bus", "Social Anxiety", "Work Stress"]
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -62,7 +63,17 @@ class PsychologistWorld(BaseWorld):
             dist = math.hypot(player.x - p["x"], player.y - p["y"])
             if dist < 60:
                 self.active_patient = i
-                
+            
+            p["bubble_timer"] = max(0.0, p["bubble_timer"] - dt)
+            if p["bubble_timer"] <= 0: p["bubble"] = ""
+
+            # Random stress spikes
+            if random.random() < 0.15 * dt:
+                 p["bubble"] = random.choice(self.spike_options)
+                 p["bubble_timer"] = 3.0
+                 p["stress"] += 15.0
+                 self.shake = 1.0
+                 
             if i == self.active_patient and "space" in keys:
                 # Therapy in progress
                 p["stress"] = max(0.0, p["stress"] - dt * 25.0)
@@ -112,7 +123,13 @@ class PsychologistWorld(BaseWorld):
             
             if i == self.active_patient and "space" in self.keys:
                  canvas.create_line(player.x, player.y, p["x"], p["y"], fill="#4bcffa", width=3, dash=(4,4))
-                 
+            
+            # Draw speech bubble
+            if p["bubble"]:
+                bx, by = p["x"], p["y"]-70
+                canvas.create_rectangle(bx-60, by-15, bx+60, by+15, fill="#fff", outline="#ddd", width=2)
+                canvas.create_text(bx, by, text=p["bubble"], fill="#333", font=("Arial", 9, "bold"))
+                canvas.create_polygon(bx-5, by+15, bx+5, by+15, bx, by+25, fill="#fff", outline="#ddd")
         player.draw(canvas)
 
         if self.finished:

@@ -97,8 +97,6 @@ class DoctorWorld(BaseWorld):
         patient_died = False
         
         for p in self.patients:
-            if interacting: break
-            
             p["health"] -= dt * p["rate"]
             
             # Treat interaction
@@ -156,41 +154,45 @@ class DoctorWorld(BaseWorld):
              
         bg = "#e0f7fa" if not self.high_contrast else "#000000"
         canvas.create_rectangle(sx, sy, WIDTH+sx, HEIGHT+sy, fill=bg)
+        canvas.create_rectangle(sx, sy, float(WIDTH)+sx, float(HEIGHT)+sy, fill=bg)
         
         # Floor pattern
         if not self.high_contrast:
-            for i in range(0, WIDTH, 40):
-                for j in range(0, HEIGHT, 40):
+            for i in range(0, int(WIDTH), 40):
+                for j in range(0, int(HEIGHT), 40):
                     if (i//40 + j//40) % 2 == 0:
-                        canvas.create_rectangle(i+sx, j+sy, i+40+sx, j+40+sy, fill="#b2ebf2", outline="")
+                        canvas.create_rectangle(float(i)+sx, float(j)+sy, float(i)+40.0+sx, float(j)+40.0+sy, fill="#b2ebf2", outline="")
 
         # Beds
         for b in self.beds:
-             canvas.create_rectangle(b["x"]-30+sx, b["y"]-20+sy, b["x"]+30+sx, b["y"]+20+sy, fill="#fff", outline="#95a5a6", width=2)
-             canvas.create_rectangle(b["x"]-25+sx, b["y"]-15+sy, b["x"]-5+sx, b["y"]+15+sy, fill="#ecf0f1", outline="#bdc3c7")
+             bx, by = float(b["x"]), float(b["y"])
+             canvas.create_rectangle(bx-30.0+sx, by-20.0+sy, bx+30.0+sx, by+20.0+sy, fill="#fff", outline="#95a5a6", width=2)
+             canvas.create_rectangle(bx-25.0+sx, by-15.0+sy, bx-5.0+sx, by+15.0+sy, fill="#ecf0f1", outline="#bdc3c7")
 
         # Patients
         for p in self.patients:
+             px, py = float(p["x"]), float(p["y"])
              # Patient body
-             canvas.create_oval(p["x"]-15+sx, p["y"]-15+sy, p["x"]+15+sx, p["y"]+15+sy, fill="#ffdd59", outline="#d1ccc0")
+             canvas.create_oval(px-15.0+sx, py-15.0+sy, px+15.0+sx, py+15.0+sy, fill="#ffdd59", outline="#d1ccc0")
              # Symptom Icon
              sym_colors = {"fever": "#ff5252", "fracture": "#ffb142", "bleeding": "#8c7ae6"}
-             canvas.create_rectangle(p["x"]-10+sx, p["y"]-25+sy, p["x"]+10+sx, p["y"]-15+sy, fill=sym_colors[p["symptom"]], outline="")
+             canvas.create_rectangle(px-10.0+sx, py-25.0+sy, px+10.0+sx, py-15.0+sy, fill=sym_colors[p["symptom"]], outline="")
              
              # Health bar
-             canvas.create_rectangle(p["x"]-20+sx, p["y"]-35+sy, p["x"]+20+sx, p["y"]-28+sy, fill="#2c3e50")
-             canvas.create_rectangle(p["x"]-19+sx, p["y"]-34+sy, p["x"]-19 + 38 * max(0.0, p["health"]/100.0) + sx, p["y"]-29+sy, fill="#ff5252")
+             canvas.create_rectangle(px-20.0+sx, py-35.0+sy, px+20.0+sx, py-28.0+sy, fill="#2c3e50")
+             canvas.create_rectangle(px-19.0+sx, py-34.0+sy, px-19.0 + 38.0 * max(0.0, p["health"]/100.0) + sx, py-29.0+sy, fill="#ff5252")
              
              # Treatment progress bar if active
-             if self.treatment_progress > 0 and math.hypot(player.x - p["x"], player.y - p["y"]) < 40 and "space" in self.keys and self.held_item == self.tools_map[p["symptom"]]:
-                  canvas.create_rectangle(p["x"]-20+sx, p["y"]+25+sy, p["x"]+20+sx, p["y"]+30+sy, fill="#34495e")
-                  canvas.create_rectangle(p["x"]-20+sx, p["y"]+25+sy, p["x"]-20 + 40*(self.treatment_progress/100.0) + sx, p["y"]+30+sy, fill="#2ecc71")
+             if self.treatment_progress > 0 and math.hypot(float(player.x) - px, float(player.y) - py) < 40 and "space" in self.keys and self.held_item == self.tools_map[p["symptom"]]:
+                  canvas.create_rectangle(px-20.0+sx, py+25.0+sy, px+20.0+sx, py+30.0+sy, fill="#34495e")
+                  canvas.create_rectangle(px-20.0+sx, py+25.0+sy, px-20.0 + 40.0*(self.treatment_progress/100.0) + sx, py+30.0+sy, fill="#2ecc71")
 
         # Tables
         for t in self.tables:
-             canvas.create_rectangle(t["x"]-25+sx, t["y"]-25+sy, t["x"]+25+sx, t["y"]+25+sy, fill="#ecf0f1", outline="#bdc3c7", width=3)
-             canvas.create_oval(t["x"]-15+sx, t["y"]-15+sy, t["x"]+15+sx, t["y"]+15+sy, fill=t["color"], outline="")
-             canvas.create_text(t["x"]+sx, t["y"]+35+sy, text=t["name"], fill="#2f3640" if not self.high_contrast else "#fff", font=("Helvetica", 9, "bold"))
+             tx, ty = float(t["x"]), float(t["y"])
+             canvas.create_rectangle(tx-25.0+sx, ty-25.0+sy, tx+25.0+sx, ty+25.0+sy, fill="#ecf0f1", outline="#bdc3c7", width=3)
+             canvas.create_oval(tx-15.0+sx, ty-15.0+sy, tx+15.0+sx, ty+15.0+sy, fill=t["color"], outline="")
+             canvas.create_text(tx+sx, ty+35.0+sy, text=t["name"], fill="#2f3640" if not self.high_contrast else "#fff", font=("Helvetica", 9, "bold"))
              
         player.draw(canvas)
         

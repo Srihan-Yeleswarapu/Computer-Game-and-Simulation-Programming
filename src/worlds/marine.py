@@ -10,37 +10,39 @@ class MarineWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Marine Biologist",
-            summary="Dive, scan fish, and collect specimens in the deep reef",
+            summary="Dive, scan fish, and collect specimens while avoiding predators",
             duration=62.0,
         )
         self.briefing = [
              "RESEARCH MISSION: Deep-sea specimens are needed for a critical study.",
-             "Pilot your specialized research gear through the coral trenches",
-             "to scan 5 rare fish species and collect 3 bioluminescent samples.",
-             "Watch your oxygen levels – the deeper you go, the faster it drains.",
-             "Avoid the stinging jellyfish and jagged rocks at the trench floor!"
+             "Scan rare fish and collect bioluminescent samples.",
+             "Watch your Oxygen! Drains faster as you go deeper.",
+             "BEWARE: Great White Sharks roam these waters!",
+             "Look for hidden discoveries on the ocean floor."
         ]
         self.hints = [
-             "Tip: Hold the left mouse button near a fish to scan it.",
-             "Tip: Collect samples by moving directly over the glowing items.",
-             "Tip: Watch the blue Oxygen Bar! Don't let it run dry.",
-             "Tip: Scans take a few seconds – stay close to your target!"
+             "Tip: Hold SPACE near a fish to scan it.",
+             "Tip: Avoid RED sharks; they will bite your oxygen tank!",
+             "Tip: Touch glowing discoveries for a research bonus.",
+             "Tip: Scan 3 fish and collect 3 samples to complete the mission."
         ]
         self.bounds = (40.0, 40.0, WIDTH - 40.0, HEIGHT - 40.0)
         self.fish: list[dict[str, Any]] = []
+        self.sharks: list[dict[str, Any]] = []
         self.samples: list[dict[str, Any]] = []
+        self.discoveries: list[dict[str, Any]] = []
         self.bubbles: list[dict[str, Any]] = []
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
         
-        # Scanner tool
-        self.scanner_active = False
         self.scan_target: dict | None = None
         self.scan_timer = 0.0
+        self.discovery_msg = ""
+        self.msg_timer = 0.0
 
     def reset(self, player: Player) -> None:
-        player.reset(WIDTH / 2, 80) # Start near surface
+        player.reset(WIDTH / 2, 80)
         self.timer = self.duration
         self.finished = False
         self.success = False
@@ -48,208 +50,149 @@ class MarineWorld(BaseWorld):
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
-        self.scanner_active = False
-        self.scan_target = None
         self.scan_timer = 0.0
+        self.discovery_msg = ""
+        self.msg_timer = 0.0
         self.shake = 0.0
-        self.particles = []
         
-        # Populate world
+        # Populate
         self.fish = []
-        species = [
-            {"name": "Clownfish", "color": "#ff7f50", "speed": 60},
-            {"name": "Blue Tang", "color": "#1e90ff", "speed": 80},
-            {"name": "Sea Turtle", "color": "#32cd32", "speed": 40},
-            {"name": "Jellyfish", "color": "#e6e6fa", "speed": 20},
-            {"name": "Manta Ray", "color": "#708090", "speed": 50},
-        ]
-        for _ in range(8):
+        species = [{"name": "Tang", "c": "#1e90ff"}, {"name": "Turtle", "c": "#32cd32"}, {"name": "Jelly", "c": "#e6e6fa"}]
+        for _ in range(6):
             s = random.choice(species)
             self.fish.append({
-                "x": random.uniform(100, WIDTH - 100),
-                "y": random.uniform(200, HEIGHT - 100),
-                "dx": random.choice([-1, 1]) * s["speed"],
-                "dy": random.uniform(-20, 20),
-                "type": s["name"],
-                "color": s["color"],
-                "scanned": False,
-                "w": random.randint(30, 50)
+                "x": random.uniform(100, WIDTH-100), "y": random.uniform(200, HEIGHT-150),
+                "dx": random.choice([-1, 1]) * random.uniform(50, 90), "dy": random.uniform(-20, 20),
+                "color": s["c"], "scanned": False, "w": 40
             })
-            
+        
+        self.sharks = []
+        for _ in range(2):
+            self.sharks.append({
+                "x": random.uniform(100, WIDTH-100), "y": random.uniform(300, HEIGHT-100),
+                "dx": random.choice([-1, 1]) * 120, "dy": 0, "w": 60
+            })
+
         self.samples = []
         for _ in range(3):
-            self.samples.append({
-                "x": random.uniform(100, WIDTH - 100),
-                "y": HEIGHT - 60, # On the seabed
-                "collected": False
-            })
+            self.samples.append({"x": random.uniform(100, WIDTH-100), "y": HEIGHT-70, "collected": False})
             
+        self.discoveries = [
+            {"x": 150, "y": HEIGHT-65, "name": "Sunken Anchor", "found": False, "msg": "An old pirate anchor!"},
+            {"x": WIDTH-200, "y": HEIGHT-65, "name": "Giant Clam", "found": False, "msg": "Look at the size of that pearl!"}
+        ]
         self.bubbles = []
-    
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
-
         self.tick_timer(dt)
-        if self.timer <= 0: return # Timer managed by base
-        
-        # Custom physics for swimming (gravity + buoyancy)
-        # Player naturally floats up slowly if not moving down
-        # Movement has inertia
-        
-        # Keys input handled by player.update, but we tweak physics after
         player.update(dt, keys, self.bounds)
         
-        # Add "buoyancy" if not pressing down
-        if "Down" not in keys and "s" not in keys:
-             player.vy -= 100 * dt 
-        
-        # Clamp speed for water resistance
-        player.vx = clamp(player.vx, -180, 180)
-        player.vy = clamp(player.vy, -180, 180)
-        
-        # Oxygen drain
-        self.oxygen = max(0.0, self.oxygen - dt * 1.5)
-        if self.oxygen <= 0:
-            self.finished = True
-            self.success = False
-            self.message = "Oxygen depletion! Emergency surface."
-            return
+        # Buoyancy
+        if "Down" not in keys and "s" not in keys: player.vy -= 80 * dt
+        player.vx = clamp(player.vx, -200, 200)
+        player.vy = clamp(player.vy, -200, 200)
 
-        # Fish movement
+        # Oxygen
+        depth_factor = 1.0 + (player.y / HEIGHT)
+        self.oxygen = max(0.0, self.oxygen - dt * 2.0 * depth_factor)
+        
+        # Fish & Sharks
         x1, y1, x2, y2 = self.bounds
         for f in self.fish:
-            f["x"] = float(f["x"]) + float(f.get("dx", 0.0)) * dt
-            f["y"] = float(f["y"]) + float(f.get("dy", 0.0)) * dt
-            if float(f["x"]) < x1 or float(f["x"]) > x2:
-                f["dx"] = -float(f.get("dx", 0.0))
-            if float(f["y"]) < y1 + 100 or float(f["y"]) > y2: # Stay deep
-                f["dy"] = -float(f.get("dy", 0.0))
-                
-        # Scanner Logic (Hold Space to scan nearby fish)
-        # Assuming Space is added to keys in main engine update (need to check)
-        # Use "e" or "space" for interaction? Let's assume Space for now.
+            f["x"] += f["dx"] * dt
+            if f["x"] < x1 or f["x"] > x2: f["dx"] *= -1
         
-        closest_fish = None
-        min_dist = 100.0
-        
+        for s in self.sharks:
+            s["x"] += s["dx"] * dt
+            if s["x"] < x1 or s["x"] > x2: s["dx"] *= -1
+            if math.hypot(player.x - s["x"], player.y - s["y"]) < 50:
+                 self.oxygen = max(0.0, self.oxygen - 10.0 * dt)
+                 self.shake = 2.0
+
+        # Scanning
+        self.scan_target = None
         for f in self.fish:
-            fx = float(f["x"])
-            fy = float(f["y"])
-            d = math.hypot(player.x - fx, player.y - fy)
-            if d < min_dist:
-                min_dist = d
-                closest_fish = f
-        
-        if closest_fish and min_dist < 80:
-            self.scan_target = closest_fish
-            if "space" in keys and not closest_fish["scanned"]:
-                self.scan_timer += dt
-                if self.scan_timer > 1.5:
-                    closest_fish["scanned"] = True
-                    self.scanned_count += 1
-                    self.scan_timer = 0.0
-                    self.scan_target = None
-            else:
-                self.scan_timer = max(0.0, self.scan_timer - dt * 2)
-        else:
-            self.scan_target = None
-            self.scan_timer = 0.0
+            if math.hypot(player.x - f["x"], player.y - f["y"]) < 80 and not f["scanned"]:
+                self.scan_target = f
+                if "space" in keys:
+                    self.scan_timer += dt
+                    if self.scan_timer > 1.2:
+                        f["scanned"] = True
+                        self.scanned_count += 1
+                        self.scan_timer = 0
+                break
+        else: self.scan_timer = 0
 
-        # Sample Collection (Touch to collect)
+        # Samples
         for s in self.samples:
-            if not s["collected"]:
-                if math.hypot(player.x - s["x"], player.y - s["y"]) < player.size + 20:
-                    s["collected"] = True
-                    self.collected_count += 1
-                    
-        # Bubbles Update
-        if random.random() < 0.05:
-            self.bubbles.append({"x": player.x, "y": player.y, "r": random.randint(2,6), "speed": random.randint(50, 100)})
+            if not s["collected"] and math.hypot(player.x - s["x"], player.y - s["y"]) < 40:
+                s["collected"] = True
+                self.collected_count += 1
         
-        for b in self.bubbles:
-            b["y"] -= b["speed"] * dt
-            b["x"] += math.sin(b["y"] * 0.05) * 50 * dt
-        self.bubbles = [b for b in self.bubbles if b["y"] > 0]
+        # Discoveries
+        for d in self.discoveries:
+            if not d["found"] and math.hypot(player.x - d["x"], player.y - d["y"]) < 50:
+                d["found"] = True
+                self.discovery_msg = d["msg"]
+                self.msg_timer = 3.0
+                self.oxygen = min(100.0, self.oxygen + 15.0)
 
-        # Win Condition
+        if self.msg_timer > 0: self.msg_timer -= dt
+
         if self.collected_count >= 3 and self.scanned_count >= 3:
             self.finished = True
             self.success = True
-            
-            if self.oxygen > 70: self.grade = "S"
-            elif self.oxygen > 50: self.grade = "A"
-            elif self.oxygen > 20: self.grade = "B"
-            else: self.grade = "C"
-            
-            self.message = "Research complete! The reef data is secured."
+            if self.oxygen > 60: self.grade = "S"
+            elif self.oxygen > 40: self.grade = "A"
+            else: self.grade = "B"
+            self.message = "Mission Success! Marine data uploaded."
+
+        if self.oxygen <= 0:
+             self.finished = True
+             self.success = False
+             self.message = "Out of Oxygen! Emergency surfacing failed."
 
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
-        
-        # Water Gradient Background
-        for i in range(10):
-            shade = 255 - i * 20
-            color = f"#00{shade:02x}ff" # Blueish
-            h = HEIGHT / 10
-            canvas.create_rectangle(0, i*h, WIDTH, (i+1)*h, fill=color, outline="")
+        # Water
+        for i in range(5):
+             shade = 180 - i*30
+             canvas.create_rectangle(0, i*(HEIGHT/5), WIDTH, (i+1)*(HEIGHT/5), fill=f"#00{shade:02x}ff", outline="")
+        canvas.create_rectangle(0, HEIGHT-60, WIDTH, HEIGHT, fill="#d2b48c") # Seabed
 
-        # Seabed
-        canvas.create_rectangle(0, HEIGHT-60, WIDTH, HEIGHT, fill="#e0d2a4", outline="")
+        for d in self.discoveries:
+             color = "#f1c40f" if not d["found"] else "#7f8c8d"
+             canvas.create_text(d["x"], d["y"], text="?", fill=color, font=("Arial", 20, "bold"))
         
-        # Samples
         for s in self.samples:
             if not s["collected"]:
-                canvas.create_oval(s["x"]-10, s["y"]-10, s["x"]+10, s["y"]+10, fill="#8a2be2", outline="#fff")
-                canvas.create_text(s["x"], s["y"]-20, text="SAMPLE", fill="#fff", font=("Helvetica", 8, "bold"))
-
-        # Fish
+                 canvas.create_oval(s["x"]-10, s["y"]-10, s["x"]+10, s["y"]+10, fill="#9b59b6", outline="#fff")
+        
         for f in self.fish:
-            fx = float(f["x"])
-            fy = float(f["y"])
-            color = str(f["color"])
-            w = float(f["w"])
-            # Simple fish shape
-            canvas.create_oval(fx-w/2, fy-10, fx+w/2, fy+10, fill=color, outline="")
-            # Tail
-            fdx = float(f.get("dx", 0.0))
-            tail_x = fx - w/2 if fdx > 0 else fx + w/2
-            canvas.create_polygon(tail_x, fy, tail_x + ( -10 if fdx>0 else 10), fy-10, tail_x + ( -10 if fdx>0 else 10), fy+10, fill=color)
-            
-            if f["scanned"]:
-                canvas.create_text(fx, fy-20, text="SCANNED", fill="#0f0", font=("Helvetica", 8, "bold"))
-            elif self.scan_target == f:
-                 canvas.create_oval(fx-w/2-5, fy-15, fx+w/2+5, fy+15, outline="#fff", width=2, dash=(4,4))
-                 
-        # Bubbles
-        for b in self.bubbles:
-            canvas.create_oval(b["x"]-b["r"], b["y"]-b["r"], b["x"]+b["r"], b["y"]+b["r"], outline="#fff", width=1)
-            
-        # Player (Diver look?)
-        # Base player draw is simple circle, maybe we add a scuba tank
+             canvas.create_oval(f["x"]-f["w"]/2, f["y"]-10, f["x"]+f["w"]/2, f["y"]+10, fill=f["color"])
+             if f["scanned"]: canvas.create_text(f["x"], f["y"]-20, text="SCAN", fill="#2ecc71", font=("Arial", 8, "bold"))
+
+        for s in self.sharks:
+             canvas.create_oval(s["x"]-s["w"]/2, s["y"]-20, s["x"]+s["w"]/2, s["y"]+20, fill="#ff4757")
+             canvas.create_polygon(s["x"]-s["w"]/2, s["y"], s["x"]-s["w"]/2-20, s["y"]-15, s["x"]-s["w"]/2-20, s["y"]+15, fill="#ff4757")
+
         player.draw(canvas)
-        canvas.create_rectangle(player.x-6, player.y-player.size-10, player.x+6, player.y-player.size, fill="#aaa", outline="#000") # Tank?
-
-        # HUD - Oxygen
-        bar_w = 200
-        canvas.create_rectangle(20, HEIGHT - 50, 20 + bar_w, HEIGHT - 30, outline="#fff", width=2)
-        canvas.create_rectangle(22, HEIGHT - 48, 22 + (bar_w-4) * (self.oxygen/100), HEIGHT - 32, fill="#0af", outline="")
-        canvas.create_text(20 + bar_w/2, HEIGHT - 40, text=f"OXYGEN: {int(self.oxygen)}%", fill="#fff", font=("Helvetica", 10, "bold"))
         
-        # HUD - Objectives
-        canvas.create_text(WIDTH-20, HEIGHT-60, anchor="e", text=f"Samples: {self.collected_count}/3", fill="#fff", font=("Helvetica", 12, "bold"))
-        canvas.create_text(WIDTH-20, HEIGHT-40, anchor="e", text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Helvetica", 12, "bold"))
-        
-        # Instructions
-        if self.scan_target and not self.scan_target["scanned"]:
-            pct = self.scan_timer / 1.5
-            canvas.create_text(player.x, player.y - 50, text="Hold SPACE to Scan", fill="#ff0", font=("Helvetica", 10, "bold"))
-            canvas.create_rectangle(player.x - 30, player.y - 45, player.x + 30, player.y - 40, outline="#fff")
-            canvas.create_rectangle(player.x - 29, player.y - 44, player.x - 29 + 58 * pct, player.y - 41, fill="#0f0", outline="")
+        # Discovery Bubble
+        if self.msg_timer > 0:
+             canvas.create_rectangle(player.x-60, player.y-90, player.x+60, player.y-50, fill="#fff", outline="#000")
+             canvas.create_text(player.x, player.y-70, text=self.discovery_msg, fill="#000", font=("Arial", 8))
 
-        if self.finished:
-            self.draw_result(canvas)
+        # HUD
+        canvas.create_rectangle(20, HEIGHT-40, 220, HEIGHT-20, outline="#fff")
+        canvas.create_rectangle(22, HEIGHT-38, 22+196*(self.oxygen/100), HEIGHT-22, fill="#0af")
+        canvas.create_text(WIDTH-100, 80, text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Arial", 12, "bold"))
+        canvas.create_text(WIDTH-100, 105, text=f"Samples: {self.collected_count}/3", fill="#fff", font=("Arial", 12, "bold"))
+
+        if self.finished: self.draw_result(canvas)
         self.draw_hud(canvas)

@@ -47,6 +47,7 @@ class RoboticsEngineerWorld(BaseWorld):
         self.current_req = random.choice(self.parts)
         self.robots_built = 0
         self.robot_stability = 100.0
+        player.speed = 286.0 # 260 * 1.10
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -61,8 +62,17 @@ class RoboticsEngineerWorld(BaseWorld):
             typ = random.choice(self.parts)
             side = random.choice(["left", "right"])
             x = 50 if side == "left" else WIDTH - 50
-            y = -20
-            self.active_parts.append({"x": x, "y": y, "type": typ, "speed": 100.0, "side": side})
+            y = -40
+            
+            # Prevent overlap
+            overlap = False
+            for p in self.active_parts:
+                if p["side"] == side and abs(p["y"] - y) < 60:
+                    overlap = True
+                    break
+            
+            if not overlap:
+                self.active_parts.append({"x": x, "y": y, "type": typ, "speed": 100.0, "side": side})
 
         new_parts = []
         for p in self.active_parts:

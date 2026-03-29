@@ -59,6 +59,9 @@ class BaseWorld:
             self.shake = max(0.0, self.shake - dt * 20)
 
     def calculate_grade(self) -> str:
+        # Override if world set a specific grade
+        if self.grade != "-": return self.grade
+        
         # Generic grading based on time remaining
         if not self.success: return "-"
         ratio = self.timer / self.duration

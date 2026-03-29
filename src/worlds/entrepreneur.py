@@ -9,124 +9,146 @@ from typing import Any
 class EntrepreneurWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
-            name="Entrepreneur",
-            summary="Build a startup while managing limited resources",
+            name="Cashflow Entrepreneur",
+            summary="Achieve financial freedom by building passive income",
             duration=90.0,
         )
         self.briefing = [
-             "STARTUP CHALLENGE: Your business must grow quickly!",
-             "As the Entrepreneur, you must allocate resources wisely",
-             "while balancing risk and growth opportunities.",
-             "Invest strategically to maximize profits.",
-             "Warning: Poor decisions may cause your startup to fail!"
+             "FINANCIAL CHALLENGE: Get out of the Rat Race!",
+             "Collect ASSETS to build your passive income.",
+             "Avoid LIABILITIES and DOODADS that drain your cash.",
+             "Your goal is to make your Passive Income exceed your Expenses.",
+             "Monopoly strategy: Buy high-ROI assets first!"
         ]
         self.hints = [
-             "Tip: Collect capital (golden coins) falling from above.",
-             "Tip: Deliver capital to blinking Opportunity Zones.",
-             "Tip: More expensive zones yield higher returns.",
-             "Tip: Balance your investments!"
+             "Tip: Green items are ASSETS (Passive Income up).",
+             "Tip: Red items are LIABILITIES (Expenses up).",
+             "Tip: Gold items are OPPORTUNITIES (Cash injection).",
+             "Tip: Balance your cash flow to win."
         ]
-        self.capital = 0
-        self.funds: list[dict[str, Any]] = []
-        self.zones: list[dict[str, Any]] = []
-        self.profit = 0
+        self.cash = 1000
+        self.passive_income = 0
+        self.expenses = 500
+        self.items: list[dict[str, Any]] = []
+        self.item_spawn_timer = 1.0
 
     def reset(self, player: Player) -> None:
-        player.reset(WIDTH / 2, HEIGHT - 100)
+        player.reset(WIDTH / 2, HEIGHT / 2)
         self.timer = self.duration
         self.finished = False
         self.success = False
         self.message = ""
+        self.cash = 1000
+        self.passive_income = 0
+        self.expenses = 500
+        self.items = []
+        self.item_spawn_timer = 1.0
         self.shake = 0.0
         self.particles = []
-        
-        self.capital = 0
-        self.funds = []
-        self.zones = [
-            {"x": WIDTH/4, "y": HEIGHT/2, "req": 5, "current": 0, "reward": 15},
-            {"x": WIDTH/2, "y": HEIGHT/3, "req": 10, "current": 0, "reward": 35},
-            {"x": WIDTH*3/4, "y": HEIGHT/2, "req": 3, "current": 0, "reward": 8},
-        ]
-        self.profit = 0
-        player.speed = 350.0
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
-
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
-        
-        # Spawn funds
-        if random.random() < 0.6 * dt:
-            self.funds.append({"x": random.uniform(50, WIDTH-50), "y": -20})
+
+        # Monthly Cashflow every 5 seconds
+        if int(self.timer) % 5 == 0 and int(self.timer - dt) % 5 != 0:
+             self.cash += (self.passive_income - self.expenses)
+             if self.cash < 0: self.cash = 0
+
+        # Spawn items
+        self.item_spawn_timer -= dt
+        if self.item_spawn_timer <= 0:
+            self.item_spawn_timer = random.uniform(1.0, 2.5)
+            r = random.random()
+            if r < 0.4: # Asset
+                 typ = "ASSET"; color = "#2ecc71"; cost = 500; val = 150
+            elif r < 0.7: # Liability
+                 typ = "LIABILITY"; color = "#e74c3c"; cost = 0; val = 100 # val is expense increase
+            else: # Doodad/Opp
+                 typ = "OPPORTUNITY"; color = "#f1c40f"; cost = 0; val = 400
             
-        new_funds = []
-        for f in self.funds:
-            f["y"] += 150.0 * dt
-            if abs(player.x - f["x"]) < 20 and abs(player.y - f["y"]) < 20:
-                self.capital += 1
-            elif f["y"] < HEIGHT + 20:
-                new_funds.append(f)
-        self.funds = new_funds
-        
-        # Interact with zones
-        for z in self.zones:
-            if abs(player.x - z["x"]) < 40 and abs(player.y - z["y"]) < 40:
-                if self.capital > 0 and z["current"] < z["req"]:
-                    self.capital -= 1
-                    z["current"] += 1
-                    
-            if z["current"] >= z["req"]:
-                self.profit += z["reward"]
-                # Respawn zone with new reqs
-                z["x"] = random.uniform(80, WIDTH-80)
-                z["y"] = random.uniform(HEIGHT/4, HEIGHT - 120)
-                z["req"] = random.randint(3, 15)
-                z["current"] = 0
-                z["reward"] = int(z["req"] * random.uniform(1.5, 3.5))
+            self.items.append({
+                "x": random.uniform(50, WIDTH-50),
+                "y": random.uniform(50, HEIGHT-50),
+                "type": typ,
+                "color": color,
+                "cost": cost,
+                "val": val,
+                "timer": 6.0
+            })
+
+        new_items = []
+        for it in self.items:
+            it["timer"] -= dt
+            # Interaction
+            if math.hypot(player.x - it["x"], player.y - it["y"]) < 40:
+                if it["type"] == "ASSET":
+                    if self.cash >= it["cost"]:
+                        self.cash -= it["cost"]
+                        self.passive_income += it["val"]
+                elif it["type"] == "LIABILITY":
+                    self.expenses += it["val"]
+                    self.shake = 2.0
+                elif it["type"] == "OPPORTUNITY":
+                    self.cash += it["val"]
+            elif it["timer"] > 0:
+                new_items.append(it)
+        self.items = new_items
+
+        if self.passive_income > self.expenses:
+            self.finished = True
+            self.success = True
+            self.message = "Financial Freedom! You have exited the rat race."
+            # Grade based on surplus
+            surplus = self.passive_income - self.expenses
+            if surplus > 1000: self.grade = "S"
+            elif surplus > 500: self.grade = "A"
+            else: self.grade = "B"
 
         if self.timer <= 0:
-            if self.profit >= 50:
-                self.finished = True
-                self.success = True
-                self.message = "Startup Acquired! You've built a successful unicorn."
-                if self.profit > 200: self.grade = "S"
-                elif self.profit > 150: self.grade = "A"
-                elif self.profit > 100: self.grade = "B"
-                else: self.grade = "C"
-            else:
-                self.finished = True
-                self.success = False
-                self.message = "Bankrupt! You didn't generate enough profit."
+            self.finished = True
+            self.success = False
+            self.message = "Stuck in the Rat Race! Time ran out."
 
-        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
-        bg = "#f3a683" if not self.high_contrast else "#000000"
+        # Monopoly board style background
+        bg = "#e8f5e9" if not self.high_contrast else "#000000"
         canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg)
+        
+        # Board segments
+        for i in range(0, WIDTH, 100):
+             canvas.create_line(i, 0, i, 50, fill="#aaa")
+             canvas.create_line(i, HEIGHT-50, i, HEIGHT, fill="#aaa")
+        for i in range(0, HEIGHT, 100):
+             canvas.create_line(0, i, 50, i, fill="#aaa")
+             canvas.create_line(WIDTH-50, i, WIDTH, i, fill="#aaa")
 
-        for z in self.zones:
-             color = "#f78fb3"
-             canvas.create_rectangle(z["x"]-40, z["y"]-40, z["x"]+40, z["y"]+40, fill=color, outline="#3dc1d3", width=2)
-             canvas.create_text(z["x"], z["y"]-15, text="OPPORTUNITY", fill="#3dc1d3", font=("Helvetica", 8, "bold"))
-             canvas.create_text(z["x"], z["y"]+5, text=f"Need: {z['current']}/{z['req']}", fill="#303952", font=("Helvetica", 10))
-             canvas.create_text(z["x"], z["y"]+25, text=f"ROI: +${z['reward']}", fill="#27ae60", font=("Helvetica", 10, "bold"))
-
-        for f in self.funds:
-             canvas.create_oval(f["x"]-10, f["y"]-10, f["x"]+10, f["y"]+10, fill="#f1c40f", outline="#f39c12", width=2)
-             canvas.create_text(f["x"], f["y"], text="$", fill="#d35400", font=("Helvetica", 10, "bold"))
+        for it in self.items:
+            canvas.create_rectangle(it["x"]-25, it["y"]-25, it["x"]+25, it["y"]+25, fill=it["color"], outline="#fff", width=2)
+            canvas.create_text(it["x"], it["y"], text=it["type"][0], fill="#fff", font=("Arial", 12, "bold"))
+            if it["type"] == "ASSET":
+                 canvas.create_text(it["x"], it["y"]+35, text=f"${it['cost']}", fill="#27ae60", font=("Arial", 8, "bold"))
 
         player.draw(canvas)
         
         # HUD
-        canvas.create_rectangle(20, 60, 200, 110, fill="#303952")
-        canvas.create_text(110, 75, text=f"Capital: ${self.capital}", fill="#f1c40f", font=("Helvetica", 14, "bold"))
-        canvas.create_text(110, 95, text=f"Profit: ${self.profit}", fill="#2ecc71", font=("Helvetica", 14, "bold"))
+        canvas.create_rectangle(10, 60, 300, 160, fill="#2c3e50", outline="#ecf0f1", width=2)
+        canvas.create_text(20, 80, anchor="w", text=f"Cash: ${int(self.cash)}", fill="#f1c40f", font=("Arial", 12, "bold"))
+        canvas.create_text(20, 105, anchor="w", text=f"Passive Income: ${self.passive_income}", fill="#2ecc71", font=("Arial", 11, "bold"))
+        canvas.create_text(20, 130, anchor="w", text=f"Expenses: ${self.expenses}", fill="#e74c3c", font=("Arial", 11, "bold"))
+        
+        # Progress Bar to Freedom
+        canvas.create_rectangle(20, 145, 280, 155, fill="#111")
+        progress = clamp(self.passive_income / max(1.0, self.expenses), 0.0, 1.0)
+        canvas.create_rectangle(22, 147, 22 + 256*progress, 153, fill="#2ecc71")
 
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)
+

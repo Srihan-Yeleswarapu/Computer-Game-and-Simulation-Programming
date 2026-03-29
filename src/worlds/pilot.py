@@ -54,7 +54,7 @@ class PilotWorld(BaseWorld):
 
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
-        self.fuel -= dt * 4  # Fuel drains over time
+        self.fuel -= dt * 2.5  # Balanced drainrate
         
         # Spawn clouds
         if random.random() < 0.05 + dt:
@@ -116,13 +116,14 @@ class PilotWorld(BaseWorld):
             self.success = True
             self.message = "Destination reached safely!"
             score = self.hull + self.fuel
-            if score > 160: self.grade = "S"
-            elif score > 120: self.grade = "A"
-            elif score > 80: self.grade = "B"
+            if score >= 150: self.grade = "S"
+            elif score >= 100: self.grade = "A"
+            elif score >= 50: self.grade = "B"
             else: self.grade = "C"
             
         self.update_particles(dt)
         self.draw(canvas, player)
+
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")

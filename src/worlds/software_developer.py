@@ -59,7 +59,8 @@ class SoftwareDeveloperWorld(BaseWorld):
                     "y": start_y + r * gap_y,
                     "bugged": random.random() < 0.2, # Initial bugs
                     "severity": random.uniform(2.0, 5.0),
-                    "id": len(self.servers)
+                    "id": len(self.servers),
+                    "cooldown": 0.0
                 })
                 
         # Connect servers (horizontal and vertical)
@@ -80,9 +81,12 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
         
+        for s in self.servers:
+            s["cooldown"] = max(0.0, s["cooldown"] - dt)
+        
         # New bugs spawn randomly over time
         if random.random() < 0.2 * dt:
-            clean = [s for s in self.servers if not s["bugged"]]
+            clean = [s for s in self.servers if not s["bugged"] and s["cooldown"] <= 0]
             if clean:
                 s = random.choice(clean)
                 s["bugged"] = True
@@ -91,12 +95,17 @@ class SoftwareDeveloperWorld(BaseWorld):
         # Bugs spread to connected nodes
         if random.random() < 0.1 * dt:
             bugged_ids = [s["id"] for s in self.servers if s["bugged"]]
+            spread_count = 0
             for c1, c2 in self.connections:
+                if spread_count >= 4: break
                 if (c1 in bugged_ids) != (c2 in bugged_ids):
-                    target = c2 if c1 in bugged_ids else c1
-                    if random.random() < 0.5:
-                        self.servers[target]["bugged"] = True
-                        self.servers[target]["severity"] = 2.0
+                    target_id = c2 if c1 in bugged_ids else c1
+                    target = self.servers[target_id]
+                    if not target["bugged"] and target["cooldown"] <= 0:
+                        if random.random() < 0.5:
+                            target["bugged"] = True
+                            target["severity"] = 2.0
+                            spread_count += 1
                         
         bug_count = 0
         self.active_server = -1
@@ -113,9 +122,10 @@ class SoftwareDeveloperWorld(BaseWorld):
         if self.active_server != -1 and "space" in keys:
             target = self.servers[self.active_server]
             if target["bugged"]:
-                self.fixing_progress += dt * 50.0 # Fix speed
+                self.fixing_progress += dt * 40.0 # Fix speed (100/40 = 2.5s)
                 if self.fixing_progress >= 100.0:
                     target["bugged"] = False
+                    target["cooldown"] = 5.0 # Wait before re-bugging
                     self.fixing_progress = 0.0
                     self.stability = min(100.0, self.stability + 5.0)
             else:
