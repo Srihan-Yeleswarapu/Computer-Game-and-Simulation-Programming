@@ -25,7 +25,7 @@ class RoboticsEngineerWorld(BaseWorld):
              "Tip: Check the requested part in the center blueprint.",
              "Tip: Wait for the correct part to drop onto the belts.",
              "Tip: Touch the parts to collect them.",
-             "Tip: Build 5 successful robots to win."
+             "Tip: Build 2 successful robots to win."
         ]
         self.parts = ["ARM", "LEG", "CHASSIS", "SENSOR", "CORE"]
         self.colors = ["#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#9b59b6"]
@@ -97,10 +97,10 @@ class RoboticsEngineerWorld(BaseWorld):
             self.success = False
             self.message = "Critical Failure! The prototype exploded."
             
-        if self.robots_built >= 3.0:
+        if self.robots_built >= 2.0:
             self.finished = True
             self.success = True
-            self.message = "Assembly complete! 3 functional prototypes built."
+            self.message = "Assembly complete! 2 functional prototypes built."
             if self.timer > 40: self.grade = "S"
             elif self.timer > 20: self.grade = "A"
             elif self.timer > 0: self.grade = "B"
