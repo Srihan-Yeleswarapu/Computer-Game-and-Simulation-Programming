@@ -194,7 +194,7 @@ class GameEngine:
                  for k, v in self.worlds.items():
                      if v == self.active_world:
                         self.save_system.mark_world_complete(k, self.active_world.grade, self.active_world.name)
-                         break
+                        break
 
         self.state = "menu"
         self.active_world = None
