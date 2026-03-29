@@ -386,6 +386,7 @@ class GameEngine:
             try:
                 pygame.mixer.music.load(music_path)
                 pygame.mixer.music.play(-1)
+                
                 print(f"Playing music: {music_path}")
             except pygame.error as e:
                 print(f"Pygame music error: {e}")
