@@ -196,10 +196,11 @@ class ATCWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Shift over! Skies navigated safely."
-            if self.landed_count >= 20: self.grade = "S"
-            elif self.landed_count >= 15: self.grade = "A"
-            elif self.landed_count >= 10: self.grade = "B"
-            else: self.grade = "C"
+            if self.landed_count >= 15: self.grade = "S"
+            elif self.landed_count >= 10: self.grade = "A"
+            elif self.landed_count >= 6: self.grade = "B"
+            elif self.landed_count >= 3: self.grade = "C"
+            else: self.grade = "D"
             
         self.update_particles(dt)
         self.draw(canvas, player)

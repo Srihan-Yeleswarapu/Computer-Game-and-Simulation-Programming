@@ -232,6 +232,7 @@ class GameEngine:
             # Skip logic update if tutorial is still running
             if self.active_world.tutorial_timer > 0:
                 self.active_world.draw(self.canvas, self.player)
+                self.root.after(16, self.loop) # MUST schedule next frame!
                 return
 
             try:

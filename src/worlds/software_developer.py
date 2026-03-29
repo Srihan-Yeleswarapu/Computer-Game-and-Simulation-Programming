@@ -10,27 +10,35 @@ class SoftwareDeveloperWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Software Developer",
-            summary="Fix system bugs before the application crashes",
+            summary="Debug code modules and push features under pressure",
             duration=50.0,
         )
         self.briefing = [
-             "SYSTEM ALERT: Critical bugs are crashing the application!",
-             "As the Software Developer, you must identify and fix errors",
-             "while keeping the system running smoothly.",
-             "Prioritize critical bugs and optimize performance.",
-             "Warning: Too many unresolved bugs will cause a system failure!"
+             "SYSTEM ALERT: Legacy code is breaking in production!",
+             "As the Lead Dev, you must fix bugs in the modules.",
+             "Walk to a RED module and hold SPACE to debug it.",
+             "Only 4 bugs can be active at once to prevent total crash.",
+             "Fix enough modules to save the release!"
         ]
         self.hints = [
-             "Tip: Focus on high-priority bugs (Red nodes) first.",
-             "Tip: Use WASD to navigate the server grid.",
-             "Tip: Hold SPACE over a bug to compile a fix.",
-             "Tip: Keep the system stable while implementing fixes."
+             "Tip: Focus on modules that have been red for a while.",
+             "Tip: Debugging takes about 2.5 seconds per bug.",
+             "Tip: Once fixed, a module stays safe for a few seconds.",
+             "Tip: Keep the total bug count below the limit."
         ]
-        self.servers: list[dict[str, Any]] = []
+        self.modules: list[dict[str, Any]] = []
+        for i in range(8):
+             self.modules.append({
+                  "x": 100 + (i % 4) * 200,
+                  "y": 150 + (i // 4) * 200,
+                  "status": "ok",
+                  "progress": 0.0,
+                  "cooldown": 0.0
+             })
+        self.fixed_count = 0
+        self.max_bugs = 4
+        self.bug_spawn_timer = 1.0
         self.stability = 100.0
-        self.connections: list[tuple[int, int]] = []
-        self.fixing_progress = 0.0
-        self.active_server = -1
 
     def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT / 2)
@@ -39,38 +47,14 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.success = False
         self.message = ""
         self.stability = 100.0
-        self.servers = []
-        self.connections = []
-        self.fixing_progress = 0.0
-        self.active_server = -1
+        self.fixed_count = 0
+        self.bug_spawn_timer = 1.0
+        for m in self.modules:
+            m["status"] = "ok"
+            m["progress"] = 0.0
+            m["cooldown"] = 0.0
         self.shake = 0.0
         self.particles = []
-        
-        # Create grid of servers
-        cols, rows = 5, 3
-        gap_x = (WIDTH - 200) / (cols - 1)
-        gap_y = (HEIGHT - 200) / (rows - 1)
-        start_x, start_y = 100, 100
-        
-        for r in range(rows):
-            for c in range(cols):
-                self.servers.append({
-                    "x": start_x + c * gap_x,
-                    "y": start_y + r * gap_y,
-                    "bugged": random.random() < 0.2, # Initial bugs
-                    "severity": random.uniform(2.0, 5.0),
-                    "id": len(self.servers),
-                    "cooldown": 0.0
-                })
-                
-        # Connect servers (horizontal and vertical)
-        for r in range(rows):
-            for c in range(cols):
-                i = r * cols + c
-                if c < cols - 1:
-                    self.connections.append((i, i + 1))
-                if r < rows - 1:
-                    self.connections.append((i, i + cols))
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -81,62 +65,35 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
         
-        for s in self.servers:
-            s["cooldown"] = max(0.0, s["cooldown"] - dt)
-        
-        bug_count = sum(1 for s in self.servers if s["bugged"])
-        
-        # New bugs spawn randomly over time (HARD LIMIT 4)
-        if bug_count < 4 and random.random() < 0.2 * dt:
-            clean = [s for s in self.servers if not s["bugged"] and s["cooldown"] <= 0]
-            if clean:
-                s = random.choice(clean)
-                s["bugged"] = True
-                s["severity"] = random.uniform(2.0, 4.0)
-                bug_count += 1
-                
-        # Bugs spread to connected nodes (HARD LIMIT 4)
-        if bug_count < 4 and random.random() < 0.1 * dt:
-            bugged_ids = [s["id"] for s in self.servers if s["bugged"]]
-            for c1, c2 in self.connections:
-                if bug_count >= 4: break
-                if (c1 in bugged_ids) != (c2 in bugged_ids):
-                    target_id = c2 if c1 in bugged_ids else c1
-                    target = self.servers[target_id]
-                    if not target["bugged"] and target["cooldown"] <= 0:
-                        if random.random() < 0.5:
-                            target["bugged"] = True
-                            target["severity"] = 2.0
-                            bug_count += 1
-                        
-        bug_count = 0
-        self.active_server = -1
-        
-        for s in self.servers:
-            if s["bugged"]:
-                bug_count += 1
-                self.stability -= dt * s["severity"] * 0.1
-                
-            # Check interaction
-            if math.hypot(player.x - float(s["x"]), player.y - float(s["y"])) < player.size + 30:
-                self.active_server = int(s["id"])
-                
-        if self.active_server != -1 and "space" in keys:
-            target = self.servers[self.active_server]
-            if target["bugged"]:
-                self.fixing_progress += dt * 80.0 # Extreme Fix speed (100/80 = 1.25s)
-                if self.fixing_progress >= 100.0:
-                    target["bugged"] = False
-                    target["cooldown"] = 5.0 # Wait before re-bugging
-                    self.fixing_progress = 0.0
-                    self.stability = min(100.0, self.stability + 5.0)
-            else:
-                self.fixing_progress = 0.0
-        else:
-            self.fixing_progress = max(0.0, self.fixing_progress - dt * 100.0) # Decay if let go
+        # Spawn bugs up to max_bugs
+        active_bugs = sum(1 for m in self.modules if m["status"] == "bug")
+        self.bug_spawn_timer -= dt
+        if self.bug_spawn_timer <= 0 and active_bugs < self.max_bugs:
+             candidate_indices = [i for i, m in enumerate(self.modules) if m["status"] == "ok" and m["cooldown"] <= 0]
+             if candidate_indices:
+                  idx = random.choice(candidate_indices)
+                  self.modules[idx]["status"] = "bug"
+                  self.modules[idx]["progress"] = 0.0
+                  self.bug_spawn_timer = random.uniform(1.5, 3.0)
 
-        if bug_count > len(self.servers) * 0.7:
-             self.shake = 4.0
+        # Update modules
+        for m in self.modules:
+             if m["cooldown"] > 0:
+                  m["cooldown"] -= dt
+                  
+             if m["status"] == "bug":
+                  self.stability -= dt * 0.5
+                  dist = math.hypot(player.x - m["x"], player.y - m["y"])
+                  if dist < 60 and "space" in keys:
+                       m["progress"] += dt * 40.0 # 2.5 seconds to fix
+                       if m["progress"] >= 100.0:
+                            m["status"] = "ok"
+                            m["progress"] = 0.0
+                            m["cooldown"] = 3.0 # Wait 3s before bugging again
+                            self.fixed_count += 1
+                  else:
+                       # Progress decays if you stop
+                       m["progress"] = max(0.0, m["progress"] - dt * 15.0)
 
         if self.stability <= 0:
             self.finished = True
@@ -144,14 +101,13 @@ class SoftwareDeveloperWorld(BaseWorld):
             self.message = "System Crash! Too many critical bugs."
             
         if self.timer <= 0:
-            if self.stability > 0:
-                self.finished = True
-                self.success = True
-                self.message = "Shift over! System is stable."
-                if self.stability > 80: self.grade = "S"
-                elif self.stability > 60: self.grade = "A"
-                elif self.stability > 40: self.grade = "B"
-                else: self.grade = "C"
+            self.finished = True
+            self.success = self.fixed_count >= 4
+            self.message = f"Shift Over! Fixed: {self.fixed_count} bugs"
+            if self.fixed_count >= 10: self.grade = "S"
+            elif self.fixed_count >= 7: self.grade = "A"
+            elif self.fixed_count >= 4: self.grade = "B"
+            else: self.grade = "C"
 
         self.update_particles(dt)
         self.draw(canvas, player)
