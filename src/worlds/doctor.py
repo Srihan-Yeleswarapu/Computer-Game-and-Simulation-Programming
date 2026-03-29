@@ -165,7 +165,7 @@ class DoctorWorld(BaseWorld):
         for patient in self.patients:
             if patient["status"] != "waiting":
                 continue
-            if math.hypot(player.x - patient["x"], player.y - patient["y"]) >= 80.0:
+            if math.hypot(player.x - patient["x"], player.y - patient["y"]) >= 100.0:
                 if self.active_patient_id == patient["id"]:
                     patient["cure_progress"] = 0.0
                 continue
@@ -173,8 +173,8 @@ class DoctorWorld(BaseWorld):
             treated_any = True
             self.active_patient_id = patient["id"]
             if self.held_item == patient["tool"]:
-                patient["cure_progress"] = clamp(patient["cure_progress"] + dt * 70.0, 0.0, 100.0)
-                patient["stability"] = clamp(patient["stability"] + dt * 9.0, 0.0, 100.0)
+                patient["cure_progress"] = clamp(patient["cure_progress"] + dt * 75.0, 0.0, 100.0)
+                patient["stability"] = clamp(patient["stability"] + dt * 22.0, 0.0, 100.0)
                 self.message = f"Treating {patient['condition']} with {patient['tool_name']}..."
                 if patient["cure_progress"] >= 100.0:
                     patient["status"] = "cured"
@@ -233,13 +233,14 @@ class DoctorWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
-        # tick_timer handled by engine
-        player.update(dt, keys, self.bounds)
-
-        if self.finished:
-            self.success = True
-            self.message = f"Shift complete. {self.saved_patients} patients cured."
-            self.grade = self.calculate_grade()
+        if self.timer <= 0:
+            self.finished = True
+            self.success = self.saved_patients >= 3
+            if self.success:
+                self.message = f"Shift complete. {self.saved_patients} patients cured."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Shift over! Only {self.saved_patients} patients stabilized. ER integrity low."
             self.draw(canvas, player)
             return
 

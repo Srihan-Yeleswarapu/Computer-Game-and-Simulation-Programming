@@ -163,10 +163,14 @@ class MarineWorld(BaseWorld):
             else: self.grade = "B"
             self.message = "Mission Success! Marine data uploaded."
 
-        if self.oxygen <= 0:
+        if self.timer <= 0:
              self.finished = True
-             self.success = False
-             self.message = "Out of Oxygen! Emergency surfacing failed."
+             self.success = self.collected_count + self.scanned_count >= 2
+             if self.success:
+                 self.message = f"Shift Over! Data uploaded: {self.scanned_count} scans & {self.collected_count} samples."
+                 self.grade = self.calculate_grade()
+             else:
+                 self.message = "Expedition failure! Too little data collected before blackout."
 
         self.draw(canvas, player)
 
@@ -202,6 +206,12 @@ class MarineWorld(BaseWorld):
 
         player.draw(canvas)
         
+        # Scanning Progress Bar
+        if self.scan_target and "space" in self.keys:
+             canvas.create_rectangle(player.x-30, player.y+35, player.x+30, player.y+42, fill="#333", outline="#fff")
+             canvas.create_rectangle(player.x-28, player.y+37, player.x-28 + 56 * (self.scan_timer/1.2), player.y+40, fill="#2ecc71", outline="")
+             canvas.create_text(player.x, player.y+50, text="SCANNING...", fill="#fff", font=("Arial", 8, "bold"))
+
         # Discovery Bubble
         if self.msg_timer > 0:
              canvas.create_rectangle(player.x-60, player.y-90, player.x+60, player.y-50, fill="#fff", outline="#000")

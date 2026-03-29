@@ -29,7 +29,7 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.5
+        self.spawn_timer = 0.2
         self.plane_limit = 35
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
@@ -46,7 +46,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.5
+        self.spawn_timer = 0.2
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -77,7 +77,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(1.2, 2.5)
+            self.spawn_timer = random.uniform(0.5, 1.5)
             side = random.randint(0, 3)
             # Spawn at edges, slightly inside so they don't instantly bounce
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
@@ -187,20 +187,18 @@ class ATCWorld(BaseWorld):
             self.success = False
             self.message = "Operational safety compromised! Mid-air collision detected."
             self.shake = 8.0
-            # Penalty grading
-            if self.landed_count >= 15: self.grade = "B"
-            elif self.landed_count >= 10: self.grade = "C"
-            else: self.grade = "D"
+            self.grade = "D"
             
+        # Success check
         if self.timer <= 0 and not crashed:
             self.finished = True
-            self.success = True
-            self.message = "Shift over! Skies navigated safely."
-            if self.landed_count >= 25: self.grade = "S"
-            elif self.landed_count >= 18: self.grade = "A"
-            elif self.landed_count >= 12: self.grade = "B"
-            elif self.landed_count >= 8: self.grade = "C"
-            else: self.grade = "D"
+            self.success = self.landed_count >= 4
+            if self.success:
+                self.message = f"Shift over! Successfully landed {self.landed_count} aircraft."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Shift failure! Only {self.landed_count} planes landed safely before airspace closure."
+                self.grade = "D"
             
         self.update_particles(dt)
         self.draw(canvas, player)

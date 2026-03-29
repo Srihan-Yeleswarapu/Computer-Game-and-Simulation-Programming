@@ -116,13 +116,20 @@ class BugHuntWorld(BaseWorld):
             if self.deploy_progress >= 0.99:
                 self.finished = True
                 self.success = True
-                
-                if self.timer > 20: self.grade = "S"
-                elif self.timer > 10: self.grade = "A"
-                elif self.timer > 5: self.grade = "B"
-                else: self.grade = "C"
-                
+                self.grade = self.calculate_grade() # Uses timer ratio helper
                 self.message = "Build is green and deployed. QA is happy!"
+                
+        if self.timer <= 0:
+            self.finished = True
+            self.success = self.index >= 3
+            if self.success:
+                self.message = f"Shift Over! Partial system secured ({self.index}/5 nodes patched)."
+                self.grade = ("C" if self.index < 3 else 
+                              "B" if self.index == 3 else 
+                              "A" if self.index == 4 else 
+                              "S" if self.index == 5 else "C")
+            else:
+                self.message = f"Breach critical! Only {self.index}/5 nodes secured before system lock."
         self.warning = ""
         for i, node in enumerate(self.nodes):
             if i == self.index:

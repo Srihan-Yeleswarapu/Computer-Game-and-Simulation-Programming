@@ -102,8 +102,12 @@ class GameDeveloperWorld(BaseWorld):
 
         if self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = "Development Cancelled! Deadline missed."
+            self.success = self.progress >= 50.0
+            if self.success:
+                self.message = f"Shift Over! Game launched in Early Access ({int(self.progress)}% complete)."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Development Cancelled! Build unstable at {int(self.progress)}% progress."
 
         self.draw(canvas, player)
 

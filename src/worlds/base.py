@@ -13,8 +13,7 @@ class BaseWorld:
         self.finished = False
         self.success = False
         self.message = ""
-        self.tutorial_timer = 4.0 # 4 second tutorial pause
-        self.auto_finish_on_timer = True
+        self.auto_finish_on_timer = False
         self.briefing = ["This is your task.", "Complete it skillfully."]
         self.bounds: tuple[float, float, float, float] = (0.0, 0.0, WIDTH, HEIGHT)
         self.warning = ""
@@ -42,15 +41,12 @@ class BaseWorld:
         if self.finished:
             return
             
-        if self.tutorial_timer > 0:
-            self.tutorial_timer = max(0.0, self.tutorial_timer - dt)
-            return
 
         self.timer = max(0.0, self.timer - dt)
         if self.timer <= 0.0 and self.auto_finish_on_timer:
             self.finished = True
             self.success = False
-            self.message = "Time ran out!"
+            self.message = "Deadline reached! Performance evaluation required."
         
         # Cycle hints every 4 seconds
         self.hint_display_timer += dt
@@ -114,38 +110,6 @@ class BaseWorld:
             text=f"Time: {self.timer:05.1f}s",
         )
         
-        if self.tutorial_timer > 0:
-             self.draw_tutorial(canvas)
-
-    def draw_tutorial(self, canvas: tk.Canvas) -> None:
-        # Dim the background
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#000", stipple="gray50")
-        
-        box_x1, box_y1, box_x2, box_y2 = WIDTH/2-280, HEIGHT/2-200, WIDTH/2+280, HEIGHT/2+200
-        canvas.create_rectangle(box_x1, box_y1, box_x2, box_y2, fill="#010101", outline=ACCENT, width=4)
-        canvas.create_text(WIDTH/2, box_y1 + 25, text="--- MISSION BRIEFING ---", fill=ACCENT, font=("Helvetica", 16, "bold"))
-        
-        # Briefing (Top-Down)
-        curr_y = box_y1 + 60
-        for line in self.briefing:
-             canvas.create_text(WIDTH/2, curr_y, text=line, fill="#fff", font=("Helvetica", 11), width=500, anchor="n")
-             # Calculate offset based on expected wrapping (rough estimate)
-             wrap_factor = 1 + (len(line) // 65)
-             curr_y += 20 * wrap_factor
-        
-        # Divider
-        canvas.create_line(box_x1 + 40, HEIGHT/2 + 20, box_x2 - 40, HEIGHT/2 + 20, fill="#333", width=1)
-        
-        # Tips (Bottom-Up)
-        curr_y = box_y2 - 60
-        canvas.create_text(WIDTH/2, curr_y - (len(self.hints) * 20) - 25, text="TIPS & CONTROLS:", fill="#ffff00", font=("Helvetica", 11, "bold"), anchor="n")
-        
-        for hint in reversed(self.hints):
-             canvas.create_text(WIDTH/2, curr_y, text=hint, fill="#bbb", font=("Helvetica", 9), anchor="s")
-             curr_y -= 20
-        
-        # Countdown
-        canvas.create_text(WIDTH/2, box_y2 - 25, text=f"STARTING IN {int(self.tutorial_timer)+1}...", fill=SUCCESS, font=("Helvetica", 12, "bold"))
     
     def draw_particles(self, canvas: tk.Canvas):
         for p in self.particles:

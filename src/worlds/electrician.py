@@ -124,8 +124,12 @@ class ElectricianWorld(BaseWorld):
             
         if self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = "Blackout! You failed to restore power in time."
+            self.success = self.power_level >= 40.0
+            if self.success:
+                self.message = f"Shift Over! Power restored to {int(self.power_level)}% of the city."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = "Blackout! Total failure to secure the power grid."
 
         self.update_particles(dt)
         self.draw(canvas, player)

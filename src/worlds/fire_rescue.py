@@ -11,7 +11,7 @@ class FireRescueWorld(BaseWorld):
         super().__init__(
             name="Firefighter Rescue",
             summary="Navigate smoke, dodge flames, and carry survivors out",
-            duration=48.0,
+            duration=55.0,
         )
         self.briefing = [
              "EMERGENCY CALL: A high-rise building is currently ablaze downtown.",
@@ -147,12 +147,14 @@ class FireRescueWorld(BaseWorld):
                 if self.heat > 40:
                     player.reset(self.bounds[0] + 20, HEIGHT / 2)
                     self.heat = 0.0
-        if self.saved >= 3 and self.timer <= 0:
-            # Time out but enough saved
+        if self.timer <= 0:
             self.finished = True
-            self.success = True
-            self.grade = "C" if self.saved == 3 else "B"
-            self.message = f"Mission passed. {self.saved}/5 survivors rescued."
+            self.success = self.saved >= 2
+            if self.success:
+                self.message = f"Shift Over! {self.saved}/5 survivors rescued from the fire."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Fire out of control! Only {self.saved}/5 survivors evacuated."
             
         if self.saved >= 5:
             self.finished = True

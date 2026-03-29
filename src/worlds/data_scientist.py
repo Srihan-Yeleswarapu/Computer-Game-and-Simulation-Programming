@@ -86,8 +86,12 @@ class DataScientistWorld(BaseWorld):
             
         if self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = "Failed! Data analysis resulted in poor predictions."
+            self.success = self.model_accuracy >= 50.0
+            if self.success:
+                self.message = f"Shift Over! Model partially trained ({int(self.model_accuracy)}% confidence)."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Deadline missed! Model confidence too low ({int(self.model_accuracy)}%)."
 
         self.update_particles(dt)
         self.draw(canvas, player)

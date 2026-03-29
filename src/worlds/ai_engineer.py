@@ -91,8 +91,12 @@ class AIEngineerWorld(BaseWorld):
             
         if self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = "Failed! The AI model remained undertrained."
+            self.success = self.accuracy >= 60.0
+            if self.success:
+                self.message = f"Shift Over! Model partially trained ({int(self.accuracy)}% accuracy)."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = f"Deadline missed! AI model instability at {int(self.accuracy)}% accuracy."
 
         self.update_particles(dt)
         self.draw(canvas, player)

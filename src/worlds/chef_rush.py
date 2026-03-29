@@ -104,18 +104,19 @@ class ChefRushWorld(BaseWorld):
         if math.hypot(player.x - self.service_pos[0], player.y - self.service_pos[1]) < 60:
              if self.held_item and self.state == "COOKED":
                   self.money += 50
+                  self.orders_completed += 1
                   self.new_recipe()
                   self.timer += 3.0
 
         if self.timer <= 0:
             self.finished = True
-            self.success = self.money >= 100
-            self.message = f"Shift Over! Earned: ${self.money}"
-            if self.money >= 200: self.grade = "S"
-            elif self.money >= 150: self.grade = "A"
-            elif self.money >= 100: self.grade = "B"
-            elif self.money >= 50: self.grade = "C"
-            else: self.grade = "D"
+            self.success = self.money > 0
+            if self.success:
+                self.message = f"Shift over! Kitchen served {self.orders_completed} orders. Profit: ${self.money}"
+                self.grade = self.calculate_grade()
+            else:
+                self.message = "Deadline missed! The restaurant failed to break even."
+                self.grade = "F"
 
         self.draw(canvas, player)
 

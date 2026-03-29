@@ -88,53 +88,68 @@ class StartupFounderWorld(BaseWorld):
         for it in self.items:
             it["timer"] -= dt
             # Interaction
-            if math.hypot(player.x - it["x"], player.y - it["y"]) < 40:
-                if it["type"] == "EQUITY":
-                    if self.cash >= it["cost"]:
-                        self.cash -= it["cost"]
-                        self.revenue += it["val"]
-                elif it["type"] == "DEBT":
-                    self.burn_rate += it["val"]
-                    self.shake = 2.0
-                elif it["type"] == "VENTURE CAP":
-                    self.cash += it["val"]
-            elif it["timer"] > 0:
-                new_items.append(it)
-        self.items = new_items
+        
+        # Monthly finance cycle
+        self.cash += (self.revenue - self.burn_rate) * dt * 0.5
+        self.valuation = (self.revenue * 12) * (1 + self.market_share/100)
 
-        if self.revenue > self.burn_rate:
+        # Spawn task opportunities
+        if random.random() < 1.0 * dt:
+            self.tasks.append({"x": random.uniform(100, WIDTH-100), "y": random.uniform(100, HEIGHT-200), "value": random.randint(50, 200)})
+
+        new_tasks = []
+        for t in self.tasks:
+            if math.hypot(player.x - t["x"], player.y - t["y"]) < 40:
+                self.cash += t["value"]
+                self.market_share += 0.1
+            else:
+                new_tasks.append(t)
+        self.tasks = new_tasks
+
+        # Upgrade collisions
+        for u in self.upgrades:
+            if self.cash >= u["cost"] and math.hypot(player.x - u["x"], player.y - u["y"]) < 50:
+                 if "space" in keys:
+                      self.cash -= u["cost"]
+                      self.revenue += u.get("rev_boost", 0)
+                      self.market_share += u.get("market_boost", 0)
+                      self.burn_rate += u.get("burn_inc", 0)
+                      u["cost"] = int(u["cost"] * 1.5) # Increase cost for next time
+                      self.shake = 3.0
+
+        if self.cash <= 0:
             self.finished = True
-            self.success = True
-            self.message = "Profit Equilibrium! Startup Scaled Successfully."
-            surplus = self.revenue - self.burn_rate
-            if surplus > 1000: self.grade = "S"
-            elif surplus > 500: self.grade = "A"
-            else: self.grade = "B"
+            self.success = False
+            self.message = "Bankrupt! The startup ran out of runway."
+            self.grade = "F"
 
         if self.timer <= 0:
             self.finished = True
-            if not self.message:
-                self.success = False
-                self.message = "Insolvency! Ran out of time to pivot."
+            self.success = self.cash > 0
+            if self.success:
+                self.message = f"Shift Over! Valuation: ${int(self.valuation)}. Cash: ${int(self.cash)}"
+                self.grade = self.calculate_grade()
+            else:
+                self.message = "Failed to secure the business model."
 
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
-        bg = "#e8f5e9" if not self.high_contrast else "#000000"
+        bg = "#1e272e" if not self.high_contrast else "#000000"
         canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg)
-        
-        # Grid pattern
-        for i in range(0, WIDTH, 100):
-             canvas.create_line(i, 0, i, HEIGHT, fill="#d0e8d0")
-        for i in range(0, HEIGHT, 100):
-             canvas.create_line(0, i, WIDTH, i, fill="#d0e8d0")
 
-        for it in self.items:
-            canvas.create_rectangle(it["x"]-25, it["y"]-25, it["x"]+25, it["y"]+25, fill=it["color"], outline="#fff", width=2)
-            canvas.create_text(it["x"], it["y"], text=it["type"][0], fill="#fff", font=("Arial", 10, "bold"))
-            if it["type"] == "EQUITY":
-                 canvas.create_text(it["x"], it["y"]+35, text=f"${it['cost']}", fill="#27ae60", font=("Arial", 8, "bold"))
+        # Draw tasks
+        for t in self.tasks:
+             canvas.create_oval(t["x"]-15, t["y"]-15, t["x"]+15, t["y"]+15, fill="#2ed573", outline="#fff")
+             canvas.create_text(t["x"], t["y"], text="$", fill="#fff", font=("Arial", 10, "bold"))
+
+        # Draw upgrades
+        for u in self.upgrades:
+             color = "#f1c40f" if self.cash >= u["cost"] else "#7f8c8d"
+             canvas.create_rectangle(u["x"]-60, u["y"]-40, u["x"]+60, u["y"]+40, outline=color, width=2)
+             canvas.create_text(u["x"], u["y"]-15, text=u["name"], fill=color, font=("Arial", 10, "bold"))
+             canvas.create_text(u["x"], u["y"]+10, text=f"${u['cost']}", fill=color, font=("Arial", 12, "bold"))
 
         player.draw(canvas)
         

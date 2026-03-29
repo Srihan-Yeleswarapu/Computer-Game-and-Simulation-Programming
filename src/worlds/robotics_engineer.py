@@ -107,8 +107,12 @@ class RoboticsEngineerWorld(BaseWorld):
             
         if self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = "Time's up! Factory shut down."
+            self.success = self.robots_built >= 1.0
+            if self.success:
+                self.message = f"Shift Over! Factory produced {int(self.robots_built)} functional prototypes."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = "Deadline missed! The assembly line failed to produce a working unit."
 
         self.update_particles(dt)
         self.draw(canvas, player)
