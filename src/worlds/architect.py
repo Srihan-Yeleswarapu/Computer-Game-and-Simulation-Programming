@@ -256,8 +256,9 @@ class ArchitectWorld(BaseWorld):
         canvas.create_text(20, 20, anchor="w", text=f"Budget: ${self.budget}", font=("Helvetica", 16, "bold"), fill="#000")
         
         if self.phase == "build":
-            canvas.create_text(WIDTH/2, 30, text="1: Lobby($10)  2: Books($15)  3: Eco-Roof($20)  4: Elevator($25)", font=("Helvetica", 12), fill="#000")
-            canvas.create_text(WIDTH/2, 50, text=f"Selected: {self.room_types[self.selected_room]['name']} - Press SPACE to Build, ENTER to Test", font=("Helvetica", 12, "bold"), fill="#000")
+            canvas.create_text(WIDTH/2, 25, text="--- ROOM SELECTION MENU ---", font=("Helvetica", 10, "bold"), fill="#222")
+            canvas.create_text(WIDTH/2, 45, text="[1] Lobby (Base)  [2] Books (Center)  [3] Eco-Roof (Top)  [4] Elevator (Core)", font=("Helvetica", 11), fill="#000")
+            canvas.create_text(WIDTH/2, 65, text=f"Active Tool: {self.room_types[self.selected_room]['name']} | ${self.room_types[self.selected_room]['cost']} - Press SPACE to anchor", font=("Helvetica", 11, "bold"), fill="#000")
         else:
             canvas.create_text(WIDTH/2, 50, text=f"WIND TEST: {int(self.wind_force)} mph", font=("Helvetica", 16, "bold"), fill="#d00")
 

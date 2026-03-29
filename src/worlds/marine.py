@@ -108,9 +108,18 @@ class MarineWorld(BaseWorld):
         for s in self.sharks:
             s["x"] += s["dx"] * dt
             if s["x"] < x1 or s["x"] > x2: s["dx"] *= -1
-            if math.hypot(player.x - s["x"], player.y - s["y"]) < 50:
-                 self.oxygen = max(0.0, self.oxygen - 10.0 * dt)
-                 self.shake = 2.0
+            
+            # Shark Bite Logic
+            dist = math.hypot(player.x - s["x"], player.y - s["y"])
+            if dist < 50:
+                 # Check for recent bite to prevent instant death
+                 if not s.get("bite_cooldown", 0) > 0:
+                      self.oxygen = max(0.0, self.oxygen - 15.0) # BIG HIT
+                      self.shake = 8.0
+                      s["bite_cooldown"] = 2.0 # Wait 2s before biting again
+            
+            if s.get("bite_cooldown", 0) > 0:
+                 s["bite_cooldown"] -= dt
 
         # Scanning
         self.scan_target = None
@@ -178,8 +187,14 @@ class MarineWorld(BaseWorld):
              if f["scanned"]: canvas.create_text(f["x"], f["y"]-20, text="SCAN", fill="#2ecc71", font=("Arial", 8, "bold"))
 
         for s in self.sharks:
-             canvas.create_oval(s["x"]-s["w"]/2, s["y"]-20, s["x"]+s["w"]/2, s["y"]+20, fill="#ff4757")
-             canvas.create_polygon(s["x"]-s["w"]/2, s["y"], s["x"]-s["w"]/2-20, s["y"]-15, s["x"]-s["w"]/2-20, s["y"]+15, fill="#ff4757")
+             sx_p, sy_p = s["x"], s["y"]
+             # Shark Body
+             canvas.create_oval(sx_p-s["w"]/2, sy_p-20, sx_p+s["w"]/2, sy_p+20, fill="#ff4757", outline="#000")
+             # Tail
+             tail_dir = -1 if s["dx"] > 0 else 1
+             canvas.create_polygon(sx_p + tail_dir*s["w"]/2, sy_p, sx_p + tail_dir*(s["w"]/2+20), sy_p-15, sx_p + tail_dir*(s["w"]/2+20), sy_p+15, fill="#ff4757", outline="#000")
+             # Dorsal Fin
+             canvas.create_polygon(sx_p-10, sy_p-15, sx_p+10, sy_p-15, sx_p, sy_p-40, fill="#ff4757", outline="#000")
 
         player.draw(canvas)
         

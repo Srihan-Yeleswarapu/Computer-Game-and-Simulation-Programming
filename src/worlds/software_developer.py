@@ -123,33 +123,20 @@ class SoftwareDeveloperWorld(BaseWorld):
         bg = "#1e272e" if not self.high_contrast else "#000000"
         canvas.create_rectangle(sx, sy, WIDTH+sx, HEIGHT+sy, fill=bg)
         
-        # Connections
-        for c1, c2 in self.connections:
-            s1 = self.servers[c1]
-            s2 = self.servers[c2]
-            color = "#ff3f34" if s1["bugged"] and s2["bugged"] else "#3c40c6"
-            if self.high_contrast: color = "#ff0000" if s1["bugged"] and s2["bugged"] else "#fff"
-            canvas.create_line(s1["x"]+sx, s1["y"]+sy, s2["x"]+sx, s2["y"]+sy, fill=color, width=3)
+        # Grid/Nodes
+        for m in self.modules:
+            color = "#ff3f34" if m["status"] == "bug" else "#2ecc71"
+            r = 35
+            width = 3 if m["status"] == "bug" else 1
+            canvas.create_rectangle(m["x"]-r+sx, m["y"]-r+sy, m["x"]+r+sx, m["y"]+r+sy, fill=color, outline="#fff", width=width)
             
-        # Servers
-        for i, s in enumerate(self.servers):
-            color = "#ff3f34" if s["bugged"] else "#0fbcf9"
-            if self.high_contrast: color = "#ff0000" if s["bugged"] else "#00ff00"
-            r = 25
-            outline = "#fff" if i == self.active_server else ("#ffa801" if s["bugged"] and s["severity"] > 4.0 else "")
-            width = 3 if outline else 0
+            label = "ERROR" if m["status"] == "bug" else "SYSTEM OK"
+            canvas.create_text(m["x"]+sx, m["y"]+sy, text=label, fill="#fff", font=("Courier", 10, "bold"))
             
-            canvas.create_rectangle(s["x"]-r+sx, s["y"]-r+sy, s["x"]+r+sx, s["y"]+r+sy, fill=color, outline=outline, width=width)
-            
-            if s["bugged"]:
-                canvas.create_text(s["x"]+sx, s["y"]+sy, text="BUG", fill="#fff", font=("Courier", 10, "bold"))
-            else:
-                canvas.create_text(s["x"]+sx, s["y"]+sy, text="OK", fill="#fff", font=("Courier", 10))
-                
             # Progress bar for fix
-            if i == self.active_server and s["bugged"]:
-                canvas.create_rectangle(s["x"]-30+sx, s["y"]+30+sy, s["x"]+30+sx, s["y"]+38+sy, fill="#333", outline="#fff")
-                canvas.create_rectangle(s["x"]-28+sx, s["y"]+32+sy, s["x"]-28 + 56 * (self.fixing_progress/100.0) + sx, s["y"]+36+sy, fill="#fff", outline="")
+            if m["status"] == "bug" and m["progress"] > 0:
+                canvas.create_rectangle(m["x"]-30+sx, m["y"]+45+sy, m["x"]+30+sx, m["y"]+52+sy, fill="#333", outline="#fff")
+                canvas.create_rectangle(m["x"]-28+sx, m["y"]+47+sy, m["x"]-28 + 56 * (m["progress"]/100.0) + sx, m["y"]+50+sy, fill="#fff", outline="")
                 
         # Stability UI
         canvas.create_rectangle(WIDTH/2 - 150, 60, WIDTH/2 + 150, 80, fill="#333")
@@ -158,10 +145,7 @@ class SoftwareDeveloperWorld(BaseWorld):
         
         # Player
         player.draw(canvas)
-        # Extra highlight for player
-        if "space" in self.keys and self.active_server != -1 and self.servers[self.active_server]["bugged"]:
-             canvas.create_oval(player.x-player.size-5, player.y-player.size-5, player.x+player.size+5, player.y+player.size+5, outline="#fff", width=2, dash=(4,4))
-
+        
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)
