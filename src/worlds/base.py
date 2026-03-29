@@ -26,6 +26,7 @@ class BaseWorld:
         self.grade = "-"
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
+        self.tutorial_timer = 4.0
         self.high_contrast = False
         self.particles: list[Particle] = []
         self.shake = 0.0
@@ -50,12 +51,6 @@ class BaseWorld:
             self.finished = True
             self.success = False
             self.message = "Time ran out!"
-        
-        # Cycle hints every 4 seconds
-        self.hint_display_timer += dt
-        if self.hint_display_timer > 3.0:
-            self.hint_display_timer = 0.0
-            self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
         
         # Cycle hints every 4 seconds
         self.hint_display_timer += dt
@@ -126,21 +121,31 @@ class BaseWorld:
         # Dim the background
         canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#000", stipple="gray50")
         
-        canvas.create_rectangle(WIDTH/2-250, HEIGHT/2-160, WIDTH/2+250, HEIGHT/2+160, fill="#000", outline=ACCENT, width=3)
-        canvas.create_text(WIDTH/2, HEIGHT/2-135, text="--- MISSION BRIEFING ---", fill=ACCENT, font=("Helvetica", 14, "bold"))
+        box_x1, box_y1, box_x2, box_y2 = WIDTH/2-280, HEIGHT/2-200, WIDTH/2+280, HEIGHT/2+200
+        canvas.create_rectangle(box_x1, box_y1, box_x2, box_y2, fill="#010101", outline=ACCENT, width=4)
+        canvas.create_text(WIDTH/2, box_y1 + 25, text="--- MISSION BRIEFING ---", fill=ACCENT, font=("Helvetica", 16, "bold"))
         
-        y = HEIGHT/2-90
+        # Briefing (Top-Down)
+        curr_y = box_y1 + 60
         for line in self.briefing:
-             canvas.create_text(WIDTH/2, y, text=line, fill="#fff", font=("Helvetica", 11), width=440)
-             y += 22 # Increased spacing
+             canvas.create_text(WIDTH/2, curr_y, text=line, fill="#fff", font=("Helvetica", 11), width=500, anchor="n")
+             # Calculate offset based on expected wrapping (rough estimate)
+             wrap_factor = 1 + (len(line) // 65)
+             curr_y += 20 * wrap_factor
         
-        canvas.create_text(WIDTH/2, HEIGHT/2+5, text="TIPS & CONTROLS:", fill="#ffff00", font=("Helvetica", 11, "bold"))
-        y = HEIGHT/2 + 35
-        for hint in self.hints:
-             canvas.create_text(WIDTH/2, y, text=hint, fill="#bbb", font=("Helvetica", 9))
-             y += 18 # Proper spacing
+        # Divider
+        canvas.create_line(box_x1 + 40, HEIGHT/2 + 20, box_x2 - 40, HEIGHT/2 + 20, fill="#333", width=1)
         
-        canvas.create_text(WIDTH/2, HEIGHT/2+135, text=f"STARTING IN {int(self.tutorial_timer)+1}...", fill=SUCCESS, font=("Helvetica", 12, "bold"))
+        # Tips (Bottom-Up)
+        curr_y = box_y2 - 60
+        canvas.create_text(WIDTH/2, curr_y - (len(self.hints) * 20) - 25, text="TIPS & CONTROLS:", fill="#ffff00", font=("Helvetica", 11, "bold"), anchor="n")
+        
+        for hint in reversed(self.hints):
+             canvas.create_text(WIDTH/2, curr_y, text=hint, fill="#bbb", font=("Helvetica", 9), anchor="s")
+             curr_y -= 20
+        
+        # Countdown
+        canvas.create_text(WIDTH/2, box_y2 - 25, text=f"STARTING IN {int(self.tutorial_timer)+1}...", fill=SUCCESS, font=("Helvetica", 12, "bold"))
     
     def draw_particles(self, canvas: tk.Canvas):
         for p in self.particles:
