@@ -62,8 +62,9 @@ class SaveSystem:
         except Exception as e:
             print(f"Failed to load save: {e}")
 
-    def mark_world_complete(self, world_id: str, grade: str = "-"):
-        print(f"[SaveSystem] Marking world '{world_id}' as complete with rank {grade}...")
+    def mark_world_complete(self, world_id: str, grade: str = "-", display_name: str | None = None):
+        display_name = display_name or world_id
+        print(f"[SaveSystem] Marking world '{display_name}' ({world_id}) as complete with rank {grade}...")
         
         # Always update grade if better (S > A > B > C > -)
         ranks = {"S": 5, "A": 4, "B": 3, "C": 2, "-": 1}
@@ -72,10 +73,14 @@ class SaveSystem:
         if ranks.get(grade, 0) > ranks.get(current_grade, 0):
              self.data["world_grades"][world_id] = grade
              
-        if world_id not in self.data["completed_worlds"]:
-            self.data["completed_worlds"].append(world_id)
-            print(f"[SaveSystem] World '{world_id}' added! Total: {len(self.data['completed_worlds'])}/6")
+        if display_name not in self.data["completed_worlds"]:
+            self.data["completed_worlds"].append(display_name)
+            print(f"[SaveSystem] World '{display_name}' added! Total: {len(self.data['completed_worlds'])}")
             
         self.save()
+
+    def get_grade(self, world_id: str, default: str | None = None) -> str | None:
+        """Returns the best grade earned for the requested world identifier."""
+        return self.data.get("world_grades", {}).get(world_id, default)
 
 

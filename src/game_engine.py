@@ -193,7 +193,7 @@ class GameEngine:
                  # Find key associated with world
                  for k, v in self.worlds.items():
                      if v == self.active_world:
-                         self.save_system.mark_world_complete(k, self.active_world.grade)
+                        self.save_system.mark_world_complete(k, self.active_world.grade, self.active_world.name)
                          break
 
         self.state = "menu"
@@ -300,7 +300,7 @@ class GameEngine:
             y = start_y + row * gap_y
             
             world = self.worlds[key]
-            grade = self.save_system.get_grade(world.name)
+            grade = self.save_system.get_grade(key)
             
             # Draw Portal Panel
             color = "#00ff00" if grade and grade != "C" else "#444444"
@@ -324,7 +324,7 @@ class GameEngine:
             
             if x <= self.mouse_x <= x + 160 and y <= self.mouse_y <= y + 80:
                 world = self.worlds[key]
-                grade = self.save_system.get_grade(world.name)
+                grade = self.save_system.get_grade(key)
                 
                 # Draw tooltip box
                 tx = min(self.mouse_x + 10, WIDTH - 250)
