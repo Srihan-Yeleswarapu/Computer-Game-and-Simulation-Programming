@@ -14,6 +14,7 @@ class BaseWorld:
         self.success = False
         self.message = ""
         self.tutorial_timer = 4.0 # 4 second tutorial pause
+        self.auto_finish_on_timer = True
         self.briefing = ["This is your task.", "Complete it skillfully."]
         self.bounds: tuple[float, float, float, float] = (0.0, 0.0, WIDTH, HEIGHT)
         self.warning = ""
@@ -26,7 +27,6 @@ class BaseWorld:
         self.grade = "-"
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
-        self.tutorial_timer = 4.0
         self.high_contrast = False
         self.particles: list[Particle] = []
         self.shake = 0.0
@@ -47,7 +47,7 @@ class BaseWorld:
             return
 
         self.timer = max(0.0, self.timer - dt)
-        if self.timer <= 0.0:
+        if self.timer <= 0.0 and self.auto_finish_on_timer:
             self.finished = True
             self.success = False
             self.message = "Time ran out!"

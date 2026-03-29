@@ -13,6 +13,7 @@ class ArchitectWorld(BaseWorld):
             summary="Lay out a civic library that meets budget, program, adjacencies, and circulation goals.",
             duration=95.0,
         )
+        self.auto_finish_on_timer = False
         self.briefing = [
             "CITY BRIEF: Deliver a realistic concept plan for a new public eco-library.",
             "As lead architect, place the required spaces, keep within budget, and build a coherent plan.",
