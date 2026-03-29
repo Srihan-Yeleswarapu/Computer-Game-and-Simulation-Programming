@@ -111,10 +111,11 @@ class ChefRushWorld(BaseWorld):
             self.finished = True
             self.success = self.money >= 100
             self.message = f"Shift Over! Earned: ${self.money}"
-            if self.money >= 350: self.grade = "S"
-            elif self.money >= 250: self.grade = "A"
-            elif self.money >= 150: self.grade = "B"
-            else: self.grade = "C"
+            if self.money >= 200: self.grade = "S"
+            elif self.money >= 150: self.grade = "A"
+            elif self.money >= 100: self.grade = "B"
+            elif self.money >= 50: self.grade = "C"
+            else: self.grade = "D"
 
         self.draw(canvas, player)
 
