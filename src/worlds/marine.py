@@ -35,6 +35,7 @@ class MarineWorld(BaseWorld):
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
+        self.tutorial_timer = 4.0
         
         self.scan_target: dict | None = None
         self.scan_timer = 0.0

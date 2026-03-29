@@ -27,6 +27,7 @@ class StartupFounderWorld(BaseWorld):
              "Tip: Balance your cash flow to win."
         ]
         self.cash = 1000
+        self.tutorial_timer = 4.0
         self.revenue = 0
         self.burn_rate = 500
         self.items: list[dict[str, Any]] = []
@@ -98,7 +99,8 @@ class StartupFounderWorld(BaseWorld):
             self.tasks.append({"x": random.uniform(100, WIDTH-100), "y": random.uniform(100, HEIGHT-200), "value": random.randint(50, 200)})
 
         new_tasks = []
-        for t in self.tasks:
+        self.tasks = new_tasks
+        for t in new_tasks:
             if math.hypot(player.x - t["x"], player.y - t["y"]) < 40:
                 self.cash += t["value"]
                 self.market_share += 0.1

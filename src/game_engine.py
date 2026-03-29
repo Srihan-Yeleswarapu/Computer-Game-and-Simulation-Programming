@@ -33,8 +33,9 @@ class GameEngine:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Career Worlds")
+        self.root.configure(bg="#000000")
         self.canvas = tk.Canvas(self.root, width=WIDTH, height=HEIGHT, bg=BG, highlightthickness=0)
-        self.canvas.pack()
+        self.canvas.pack(expand=True)
         self.player = Player()
         self.save_system = SaveSystem()
         

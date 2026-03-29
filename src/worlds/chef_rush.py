@@ -11,149 +11,193 @@ class ChefRushWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Executive Chef",
-            summary="Prepare recipes using interactive mouse techniques",
-            duration=50.0,
+            summary="Take orders, follow the recipe book, and deliver food to impatient customers!",
+            duration=75.0,
         )
         self.briefing = [
-            "KITCHEN TYCOON: The VIP table wants quality food!",
-            "1. Grab ingredients from the PANTRY.",
-            "2. Take to PREP and MOVE MOUSE to chop.",
-            "3. Take to STOVE and CIRCLE MOUSE to stir.",
-            "4. Deliver at SERVICE to earn CASH!"
+            "KITCHEN RUSH: Manage 3 simultaneous customers!",
+            "1. Walk up to the COUNTER to see a customer's order.",
+            "2. Stand by the RECIPE BOOK to memorize the steps.",
+            "3. Visit the required stations (PANTRY, PREP, STOVE) in order.",
+            "4. Deliver back to the COUNTER before their patience runs out!",
+            "Faster delivery = Higher tip = Better Grade!"
         ]
         self.hints = [
-            "Tip: You must physically MOVE the mouse over stations to work.",
-            "Tip: Settle in at a station and move your mouse to cook.",
-            "Tip: Earn money by delivering finished meals.",
-            "Tip: Check your HUD for the current order."
+            "Tip: Settle in at a station to complete the current step.",
+            "Tip: You can only cook for the currently active customer.",
+            "Tip: Keep an eye on the Patience Bars!"
         ]
-        self.ingredients = ["Tomato", "Cheese", "Bread", "Meat", "Onion"]
-        self.recipe_item = ""
-        self.held_item = ""
-        self.state = "RAW" # RAW -> CHOPPED -> COOKED
+        
+        self.recipes = {
+            "BURGER": ["PANTRY", "PREP", "STOVE"],
+            "SALAD": ["PANTRY", "PREP"],
+            "SOUP": ["PANTRY", "STOVE"]
+        }
+        
+        self.customers = []
         self.money = 0
-        self.progress = 0.0
-        self.last_mouse = (0, 0)
+        self.customers_served = 0
+        self.customers_failed = 0
+        
+        # Player state
+        self.active_order = None # The customer index they are focusing on
+        self.current_steps = []
+        self.step_progress = 0.0
         
         # Positions
-        self.pantry_pos = (150, 150)
-        self.prep_pos = (WIDTH/2 - 100, HEIGHT/2)
-        self.stove_pos = (WIDTH/2 + 100, HEIGHT/2)
-        self.service_pos = (WIDTH-150, HEIGHT-150)
+        self.counter_pos = (WIDTH/2, 100)
+        self.book_pos = (100, HEIGHT/2)
+        self.pantry_pos = (WIDTH-100, HEIGHT/2 - 100)
+        self.prep_pos = (WIDTH-100, HEIGHT/2 + 100)
+        self.stove_pos = (WIDTH/2, HEIGHT - 100)
 
     def reset(self, player: Player) -> None:
-        player.reset(WIDTH / 2, HEIGHT - 100)
+        player.reset(WIDTH / 2, HEIGHT / 2)
         self.timer = self.duration
         self.finished = False
         self.success = False
         self.message = ""
         self.money = 0
-        self.progress = 0.0
-        self.new_recipe()
+        self.customers_served = 0
+        self.customers_failed = 0
         self.shake = 0.0
         self.particles = []
+        
+        self.active_order = None
+        self.current_steps = []
+        self.step_progress = 0.0
 
-    def new_recipe(self) -> None:
-        self.recipe_item = random.choice(self.ingredients)
-        self.held_item = ""
-        self.state = "RAW"
-        self.progress = 0.0
+        # Spawn 3 customers
+        self.customers = [
+             {"id": 0, "order": random.choice(list(self.recipes.keys())), "patience": 50.0, "max_patience": 50.0, "x": WIDTH/2 - 150, "y": 40},
+             {"id": 1, "order": random.choice(list(self.recipes.keys())), "patience": 55.0, "max_patience": 55.0, "x": WIDTH/2, "y": 40},
+             {"id": 2, "order": random.choice(list(self.recipes.keys())), "patience": 60.0, "max_patience": 60.0, "x": WIDTH/2 + 150, "y": 40}
+        ]
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
         
-        # tick_timer handled by engine
-        if self.tutorial_timer > 0:
-             self.draw(canvas, player)
-             return
-             
+        self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
 
-        mx, my = mouse_pos
-        dx, dy = mx - self.last_mouse[0], my - self.last_mouse[1]
-        mouse_move_dist = math.hypot(dx, dy)
-        self.last_mouse = mouse_pos
+        # Update customers
+        for c in self.customers:
+            c["patience"] -= dt
+            if c["patience"] <= 0:
+                 self.customers_failed += 1
+                 self.shake = 3.0
+                 c["order"] = random.choice(list(self.recipes.keys()))
+                 c["patience"] = c["max_patience"]
+                 if self.active_order == c["id"]:
+                      self.active_order = None
+                      self.current_steps = []
 
-        # 1. Pantry
-        if math.hypot(player.x - self.pantry_pos[0], player.y - self.pantry_pos[1]) < 60:
-             if not self.held_item:
-                  self.held_item = self.recipe_item
-                  self.state = "RAW"
-                  self.progress = 0.0
+        # Stations logic
+        # 1. Counter (Select order & Deliver)
+        for c in self.customers:
+             if math.hypot(player.x - c["x"], player.y - c["y"]) < 60:
+                  if self.active_order is None and len(self.current_steps) == 0:
+                       self.active_order = c["id"]
+                  elif self.active_order == c["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
+                       # Delivered!
+                       tip = int((c["patience"] / c["max_patience"]) * 50)
+                       self.money += 100 + tip
+                       self.customers_served += 1
+                       c["order"] = random.choice(list(self.recipes.keys()))
+                       c["patience"] = c["max_patience"]
+                       self.active_order = None
+                       self.step_progress = 0.0
 
-        # 2. Prep Board (Chopping - Slash movement)
-        if math.hypot(player.x - self.prep_pos[0], player.y - self.prep_pos[1]) < 60:
-             if self.held_item and self.state == "RAW":
-                  # Requires active mouse movement
-                  self.progress += mouse_move_dist * 0.15
-                  if self.progress >= 100.0:
-                       self.state = "CHOPPED"
-                       self.progress = 0.0
-        
-        # 3. Stove (Stirring - requires mouse movement)
-        if math.hypot(player.x - self.stove_pos[0], player.y - self.stove_pos[1]) < 60:
-             if self.held_item and self.state == "CHOPPED":
-                  self.progress += mouse_move_dist * 0.12
-                  if self.progress >= 100.0:
-                       self.state = "COOKED"
-                       self.progress = 0.0
+        if self.active_order is not None and self.step_progress != -1:
+             c = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
+             if c:
+                  # 2. Recipe Book
+                  if len(self.current_steps) == 0:
+                       if math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1]) < 60:
+                            self.current_steps = self.recipes[c["order"]].copy()
+                            self.step_progress = 0.0
+                  # 3. Work Stations
+                  elif len(self.current_steps) > 0:
+                       next_station = self.current_steps[0]
+                       station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
                        
-        # 4. Service
-        if math.hypot(player.x - self.service_pos[0], player.y - self.service_pos[1]) < 60:
-             if self.held_item and self.state == "COOKED":
-                  self.money += 50
-                  self.orders_completed += 1
-                  self.new_recipe()
-                  self.timer += 3.0
+                       if math.hypot(player.x - station_pos[0], player.y - station_pos[1]) < 50:
+                            self.step_progress += 40.0 * dt
+                            if self.step_progress >= 100.0:
+                                 self.current_steps.pop(0)
+                                 self.step_progress = 0.0
+                                 if len(self.current_steps) == 0:
+                                      self.step_progress = -1 # Ready for delivery
 
         if self.timer <= 0:
             self.finished = True
-            self.success = self.money > 0
+            self.success = self.customers_served >= 3
             if self.success:
-                self.message = f"Shift over! Kitchen served {self.orders_completed} orders. Profit: ${self.money}"
-                self.grade = self.calculate_grade()
+                self.message = f"Shift over! Served {self.customers_served} meals. Earned ${self.money}!"
+                if self.customers_served >= 7: self.grade = "S"
+                elif self.customers_served >= 5: self.grade = "A"
+                elif self.customers_served >= 3: self.grade = "B"
             else:
-                self.message = "Deadline missed! The restaurant failed to break even."
-                self.grade = "F"
+                self.message = f"Restaurant failed! Only served {self.customers_served} meals."
+                self.grade = "C"
 
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
+        sx = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
+        sy = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
+        
         bg = "#f3f3f3" if not self.high_contrast else "#000000"
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg)
+        canvas.create_rectangle(0+sx, 0+sy, WIDTH+sx, HEIGHT+sy, fill=bg)
 
-        # Zones
-        canvas.create_rectangle(self.pantry_pos[0]-50, self.pantry_pos[1]-50, self.pantry_pos[0]+50, self.pantry_pos[1]+50, fill="#d9b08c", outline="#4b3621", width=2)
-        canvas.create_text(self.pantry_pos[0], self.pantry_pos[1], text="PANTRY\n(Touch)", fill="#4b3621", justify="center", font=("Arial", 9, "bold"))
+        # Counter Floor
+        canvas.create_rectangle(0+sx, 0+sy, WIDTH+sx, 120+sy, fill="#bdc3c7", outline="")
 
-        canvas.create_rectangle(self.prep_pos[0]-50, self.prep_pos[1]-50, self.prep_pos[0]+50, self.prep_pos[1]+50, fill="#fff", outline="#ddd", width=2)
-        canvas.create_text(self.prep_pos[0], self.prep_pos[1], text="PREP BOARD\n(Move Mouse)", fill="#333", justify="center", font=("Arial", 9, "bold"))
-        if self.state == "RAW" and math.hypot(player.x - self.prep_pos[0], player.y - self.prep_pos[1]) < 60:
-             canvas.create_rectangle(self.prep_pos[0]-40, self.prep_pos[1]+30, self.prep_pos[0]+40, self.prep_pos[1]+40, fill="#333")
-             canvas.create_rectangle(self.prep_pos[0]-38, self.prep_pos[1]+32, self.prep_pos[0]-38+76*(self.progress/100.0), self.prep_pos[1]+38, fill="#ffa502")
+        # Stations
+        for name, pos, color in [("RECIPE BOOK", self.book_pos, "#8e44ad"), 
+                                 ("PANTRY", self.pantry_pos, "#d35400"), 
+                                 ("PREP", self.prep_pos, "#27ae60"), 
+                                 ("STOVE", self.stove_pos, "#c0392b")]:
+             canvas.create_rectangle(pos[0]-45+sx, pos[1]-45+sy, pos[0]+45+sx, pos[1]+45+sy, fill=color, outline="#fff", width=2)
+             canvas.create_text(pos[0]+sx, pos[1]+sy, text=name, fill="#fff", font=("Arial", 9, "bold"))
+             
+             # Draw progress rings if working here
+             if self.active_order is not None and len(self.current_steps) > 0 and self.current_steps[0] == name:
+                  if math.hypot(player.x - pos[0], player.y - pos[1]) < 50:
+                       canvas.create_rectangle(pos[0]-40+sx, pos[1]+30+sy, pos[0]+40+sx, pos[1]+40+sy, fill="#fff")
+                       canvas.create_rectangle(pos[0]-38+sx, pos[1]+32+sy, pos[0]-38+76*(self.step_progress/100)+sx, pos[1]+38+sy, fill="#f1c40f")
 
-        canvas.create_rectangle(self.stove_pos[0]-50, self.stove_pos[1]-50, self.stove_pos[0]+50, self.stove_pos[1]+50, fill="#2f3640", outline="#eb3b5a", width=3)
-        canvas.create_text(self.stove_pos[0], self.stove_pos[1], text="STOVE\n(Circle Mouse)", fill="#fff", justify="center", font=("Arial", 9, "bold"))
-        if self.state == "CHOPPED" and math.hypot(player.x - self.stove_pos[0], player.y - self.stove_pos[1]) < 60:
-             canvas.create_rectangle(self.stove_pos[0]-40, self.stove_pos[1]+30, self.stove_pos[0]+40, self.stove_pos[1]+40, fill="#111")
-             canvas.create_rectangle(self.stove_pos[0]-38, self.stove_pos[1]+32, self.stove_pos[0]-38+76*(self.progress/100.0), self.stove_pos[1]+38, fill="#eb3b5a")
+        # Customers
+        for c in self.customers:
+             cx, cy = c["x"]+sx, c["y"]+sy
+             canvas.create_oval(cx-20, cy-20, cx+20, cy+20, fill="#34495e", outline="#fff")
+             # Order bubble
+             canvas.create_rectangle(cx-30, cy+25, cx+30, cy+45, fill="#fff", outline="#2c3e50")
+             canvas.create_text(cx, cy+35, text=c["order"], fill="#2c3e50", font=("Arial", 8, "bold"))
+             
+             # Patience bar
+             p_ratio = c["patience"] / c["max_patience"]
+             p_color = "#2ecc71" if p_ratio > 0.5 else "#e67e22" if p_ratio > 0.25 else "#e74c3c"
+             canvas.create_rectangle(cx-20, cy+50, cx+20, cy+55, fill="#111")
+             canvas.create_rectangle(cx-20, cy+50, cx-20+40*p_ratio, cy+55, fill=p_color)
 
-        canvas.create_rectangle(self.service_pos[0]-50, self.service_pos[1]-50, self.service_pos[0]+50, self.service_pos[1]+50, fill="#dcdde1", outline="#3dc1d3", width=2)
-        canvas.create_text(self.service_pos[0], self.service_pos[1], text="SERVICE\n(Deliver)", fill="#2f3640", justify="center", font=("Arial", 9, "bold"))
-
-        # Order HUD
-        canvas.create_rectangle(10, 60, 200, 110, fill="#fff", outline="#ddd", width=2)
-        canvas.create_text(20, 85, anchor="w", text=f"ORDER: {self.recipe_item}", fill="#1e272e", font=("Arial", 11, "bold"))
-
-        # Held item
-        if self.held_item:
-             canvas.create_text(player.x, player.y-40, text=f"{self.state} {self.held_item.upper()}", fill="#eb3b5a", font=("Arial", 10, "bold"))
+             # Active indicator
+             if self.active_order == c["id"]:
+                  canvas.create_oval(cx-25, cy-25, cx+25, cy+25, outline="#f1c40f", width=3)
+                  if self.step_progress == -1:
+                       canvas.create_text(cx, cy-35, text="DELIVER!", fill="#2ecc71", font=("Arial", 10, "bold"))
+                  elif len(self.current_steps) == 0:
+                       canvas.create_text(cx, cy-35, text="READ BOOK!", fill="#8e44ad", font=("Arial", 10, "bold"))
+                  else:
+                       canvas.create_text(cx, cy-35, text=f"GO TO {self.current_steps[0]}", fill="#e67e22", font=("Arial", 10, "bold"))
 
         player.draw(canvas)
-        canvas.create_text(WIDTH-20, 75, anchor="e", text=f"CASH: ${self.money}", fill="#2ecc71", font=("Arial", 16, "bold"))
+        
+        # HUD
+        canvas.create_text(WIDTH-20, 150, anchor="e", text=f"CASH: ${self.money}", fill="#2ecc71", font=("Arial", 18, "bold"))
 
         if self.finished:
             self.draw_result(canvas)

@@ -159,9 +159,19 @@ class FireRescueWorld(BaseWorld):
         if self.saved >= 5:
             self.finished = True
             self.success = True
-            time_bonus = self.timer > 10.0
-            self.grade = "S" if time_bonus else "A"
+            
+            # Grade based on time remaining
+            if self.timer >= 10:
+                self.grade = "S"
+            elif self.timer >= 8:
+                self.grade = "A"
+            elif self.timer >= 7:
+                self.grade = "B"
+            else:
+                self.grade = "C"  # Optional: fail if less than 5 seconds
+            
             self.message = "All survivors are safe! You cleared the building."
+
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:

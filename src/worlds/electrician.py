@@ -11,7 +11,7 @@ class ElectricianWorld(BaseWorld):
         super().__init__(
             name="Electrician",
             summary="Restore power by repairing faulty circuits",
-            duration=90.0,
+            duration=50.0,
         )
         self.briefing = [
              "POWER OUTAGE: The system is down!",

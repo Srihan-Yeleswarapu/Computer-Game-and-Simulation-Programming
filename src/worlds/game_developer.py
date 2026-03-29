@@ -10,37 +10,33 @@ class GameDeveloperWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Game Developer",
-            summary="Collect assets and deliver to the workstation to finish your game",
-            duration=70.0,
+            summary="Code at your desk and squash bugs before they ruin the build!",
+            duration=60.0,
         )
         self.briefing = [
-             "DEV RUSH: The publisher wants an early alpha!",
-             "Collect CODE, ART, and SOUND assets appearing around the office.",
-             "Deliver them to your WORKSTATION in the center.",
-             "Watch out for BUG spawns – squash them before they ruin the project!"
+             "CRUNCH TIME: The game needs to ship today!",
+             "Sit at your WORKSTATION (center) to write code and increase progress.",
+             "BUGS (red) will spawn around the office and crawl towards your code.",
+             "If bugs reach your workstation, they will destroy your progress!",
+             "Run over bugs to squash them, then get back to coding."
         ]
         self.hints = [
-             "Tip: Yellow = Code, Blue = Art, Purple = Sound.",
-             "Tip: Touch an asset to pick it up, then touch the PC to deposit.",
-             "Tip: RED dots are BUGS. Touch them to squash!",
-             "Tip: Finish the progress bar before the deadline."
+             "Tip: You only gain progress while touching the Workstation.",
+             "Tip: Bugs destroy progress faster than you can write it.",
+             "Tip: Balance coding and squashing to reach 100%!"
         ]
-        self.held_asset = ""
         self.progress = 0.0
-        self.assets = []
         self.bugs = []
         self.spawn_timer = 1.0
 
     def reset(self, player: Player) -> None:
-        player.reset(WIDTH / 2, HEIGHT - 100)
+        player.reset(WIDTH / 2, HEIGHT / 2 + 50)
         self.timer = self.duration
         self.finished = False
         self.success = False
         self.message = ""
         self.progress = 0.0
-        self.assets = []
         self.bugs = []
-        self.held_asset = ""
         self.shake = 0.0
         self.particles = []
 
@@ -51,51 +47,50 @@ class GameDeveloperWorld(BaseWorld):
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
 
-        # Spawning
+        pc_x, pc_y = WIDTH/2, HEIGHT/2
+
+        # Coding Progress
+        at_desk = math.hypot(player.x - pc_x, player.y - pc_y) < 50
+        if at_desk:
+            self.progress += 2.5 * dt
+
+        # Bug Spawning
         self.spawn_timer -= dt
         if self.spawn_timer <= 0:
-            self.spawn_timer = random.uniform(1.0, 2.0)
-            if random.random() < 0.7:
-                 # Asset
-                 typ = random.choice(["CODE", "ART", "SOUND"])
-                 col = {"CODE": "#f1c40f", "ART": "#3498db", "SOUND": "#9b59b6"}[typ]
-                 self.assets.append({"x": random.uniform(50, WIDTH-50), "y": random.uniform(50, HEIGHT-150), "type": typ, "color": col})
-            else:
-                 # Bug
-                 self.bugs.append({"x": random.uniform(80, WIDTH-80), "y": random.uniform(80, HEIGHT-180)})
+            self.spawn_timer = random.uniform(0.8, 1.8)
+            # Spawn at edges
+            side = random.randint(0, 3)
+            if side == 0: bx, by = random.uniform(20, WIDTH-20), 20
+            elif side == 1: bx, by = WIDTH-20, random.uniform(20, HEIGHT-20)
+            elif side == 2: bx, by = random.uniform(20, WIDTH-20), HEIGHT-20
+            else: bx, by = 20, random.uniform(20, HEIGHT-20)
+            self.bugs.append({"x": bx, "y": by, "speed": random.uniform(25, 45)})
 
-        # Pickup
-        new_assets = []
-        for a in self.assets:
-            if math.hypot(player.x - a["x"], player.y - a["y"]) < 40 and not self.held_asset:
-                 self.held_asset = a["type"]
-            else:
-                 new_assets.append(a)
-        self.assets = new_assets
-
-        # Bug squash
+        # Bug Logic
         new_bugs = []
         for b in self.bugs:
-            if math.hypot(player.x - b["x"], player.y - b["y"]) < 40:
+            # Check player squash
+            if math.hypot(player.x - b["x"], player.y - b["y"]) < 30:
                  self.shake = 2.0
-                 self.progress = max(0.0, self.progress - 2.0)
-            else:
-                 new_bugs.append(b)
-                 if random.random() < 0.1 * dt: # Bugs slowly drain progress
-                      self.progress = max(0.0, self.progress - 1.0 * dt)
-        self.bugs = new_bugs
+                 continue # Squashed!
+            
+            # Move towards PC
+            angle = math.atan2(pc_y - b["y"], pc_x - b["x"])
+            b["x"] += math.cos(angle) * b["speed"] * dt
+            b["y"] += math.sin(angle) * b["speed"] * dt
 
-        # Deliver to PC
-        pc_x, pc_y = WIDTH/2, HEIGHT/2
-        if math.hypot(player.x - pc_x, player.y - pc_y) < 60:
-            if self.held_asset:
-                 self.progress += 10.0
-                 self.held_asset = ""
+            # Check PC hit
+            if math.hypot(b["x"] - pc_x, b["y"] - pc_y) < 30:
+                 self.progress = max(0.0, self.progress - 10.0 * dt)
+                 self.shake = 1.0
+            
+            new_bugs.append(b)
+        self.bugs = new_bugs
 
         if self.progress >= 100.0:
             self.finished = True
             self.success = True
-            self.message = "Game Launched! Overwhelmingly Positive reviews."
+            self.message = "Game Launched! Overwhelmingly Positive Reviews."
             if self.timer > 30: self.grade = "S"
             elif self.timer > 15: self.grade = "A"
             else: self.grade = "B"
@@ -107,32 +102,34 @@ class GameDeveloperWorld(BaseWorld):
                 self.message = f"Shift Over! Game launched in Early Access ({int(self.progress)}% complete)."
                 self.grade = self.calculate_grade()
             else:
-                self.message = f"Development Cancelled! Build unstable at {int(self.progress)}% progress."
+                self.message = f"Development Cancelled! Build too buggy to release."
 
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
+        
+        sx = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
+        sy = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
+
         bg = "#2f3542" if not self.high_contrast else "#000000"
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg)
+        canvas.create_rectangle(0+sx, 0+sy, WIDTH+sx, HEIGHT+sy, fill=bg)
 
         # Workstation
         pc_x, pc_y = WIDTH/2, HEIGHT/2
-        canvas.create_rectangle(pc_x-50, pc_y-40, pc_x+50, pc_y+40, fill="#57606f", outline="#2ed573", width=3)
-        canvas.create_text(pc_x, pc_y, text="WORKSTATION", fill="#2ed573", font=("Arial", 10, "bold"))
+        canvas.create_rectangle(pc_x-40+sx, pc_y-40+sy, pc_x+40+sx, pc_y+40+sy, fill="#57606f", outline="#2ed573", width=3)
+        canvas.create_text(pc_x+sx, pc_y-10+sy, text="DESK", fill="#2ed573", font=("Arial", 10, "bold"))
         
-        # Assets
-        for a in self.assets:
-             canvas.create_rectangle(a["x"]-15, a["y"]-15, a["x"]+15, a["y"]+15, fill=a["color"], outline="#fff")
-             canvas.create_text(a["x"], a["y"], text=a["type"][0], fill="#fff", font=("Arial", 8, "bold"))
+        is_coding = math.hypot(player.x - pc_x, player.y - pc_y) < 50
+        if is_coding:
+             canvas.create_text(pc_x+sx, pc_y+15+sy, text="CODING...", fill="#ffdd59", font=("Arial", 8, "bold"))
 
         # Bugs
         for b in self.bugs:
-             canvas.create_oval(b["x"]-10, b["y"]-10, b["x"]+10, b["y"]+10, fill="#ff4757", outline="#fff")
-
-        # Held asset
-        if self.held_asset:
-             canvas.create_text(player.x, player.y-40, text=f"HOLDING: {self.held_asset}", fill="#fff", font=("Arial", 9, "bold"))
+             canvas.create_oval(b["x"]-10+sx, b["y"]-10+sy, b["x"]+10+sx, b["y"]+10+sy, fill="#ff4757", outline="#fff")
+             # Bug legs
+             canvas.create_line(b["x"]-15+sx, b["y"]+sy, b["x"]+15+sx, b["y"]+sy, fill="#ff4757")
+             canvas.create_line(b["x"]+sx, b["y"]-15+sy, b["x"]+sx, b["y"]+15+sy, fill="#ff4757")
 
         player.draw(canvas)
         

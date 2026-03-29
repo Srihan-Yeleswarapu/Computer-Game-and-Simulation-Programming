@@ -187,18 +187,18 @@ class ATCWorld(BaseWorld):
             self.success = False
             self.message = "Operational safety compromised! Mid-air collision detected."
             self.shake = 8.0
-            self.grade = "D"
+            self.grade = "C"
             
         # Success check
         if self.timer <= 0 and not crashed:
             self.finished = True
-            self.success = self.landed_count >= 4
+            self.success = self.landed_count >= 10  # Assuming 10 is needed for S
             if self.success:
-                self.message = f"Shift over! Successfully landed {self.landed_count} aircraft."
-                self.grade = self.calculate_grade()
+                self.message = f"Shift over! Successfully landed {self.landed_count} aircraft without collisions."
+                self.grade = "S"
             else:
                 self.message = f"Shift failure! Only {self.landed_count} planes landed safely before airspace closure."
-                self.grade = "D"
+                self.grade = "C"
             
         self.update_particles(dt)
         self.draw(canvas, player)

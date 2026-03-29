@@ -77,6 +77,7 @@ class DoctorWorld(BaseWorld):
             "Tip: Use the correct treatment on the matching patient to fill the cure bar.",
             "Tip: If a patient's stability hits zero, the mission fails immediately.",
         ]
+        self.tutorial_timer = 4.0
         self.held_item = ""
         self.message = ""
         self.patients: list[dict[str, Any]] = []
@@ -232,6 +233,8 @@ class DoctorWorld(BaseWorld):
         if self.finished:
             self.draw(canvas, player)
             return
+
+        player.update(dt, keys, self.bounds)
 
         if self.timer <= 0:
             self.finished = True
