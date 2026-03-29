@@ -47,7 +47,7 @@ class RoboticsEngineerWorld(BaseWorld):
         self.current_req = random.choice(self.parts)
         self.robots_built = 0
         self.robot_stability = 100.0
-        player.speed = 286.0 # 260 * 1.10
+        player.speed = 400.0
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -58,7 +58,7 @@ class RoboticsEngineerWorld(BaseWorld):
         player.update(dt, keys, self.bounds)
         
         # Spawn parts on left and right belts
-        if random.random() < 1.5 * dt:
+        if random.random() < 2.5 * dt:
             typ = random.choice(self.parts)
             side = random.choice(["left", "right"])
             x = 50 if side == "left" else WIDTH - 50
@@ -83,7 +83,7 @@ class RoboticsEngineerWorld(BaseWorld):
                  if p["type"] == self.current_req:
                       self.robot_stability = min(100.0, self.robot_stability + 10.0)
                       self.current_req = random.choice(self.parts)
-                      self.robots_built += 0.2 # 5 parts per robot
+                      self.robots_built += 0.34 # 3 parts per robot completion for better pacing
                  else:
                       self.robot_stability -= 25.0
                       self.shake = 4.0
@@ -97,10 +97,10 @@ class RoboticsEngineerWorld(BaseWorld):
             self.success = False
             self.message = "Critical Failure! The prototype exploded."
             
-        if self.robots_built >= 5.0:
+        if self.robots_built >= 3.0:
             self.finished = True
             self.success = True
-            self.message = "Assembly complete! 5 functional prototypes built."
+            self.message = "Assembly complete! 3 functional prototypes built."
             if self.timer > 40: self.grade = "S"
             elif self.timer > 20: self.grade = "A"
             elif self.timer > 0: self.grade = "B"
@@ -155,7 +155,7 @@ class RoboticsEngineerWorld(BaseWorld):
         canvas.create_rectangle(WIDTH/2 - 148, 62, WIDTH/2 - 148 + 296 * max(0.0, self.robot_stability)/100.0, 78, fill="#e84118", outline="")
         canvas.create_text(WIDTH/2, 70, text=f"STABILITY: {int(self.robot_stability)}%", fill="#f5f6fa", font=("Helvetica", 11, "bold"))
         
-        canvas.create_text(WIDTH/2, 100, text=f"ROBOTS BUILT: {int(self.robots_built)}/5", fill="#192a56", font=("Helvetica", 14, "bold"))
+        canvas.create_text(WIDTH/2, 100, text=f"ROBOTS BUILT: {int(self.robots_built)}/3", fill="#192a56", font=("Helvetica", 14, "bold"))
 
         if self.finished:
             self.draw_result(canvas)
