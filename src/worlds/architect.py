@@ -11,7 +11,7 @@ class ArchitectWorld(BaseWorld):
         super().__init__(
             name="Lead Architect",
             summary="Lay out a civic library that meets budget, program, adjacencies, and circulation goals.",
-            duration=95.0,
+            duration=75.0,
         )
         self.auto_finish_on_timer = False
         self.briefing = [
