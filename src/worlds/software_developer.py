@@ -85,11 +85,11 @@ class SoftwareDeveloperWorld(BaseWorld):
                   self.stability -= dt * 0.5
                   dist = math.hypot(player.x - m["x"], player.y - m["y"])
                   if dist < 60 and "space" in keys:
-                       m["progress"] += dt * 40.0 # 2.5 seconds to fix
+                       m["progress"] += dt *65.0 # 1.5 seconds to fix
                        if m["progress"] >= 100.0:
                             m["status"] = "ok"
                             m["progress"] = 0.0
-                            m["cooldown"] = 3.0 # Wait 3s before bugging again
+                            m["cooldown"] = 4.0 # Wait 4s before bugging again
                             self.fixed_count += 1
                   else:
                        # Progress decays if you stop
