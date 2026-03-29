@@ -84,9 +84,8 @@ class AIEngineerWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Model deployed! AI training successfully completed."
-            if self.timer > 60: self.grade = "S"
-            elif self.timer > 40: self.grade = "A"
-            elif self.timer > 20: self.grade = "B"
+            if self.accuracy >= 90.0: self.grade = "S"
+            elif self.accuracy >= 85.0: self.grade = "A"
             else: self.grade = "C"
             
         if self.timer <= 0:
@@ -94,7 +93,9 @@ class AIEngineerWorld(BaseWorld):
             self.success = self.accuracy >= 60.0
             if self.success:
                 self.message = f"Shift Over! Model partially trained ({int(self.accuracy)}% accuracy)."
-                self.grade = self.calculate_grade()
+                if self.accuracy >= 90.0: self.grade = "S"
+                elif self.accuracy >= 85.0: self.grade = "A"
+                else: self.grade = "C"
             else:
                 self.message = f"Deadline missed! AI model instability at {int(self.accuracy)}% accuracy."
 

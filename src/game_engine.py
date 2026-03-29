@@ -15,7 +15,7 @@ from src.worlds.atc import ATCWorld
 from src.worlds.pilot import PilotWorld
 from src.worlds.software_developer import SoftwareDeveloperWorld
 from src.worlds.psychologist import PsychologistWorld
-from src.worlds.entrepreneur import StartupFounderWorld
+from src.worlds.entrepreneur import TycoonWorld
 from src.worlds.electrician import ElectricianWorld
 from src.worlds.game_developer import GameDeveloperWorld
 from src.worlds.data_scientist import DataScientistWorld
@@ -50,7 +50,7 @@ class GameEngine:
             "8": PilotWorld(),
             "9": SoftwareDeveloperWorld(),
             "0": PsychologistWorld(),
-            "q": StartupFounderWorld(),
+            "q": TycoonWorld(),
             "w": ElectricianWorld(),
             "e": GameDeveloperWorld(),
             "r": DataScientistWorld(),
