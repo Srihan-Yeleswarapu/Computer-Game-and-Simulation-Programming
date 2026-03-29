@@ -45,7 +45,6 @@ class GameEngine:
             "4": MarineWorld(),
             "5": ArchitectWorld(),
             "6": DoctorWorld(),
-            "6": DoctorWorld(),
             "7": ATCWorld(),
             "8": PilotWorld(),
             "9": SoftwareDeveloperWorld(),
@@ -227,7 +226,21 @@ class GameEngine:
         elif self.state == "briefing" and self.active_world:
             self.active_world.draw_briefing(self.canvas)
         elif self.state == "world" and self.active_world:
-            self.active_world.update(dt, self.canvas, self.player, self.keys, (self.mouse_x, self.mouse_y))
+            # Always tick timer so tutorial countdown works
+            self.active_world.tick_timer(dt)
+            
+            # Skip logic update if tutorial is still running
+            if self.active_world.tutorial_timer > 0:
+                self.active_world.draw(self.canvas, self.player)
+                return
+
+            try:
+                self.active_world.update(dt, self.canvas, self.player, self.keys, (self.mouse_x, self.mouse_y))
+            except Exception as e:
+                print(f"CRASH in {self.active_world.name}: {e}")
+                self.return_to_menu()
+                return
+
             if self.active_world.finished:
                 self.active_world.grade = self.active_world.calculate_grade()
                 self.state = "result"

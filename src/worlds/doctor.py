@@ -12,7 +12,7 @@ class DoctorWorld(BaseWorld):
         super().__init__(
             name="Doctor",
             summary="Diagnose and treat emergency room patients",
-            duration=90.0,
+            duration=50.0,
         )
         self.briefing = [
              "EMERGENCY CALL: Mass casualty incident!",
@@ -44,6 +44,11 @@ class DoctorWorld(BaseWorld):
             "fever": "ice",
             "fracture": "xray",
             "bleeding": "bandage"
+        }
+        self.sym_colors = {
+            "fever": "#00d2d3",    # Cyan matches Ice
+            "fracture": "#feca57", # Golden matches X-Ray
+            "bleeding": "#ff9f43"  # Orange matches Bandage
         }
         self.score = 0
         self.treatment_progress = 0.0
@@ -161,45 +166,48 @@ class DoctorWorld(BaseWorld):
             for i in range(0, int(WIDTH), 40):
                 for j in range(0, int(HEIGHT), 40):
                     if (i//40 + j//40) % 2 == 0:
-                        canvas.create_rectangle(float(i)+sx, float(j)+sy, float(i)+40.0+sx, float(j)+40.0+sy, fill="#b2ebf2", outline="")
+                        canvas.create_rectangle(float(i)+float(sx), float(j)+float(sy), float(i)+40.0+float(sx), float(j)+40.0+float(sy), fill="#b2ebf2", outline="")
 
         # Beds
         for b in self.beds:
              bx, by = float(b["x"]), float(b["y"])
-             canvas.create_rectangle(bx-30.0+sx, by-20.0+sy, bx+30.0+sx, by+20.0+sy, fill="#fff", outline="#95a5a6", width=2)
-             canvas.create_rectangle(bx-25.0+sx, by-15.0+sy, bx-5.0+sx, by+15.0+sy, fill="#ecf0f1", outline="#bdc3c7")
+             canvas.create_rectangle(bx-30.0+float(sx), by-20.0+float(sy), bx+30.0+float(sx), by+20.0+float(sy), fill="#fff", outline="#95a5a6", width=2)
+             canvas.create_rectangle(bx-25.0+float(sx), by-15.0+float(sy), bx-5.0+float(sx), by+15.0+float(sy), fill="#ecf0f1", outline="#bdc3c7")
 
         # Patients
         for p in self.patients:
              px, py = float(p["x"]), float(p["y"])
              # Patient body
-             canvas.create_oval(px-15.0+sx, py-15.0+sy, px+15.0+sx, py+15.0+sy, fill="#ffdd59", outline="#d1ccc0")
-             # Symptom Icon
-             sym_colors = {"fever": "#ff5252", "fracture": "#ffb142", "bleeding": "#8c7ae6"}
-             canvas.create_rectangle(px-10.0+sx, py-25.0+sy, px+10.0+sx, py-15.0+sy, fill=sym_colors[p["symptom"]], outline="")
+             canvas.create_oval(px-15.0+float(sx), py-15.0+float(sy), px+15.0+float(sx), py+15.0+float(sy), fill="#ffdd59", outline="#d1ccc0")
+             # Symptom Icon (Matches tool colors)
+             canvas.create_rectangle(px-10.0+float(sx), py-25.0+float(sy), px+10.0+float(sx), py-15.0+float(sy), fill=self.sym_colors[p["symptom"]], outline="#fff")
+             canvas.create_text(px+float(sx), py-42+float(sy), text="SYMPTOM", fill="#fff", font=("Helvetica", 7, "bold"))
              
              # Health bar
-             canvas.create_rectangle(px-20.0+sx, py-35.0+sy, px+20.0+sx, py-28.0+sy, fill="#2c3e50")
-             canvas.create_rectangle(px-19.0+sx, py-34.0+sy, px-19.0 + 38.0 * max(0.0, p["health"]/100.0) + sx, py-29.0+sy, fill="#ff5252")
+             canvas.create_rectangle(px-20.0+float(sx), py-35.0+float(sy), px+20.0+float(sx), py-28.0+float(sy), fill="#2c3e50")
+             canvas.create_rectangle(px-19.0+float(sx), py-34.0+float(sy), px-19.0 + 38.0 * max(0.0, p["health"]/100.0) + float(sx), py-29.0+float(sy), fill="#ff5252")
+             canvas.create_text(px+float(sx), py-31.5+float(sy), text="HEALTH", fill="#fff", font=("Helvetica", 6, "bold"))
              
              # Treatment progress bar if active
              if self.treatment_progress > 0 and math.hypot(float(player.x) - px, float(player.y) - py) < 40 and "space" in self.keys and self.held_item == self.tools_map[p["symptom"]]:
-                  canvas.create_rectangle(px-20.0+sx, py+25.0+sy, px+20.0+sx, py+30.0+sy, fill="#34495e")
-                  canvas.create_rectangle(px-20.0+sx, py+25.0+sy, px-20.0 + 40.0*(self.treatment_progress/100.0) + sx, py+30.0+sy, fill="#2ecc71")
+                  canvas.create_rectangle(px-20.0+float(sx), py+25.0+float(sy), px+20.0+float(sx), py+30.0+float(sy), fill="#34495e")
+                  canvas.create_rectangle(px-20.0+float(sx), py+25.0+float(sy), px-20.0 + 40.0*(self.treatment_progress/100.0) + float(sx), py+30.0+float(sy), fill="#2ecc71")
+                  canvas.create_text(px+float(sx), py+35.0+float(sy), text="TREATING...", fill="#2ecc71", font=("Helvetica", 7, "bold"))
 
         # Tables
         for t in self.tables:
              tx, ty = float(t["x"]), float(t["y"])
-             canvas.create_rectangle(tx-25.0+sx, ty-25.0+sy, tx+25.0+sx, ty+25.0+sy, fill="#ecf0f1", outline="#bdc3c7", width=3)
-             canvas.create_oval(tx-15.0+sx, ty-15.0+sy, tx+15.0+sx, ty+15.0+sy, fill=t["color"], outline="")
-             canvas.create_text(tx+sx, ty+35.0+sy, text=t["name"], fill="#2f3640" if not self.high_contrast else "#fff", font=("Helvetica", 9, "bold"))
+             canvas.create_rectangle(tx-25.0+float(sx), ty-25.0+float(sy), tx+25.0+float(sx), ty+25.0+float(sy), fill="#ecf0f1", outline="#bdc3c7", width=3)
+             canvas.create_oval(tx-15.0+float(sx), ty-15.0+float(sy), tx+15.0+float(sx), ty+15.0+float(sy), fill=t["color"], outline="")
+             canvas.create_text(tx+float(sx), ty+35.0+float(sy), text=t["name"], fill="#2f3640" if not self.high_contrast else "#fff", font=("Helvetica", 9, "bold"))
              
         player.draw(canvas)
         
         # Show held item over player head
         if self.held_item:
              held_colors = {"ice": "#00d2d3", "xray": "#feca57", "bandage": "#ff9f43"}
-             canvas.create_oval(player.x-10+sx, player.y-30+sy, player.x+10+sx, player.y-10+sy, fill=held_colors[self.held_item], outline="#fff", width=2)
+             canvas.create_oval(player.x-10+float(sx), player.y-30+float(sy), player.x+10+float(sx), player.y-10+float(sy), fill=held_colors[self.held_item], outline="#fff", width=2)
+
              
         # HUD specific
         canvas.create_rectangle(20, 60, 180, 100, fill="#2c3e50", outline="#ecf0f1", width=2)

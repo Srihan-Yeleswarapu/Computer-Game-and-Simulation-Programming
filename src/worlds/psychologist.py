@@ -61,14 +61,14 @@ class PsychologistWorld(BaseWorld):
         
         for i, p in enumerate(self.patients):
             dist = math.hypot(player.x - p["x"], player.y - p["y"])
-            if dist < 60:
+            if dist < 350:
                 self.active_patient = i
             
             p["bubble_timer"] = max(0.0, p["bubble_timer"] - dt)
             if p["bubble_timer"] <= 0: p["bubble"] = ""
 
-            # Random stress spikes
-            if random.random() < 0.15 * dt:
+            # Random stress spikes (Only if patient is not already critical)
+            if p["stress"] < 70 and random.random() < 0.15 * dt:
                  p["bubble"] = random.choice(self.spike_options)
                  p["bubble_timer"] = 3.0
                  p["stress"] += 15.0

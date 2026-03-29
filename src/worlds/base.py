@@ -13,6 +13,7 @@ class BaseWorld:
         self.finished = False
         self.success = False
         self.message = ""
+        self.tutorial_timer = 4.0 # 4 second tutorial pause
         self.briefing = ["This is your task.", "Complete it skillfully."]
         self.bounds: tuple[float, float, float, float] = (0.0, 0.0, WIDTH, HEIGHT)
         self.warning = ""
@@ -39,6 +40,11 @@ class BaseWorld:
     def tick_timer(self, dt: float) -> None:
         if self.finished:
             return
+            
+        if self.tutorial_timer > 0:
+            self.tutorial_timer = max(0.0, self.tutorial_timer - dt)
+            return
+
         self.timer = max(0.0, self.timer - dt)
         if self.timer <= 0.0:
             self.finished = True
@@ -47,7 +53,13 @@ class BaseWorld:
         
         # Cycle hints every 4 seconds
         self.hint_display_timer += dt
-        if self.hint_display_timer > 4.0:
+        if self.hint_display_timer > 3.0:
+            self.hint_display_timer = 0.0
+            self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
+        
+        # Cycle hints every 4 seconds
+        self.hint_display_timer += dt
+        if self.hint_display_timer > 3.0:
             self.hint_display_timer = 0.0
             self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
 
@@ -106,6 +118,29 @@ class BaseWorld:
             font=("Helvetica", 14, "bold"),
             text=f"Time: {self.timer:05.1f}s",
         )
+        
+        if self.tutorial_timer > 0:
+             self.draw_tutorial(canvas)
+
+    def draw_tutorial(self, canvas: tk.Canvas) -> None:
+        # Dim the background
+        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#000", stipple="gray50")
+        
+        canvas.create_rectangle(WIDTH/2-250, HEIGHT/2-160, WIDTH/2+250, HEIGHT/2+160, fill="#000", outline=ACCENT, width=3)
+        canvas.create_text(WIDTH/2, HEIGHT/2-135, text="--- MISSION BRIEFING ---", fill=ACCENT, font=("Helvetica", 14, "bold"))
+        
+        y = HEIGHT/2-90
+        for line in self.briefing:
+             canvas.create_text(WIDTH/2, y, text=line, fill="#fff", font=("Helvetica", 11), width=440)
+             y += 22 # Increased spacing
+        
+        canvas.create_text(WIDTH/2, HEIGHT/2+5, text="TIPS & CONTROLS:", fill="#ffff00", font=("Helvetica", 11, "bold"))
+        y = HEIGHT/2 + 35
+        for hint in self.hints:
+             canvas.create_text(WIDTH/2, y, text=hint, fill="#bbb", font=("Helvetica", 9))
+             y += 18 # Proper spacing
+        
+        canvas.create_text(WIDTH/2, HEIGHT/2+135, text=f"STARTING IN {int(self.tutorial_timer)+1}...", fill=SUCCESS, font=("Helvetica", 12, "bold"))
     
     def draw_particles(self, canvas: tk.Canvas):
         for p in self.particles:
