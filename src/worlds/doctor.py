@@ -84,11 +84,11 @@ class DoctorWorld(BaseWorld):
         self.saved_patients = 0
         self.active_patient_id: int | None = None
         self.beds = [
-            {"x": WIDTH * 0.18, "y": HEIGHT * 0.23},
-            {"x": WIDTH * 0.5, "y": HEIGHT * 0.23},
-            {"x": WIDTH * 0.82, "y": HEIGHT * 0.23},
-            {"x": WIDTH * 0.33, "y": HEIGHT * 0.56},
-            {"x": WIDTH * 0.67, "y": HEIGHT * 0.56},
+            {"x": WIDTH * 0.18, "y": HEIGHT * 0.31},
+            {"x": WIDTH * 0.5, "y": HEIGHT * 0.31},
+            {"x": WIDTH * 0.82, "y": HEIGHT * 0.31},
+            {"x": WIDTH * 0.33, "y": HEIGHT * 0.62},
+            {"x": WIDTH * 0.67, "y": HEIGHT * 0.62},
         ]
         self.bounds = (30.0, 55.0, WIDTH - 30.0, HEIGHT - 35.0)
 
