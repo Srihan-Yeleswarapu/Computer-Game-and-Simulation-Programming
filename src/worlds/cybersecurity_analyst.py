@@ -1,7 +1,7 @@
 import random
 import math
 import tkinter as tk
-from src.utils import WIDTH, HEIGHT, TEXT, clamp
+from src.utils import WIDTH, HEIGHT, TEXT, clamp, Particle
 from src.player import Player
 from src.worlds.base import BaseWorld
 from typing import Any
@@ -44,6 +44,7 @@ class CybersecurityAnalystWorld(BaseWorld):
         self.integrity = 100.0
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
         if self.finished:
             self.draw(canvas, player)
             return
@@ -74,7 +75,7 @@ class CybersecurityAnalystWorld(BaseWorld):
             dist_player = math.hypot(player.x - a["x"], player.y - a["y"])
             
             if dist_player < player.size + 15: # Intercepted!
-                 self.particles.append({"x": a["x"], "y": a["y"], "life": 0.5})
+                 self.particles.append(Particle(a["x"], a["y"], "#00a8ff", 0, 0, 0.5, 5.0))
             elif dist_server < 30: # Hit server!
                  self.integrity -= 10.0
                  self.shake = 5.0
@@ -124,7 +125,7 @@ class CybersecurityAnalystWorld(BaseWorld):
              
         # Particles
         for p in self.particles:
-             canvas.create_oval(p["x"]-5+sx, p["y"]-5+sy, p["x"]+5+sx, p["y"]+5+sy, fill="#00a8ff", outline="")
+             canvas.create_oval(p.x-p.size+sx, p.y-p.size+sy, p.x+p.size+sx, p.y+p.size+sy, fill=p.color, outline="")
              
         # Player (Firewall)
         canvas.create_oval(player.x-25+sx, player.y-25+sy, player.x+25+sx, player.y+25+sy, fill="", outline="#00a8ff", width=4, dash=(4,4))

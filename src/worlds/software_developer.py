@@ -72,6 +72,7 @@ class SoftwareDeveloperWorld(BaseWorld):
                     self.connections.append((i, i + cols))
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
         if self.finished:
             self.draw(canvas, player)
             return

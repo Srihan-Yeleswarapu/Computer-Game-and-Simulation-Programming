@@ -1,5 +1,6 @@
 import tkinter as tk
 import random
+from typing import Set
 from src.utils import WIDTH, HEIGHT, TEXT, Particle, ACCENT, DANGER, SUCCESS
 from src.player import Player
 
@@ -27,6 +28,7 @@ class BaseWorld:
         self.high_contrast = False
         self.particles: list[Particle] = []
         self.shake = 0.0
+        self.keys: Set[str] = set()
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError

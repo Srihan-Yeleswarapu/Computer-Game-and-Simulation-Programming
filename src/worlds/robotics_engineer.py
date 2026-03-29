@@ -1,5 +1,6 @@
 import random
 import math
+import time
 import tkinter as tk
 from src.utils import WIDTH, HEIGHT, TEXT, clamp
 from src.player import Player
