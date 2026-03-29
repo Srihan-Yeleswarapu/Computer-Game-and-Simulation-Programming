@@ -81,13 +81,17 @@ class MarineWorld(BaseWorld):
             {"x": 150, "y": HEIGHT-65, "name": "Sunken Anchor", "found": False, "msg": "An old pirate anchor!"},
             {"x": WIDTH-200, "y": HEIGHT-65, "name": "Giant Clam", "found": False, "msg": "Look at the size of that pearl!"}
         ]
-        self.bubbles = []
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
             return
-        self.tick_timer(dt)
+        
+        # tick_timer handled by engine
+        if self.tutorial_timer > 0:
+            self.draw(canvas, player)
+            return
+            
         player.update(dt, keys, self.bounds)
         
         # Buoyancy

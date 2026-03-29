@@ -52,7 +52,7 @@ class PilotWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
-        self.tick_timer(dt)
+        # tick_timer handled by engine
         player.update(dt, keys, self.bounds)
         self.fuel -= dt * 2.5  # Balanced drainrate
         
@@ -114,12 +114,13 @@ class PilotWorld(BaseWorld):
         if self.timer <= 0 and self.hull > 0 and self.fuel > 0:
             self.finished = True
             self.success = True
-            self.message = "Destination reached safely!"
             score = self.hull + self.fuel
             if score >= 150: self.grade = "S"
             elif score >= 100: self.grade = "A"
             elif score >= 50: self.grade = "B"
             else: self.grade = "C"
+            self.message = "Mission Accomplished! Destination reached."
+            
             
         self.update_particles(dt)
         self.draw(canvas, player)

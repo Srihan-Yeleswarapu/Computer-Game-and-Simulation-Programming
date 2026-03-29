@@ -12,6 +12,7 @@ class ArchitectWorld(BaseWorld):
             summary="Design a stable Eco-Library that withstands the wind test",
             duration=90.0,
         )
+        self.auto_finish_on_timer = False
         self.briefing = [
              "URGENT PROJECT: A sudden windstorm is testing the city plan!",
              "As the Lead Architect, you must design an Eco-Library",
@@ -71,7 +72,10 @@ class ArchitectWorld(BaseWorld):
         player.update(dt, keys, (x1, y1, x2, y2))
         
         if self.phase == "build":
-            self.tick_timer(dt)
+            if self.timer <= 0:
+                 self.phase = "test"
+                 self.wind_timer = 10.0
+            
             
             # Room selection (1-4 keys)
             if "1" in keys: self.selected_room = 0

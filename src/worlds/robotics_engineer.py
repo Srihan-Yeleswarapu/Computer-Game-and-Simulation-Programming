@@ -54,7 +54,6 @@ class RoboticsEngineerWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
-        self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
         
         # Spawn parts on left and right belts

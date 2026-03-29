@@ -62,7 +62,6 @@ class SoftwareDeveloperWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
-        self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
         
         # Spawn bugs up to max_bugs

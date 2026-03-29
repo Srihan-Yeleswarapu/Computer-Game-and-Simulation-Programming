@@ -64,7 +64,7 @@ class ChefRushWorld(BaseWorld):
             self.draw(canvas, player)
             return
         
-        self.tick_timer(dt)
+        # tick_timer handled by engine
         if self.tutorial_timer > 0:
              self.draw(canvas, player)
              return
