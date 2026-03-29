@@ -63,12 +63,12 @@ class GameEngine:
         self.message = "Use WASD or arrow keys. Press keys to enter a career world."
         self.keys: set[str] = set()
         self.last_time = time.time()
-        self.high_contrast = False
+        self.high_contrast = bool(self.save_system.get_setting("high_contrast", False))
         self.debug_mode = False
         self.fps = 0.0
         self.mouse_x = 0
         self.mouse_y = 0
-        self.music_on = True
+        self.music_on = bool(self.save_system.get_setting("music_on", True))
         
         # Load Logo
         self.logo_img: tk.PhotoImage | None = None
@@ -107,6 +107,7 @@ class GameEngine:
             is_alt = (state & 131072 != 0) or (state & 4 != 0) or (state & 0x20000 != 0)
             if event.keysym.lower() == "s" and is_alt:
                 self.music_on = not self.music_on
+                self.save_system.set_setting("music_on", self.music_on)
                 if self.music_on:
                     self.start_music()
                 else:
@@ -123,6 +124,7 @@ class GameEngine:
                 self.start_world(event.keysym)
             if event.keysym.lower() == "h":
                 self.high_contrast = not self.high_contrast
+                self.save_system.set_setting("high_contrast", self.high_contrast)
                 self.draw_menu()
             if event.keysym == "?" or event.keysym == "slash":
                 self.state = "help"
@@ -197,14 +199,14 @@ class GameEngine:
 
         self.state = "menu"
         self.active_world = None
-        comp_count = len(self.save_system.data["completed_worlds"])
+        comp_count = self.save_system.get_completed_world_count()
         
         # Check for Grand Finale
         if comp_count >= 17:
              all_b_or_higher = True
              ranks = {"S": 5, "A": 4, "B": 3, "C": 2, "-": 1}
              for w_id in self.worlds:
-                 if ranks.get(self.save_system.data["world_grades"].get(w_id, "-"), 0) < 3:
+                 if ranks.get(self.save_system.get_grade(w_id, "-"), 0) < 3:
                      all_b_or_higher = False
                      break
              if all_b_or_higher:
@@ -401,12 +403,16 @@ class GameEngine:
             print(f"Error stopping music: {e}")
 
     def on_closing(self):
+        self.save_system.set_setting("high_contrast", self.high_contrast, save_immediately=False)
+        self.save_system.set_setting("music_on", self.music_on, save_immediately=False)
+        self.save_system.save()
         self.stop_music()
         pygame.mixer.quit()
         self.root.destroy()
             
     def run(self) -> None:
         self.last_time = time.time()
-        self.start_music()
+        if self.music_on:
+            self.start_music()
         self.loop()
         self.root.mainloop()
