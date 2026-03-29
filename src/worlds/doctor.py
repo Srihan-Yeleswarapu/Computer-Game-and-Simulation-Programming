@@ -105,18 +105,18 @@ class DoctorWorld(BaseWorld):
             p["health"] -= dt * p["rate"]
             
             # Treat interaction
-            if math.hypot(player.x - p["x"], player.y - p["y"]) < 40 and "space" in keys:
+            if math.hypot(player.x - p["x"], player.y - p["y"]) < 70 and "space" in keys:
                  if self.held_item == self.tools_map[p["symptom"]]:
-                     self.treatment_progress += dt * 80.0
-                     if self.treatment_progress >= 100.0:
-                         self.score += 1
-                         self.treatment_progress = 0.0
-                         self.held_item = "" # Consume item
-                         p["health"] = 0 # Mark for removal
+                      self.treatment_progress += dt * 80.0
+                      if self.treatment_progress >= 100.0:
+                          self.score += 1
+                          self.treatment_progress = 0.0
+                          self.held_item = "" # Consume item
+                          p["health"] = 0 # Mark for removal
                  else:
-                     # Wrong item
-                     self.shake = 2.0
-                     p["health"] -= dt * 5.0 # Penalty
+                      # Wrong item
+                      self.shake = 2.0
+                      p["health"] -= dt * 5.0 # Penalty
             else:
                  self.treatment_progress = max(0.0, self.treatment_progress - dt * 100.0)
                  
@@ -189,10 +189,10 @@ class DoctorWorld(BaseWorld):
              canvas.create_text(px+float(sx), py-31.5+float(sy), text="HEALTH", fill="#fff", font=("Helvetica", 6, "bold"))
              
              # Treatment progress bar if active
-             if self.treatment_progress > 0 and math.hypot(float(player.x) - px, float(player.y) - py) < 40 and "space" in self.keys and self.held_item == self.tools_map[p["symptom"]]:
+             if self.treatment_progress > 0 and math.hypot(float(player.x) - px, float(player.y) - py) < 70 and "space" in self.keys and self.held_item == self.tools_map[p["symptom"]]:
                   canvas.create_rectangle(px-20.0+float(sx), py+25.0+float(sy), px+20.0+float(sx), py+30.0+float(sy), fill="#34495e")
                   canvas.create_rectangle(px-20.0+float(sx), py+25.0+float(sy), px-20.0 + 40.0*(self.treatment_progress/100.0) + float(sx), py+30.0+float(sy), fill="#2ecc71")
-                  canvas.create_text(px+float(sx), py+35.0+float(sy), text="TREATING...", fill="#2ecc71", font=("Helvetica", 7, "bold"))
+                  canvas.create_text(px+float(sx), py+38.0+float(sy), text="TREATING...", fill="#2ecc71", font=("Helvetica", 9, "bold"))
 
         # Tables
         for t in self.tables:

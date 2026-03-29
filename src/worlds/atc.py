@@ -12,7 +12,7 @@ class ATCWorld(BaseWorld):
         super().__init__(
             name="Air Traffic Control",
             summary="Coordinate approach vectors to land aircraft safely",
-            duration=70.0,
+            duration=60.0,
         )
         self.briefing = [
              "TRAFFIC ALERT: Extremely heavy volume entering airspace.",
@@ -29,8 +29,8 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 1.0
-        self.plane_limit = 20
+        self.spawn_timer = 0.5
+        self.plane_limit = 35
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
@@ -46,7 +46,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 1.0
+        self.spawn_timer = 0.5
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -77,7 +77,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(2.0, 4.0)
+            self.spawn_timer = random.uniform(1.2, 2.5)
             side = random.randint(0, 3)
             # Spawn at edges, slightly inside so they don't instantly bounce
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
@@ -87,8 +87,8 @@ class ATCWorld(BaseWorld):
             
             # Target center initially
             angle = math.atan2(HEIGHT/2 - y, WIDTH/2 - x)
-            vx = math.cos(angle) * 40
-            vy = math.sin(angle) * 40
+            vx = math.cos(angle) * 75
+            vy = math.sin(angle) * 75
             
             self.planes.append({
                 "x": x, "y": y, "vx": vx, "vy": vy, 
@@ -128,8 +128,8 @@ class ATCWorld(BaseWorld):
                         px = float(self.selected_plane["x"])
                         py = float(self.selected_plane["y"])
                         angle = math.atan2(pt[1] - py, pt[0] - px)
-                        self.selected_plane["vx"] = math.cos(angle) * 60
-                        self.selected_plane["vy"] = math.sin(angle) * 60
+                        self.selected_plane["vx"] = math.cos(angle) * 90
+                        self.selected_plane["vy"] = math.sin(angle) * 90
                 self.is_drawing = False
                 self.selected_plane = None
                 self.current_path = []
@@ -156,8 +156,8 @@ class ATCWorld(BaseWorld):
                 else:
                     # Move towards target
                     angle = math.atan2(dy, dx)
-                    p["vx"] = math.cos(angle) * 60
-                    p["vy"] = math.sin(angle) * 60
+                    p["vx"] = math.cos(angle) * 90
+                    p["vy"] = math.sin(angle) * 90
             
             p["x"] = px + float(p.get("vx", 0.0)) * dt
             p["y"] = py + float(p.get("vy", 0.0)) * dt
@@ -196,10 +196,10 @@ class ATCWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Shift over! Skies navigated safely."
-            if self.landed_count >= 15: self.grade = "S"
-            elif self.landed_count >= 10: self.grade = "A"
-            elif self.landed_count >= 6: self.grade = "B"
-            elif self.landed_count >= 3: self.grade = "C"
+            if self.landed_count >= 25: self.grade = "S"
+            elif self.landed_count >= 18: self.grade = "A"
+            elif self.landed_count >= 12: self.grade = "B"
+            elif self.landed_count >= 8: self.grade = "C"
             else: self.grade = "D"
             
         self.update_particles(dt)
@@ -257,7 +257,7 @@ class ATCWorld(BaseWorld):
         canvas.create_line(player.x, player.y-10, player.x, player.y+10, fill="#ff0")
         
         # HUD
-        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count}", fill="#0f0", font=("Helvetica", 14, "bold"))
+        canvas.create_text(WIDTH-20, 20, anchor="e", text=f"Landed: {self.landed_count} / 15", fill="#0f0", font=("Helvetica", 14, "bold"))
         
         canvas.create_text(20, HEIGHT-30, anchor="w", text="Move Mouse/WASD to position director. Hold SPACE on a plane to draw its approach path.", fill="#0f0", font=("Helvetica", 11))
 

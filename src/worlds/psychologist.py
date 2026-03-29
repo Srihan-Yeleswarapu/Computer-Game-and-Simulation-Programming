@@ -11,34 +11,6 @@ class PsychologistWorld(BaseWorld):
         super().__init__(
             name="Psychologist",
             summary="Help patients manage stress during a crisis",
-            duration=60.0,
-        )
-        self.briefing = [
-             "CRISIS ALERT: Patients are experiencing high stress levels!",
-             "As the Psychologist, you must help patients stabilize",
-             "their emotions and maintain mental well-being.",
-             "Balance multiple patients and provide effective solutions.",
-             "Warning: If stress levels rise too high, it will be a failure!"
-        ]
-        self.hints = [
-             "Tip: Prioritize patients with highest stress levels.",
-             "Tip: Use calming techniques to reduce stress quickly.",
-             "Tip: Balance time between multiple patients.",
-             "Tip: Monitor emotional stability indicators carefully."
-        ]
-import random
-import math
-import tkinter as tk
-from src.utils import WIDTH, HEIGHT, TEXT, clamp
-from src.player import Player
-from src.worlds.base import BaseWorld
-from typing import Any
-
-class PsychologistWorld(BaseWorld):
-    def __init__(self) -> None:
-        super().__init__(
-            name="Psychologist",
-            summary="Help patients manage stress during a crisis",
             duration=90.0,
         )
         self.briefing = [
