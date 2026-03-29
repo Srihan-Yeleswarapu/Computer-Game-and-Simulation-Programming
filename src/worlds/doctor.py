@@ -125,7 +125,7 @@ class DoctorWorld(BaseWorld):
             "tool_name": case["tool_name"],
             "color": case["color"],
             "stability": random.uniform(78.0, 96.0),
-            "drain_rate": random.uniform(4.2, 7.0),
+            "drain_rate": random.uniform(3.0, 5.0),
             "cure_progress": 0.0,
             "status": "waiting",
             "discharge_timer": 0.0,
@@ -219,11 +219,11 @@ class DoctorWorld(BaseWorld):
     def calculate_grade(self) -> str:
         if not self.success:
             return "-"
-        if self.saved_patients >= 11:
+        if self.saved_patients >= 9:
             return "S"
-        if self.saved_patients >= 8:
-            return "A"
         if self.saved_patients >= 5:
+            return "A"
+        if self.saved_patients >= 3:
             return "B"
         return "C"
 
