@@ -45,6 +45,7 @@ class ChefRushWorld(BaseWorld):
         self.step_progress = 0.0
         self.recipe_book_open = False
         self.station_labels = {"PANTRY": "PANTRY", "PREP": "COUNTER", "STOVE": "STOVE"}
+        self.repeat_customer = None
         
         # Positions
         self.counter_pos = (WIDTH/2, 100)
@@ -107,8 +108,11 @@ class ChefRushWorld(BaseWorld):
              if dist < nearest_dist:
                   nearest_customer = c
                   nearest_dist = dist
+             if  self.repeat_customer != None and math.hypot(player.x - self.repeat_customer["x"], player.y - self.repeat_customer["y"]) > 60:
+                    self.repeat_customer = None
              if dist < 60:
-                  if self.active_order is None and len(self.current_steps) == 0:
+
+                  if self.repeat_customer == None and self.active_order is None and len(self.current_steps) == 0:
                        self.active_order = c["id"]
                        self.recipe_book_open = False
                   elif self.active_order == c["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
@@ -119,11 +123,9 @@ class ChefRushWorld(BaseWorld):
                        c["order"] = random.choice(list(self.recipes.keys()))
                        c["patience"] = c["max_patience"]
                        self.active_order = None
+                       self.repeat_customer = c
                        self.step_progress = 0.0
                        self.recipe_book_open = False
-
-        if nearest_customer and self.active_order is None:
-             self.active_order = nearest_customer["id"]
 
         if self.active_order is not None and self.step_progress != -1:
              c = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
