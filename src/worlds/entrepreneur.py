@@ -435,14 +435,14 @@ class TycoonWorld(BaseWorld):
         # Handle key presses (with debouncing)
         space_pressed = "space" in keys and not self.space_pressed_last_frame
         enter_pressed = "return" in keys and not self.enter_pressed_last_frame
-        backspace_pressed = "backspace" in keys and not self.backspace_pressed_last_frame
+        backspace_pressed = "BackSpace" in keys and not self.backspace_pressed_last_frame
         
         self.space_pressed_last_frame = "space" in keys
         self.enter_pressed_last_frame = "return" in keys
-        self.backspace_pressed_last_frame = "backspace" in keys
+        self.backspace_pressed_last_frame = "BackSpace" in keys
         
         if self.ui_state == "game":
-            player.update(dt, keys, (70, 100, WIDTH - 70, HEIGHT - 150))
+            player.update(dt, keys, (230, 100, WIDTH - 70, HEIGHT - 50))
             
             # Spawn properties
             self.spawn_timer -= dt
@@ -465,7 +465,7 @@ class TycoonWorld(BaseWorld):
             
             self.highlighted_property = closest_idx
             
-            if space_pressed and closest_idx >= 0:
+            if space_pressed and closest_idx >= 0 and self.ui_state == "game":
                 self.selected_detail_idx = closest_idx
                 self.ui_state = "property_detail"
             
@@ -476,9 +476,10 @@ class TycoonWorld(BaseWorld):
                 self.ui_state = "market_analysis"
         
         elif self.ui_state == "property_detail":
-            if backspace_pressed:
+            if backspace_pressed or "escape" in keys:
                 self.ui_state = "game"
-            elif enter_pressed and self.selected_detail_idx >= 0:
+                self.selected_detail_idx = -1
+            elif space_pressed and self.selected_detail_idx >= 0:
                 prop = self.properties[self.selected_detail_idx]
                 if prop["type"] == "stock":
                     cost = prop["price"]
@@ -541,13 +542,14 @@ class TycoonWorld(BaseWorld):
                             self.first_purchase_made = True
                             self.achievements.append("First Investment")
                 self.ui_state = "game"
+                self.selected_detail_idx = -1
         
         elif self.ui_state == "portfolio":
-            if "p" in keys or backspace_pressed:
+            if "p" in keys or backspace_pressed or "escape" in keys:
                 self.ui_state = "game"
         
         elif self.ui_state == "market_analysis":
-            if "m" in keys or backspace_pressed:
+            if "m" in keys or backspace_pressed or "escape" in keys:
                 self.ui_state = "game"
         
         # Update portfolio values and income
@@ -741,7 +743,7 @@ class TycoonWorld(BaseWorld):
         button_color = "#3498db" if can_afford else "#7f8c8d"
         canvas.create_rectangle(x0 + 40, y, x0 + panel_w - 40, y + 40, 
                                fill=button_color, outline="#ecf0f1", width=2)
-        action_text = "BUY (ENTER)" if can_afford else "NOT ENOUGH CASH"
+        action_text = "BUY (SPACE)" if can_afford else "NOT ENOUGH CASH"
         canvas.create_text(x0 + panel_w / 2, y + 20, text=action_text, 
                           fill="#fff" if can_afford else "#95a5a6", font=("Arial", 12, "bold"))
         y += 50
@@ -941,32 +943,39 @@ class TycoonWorld(BaseWorld):
             # Draw player
             player.draw(canvas)
             
-            # HUD at bottom
-            hud_h = 160
-            canvas.create_rectangle(0, HEIGHT - hud_h, WIDTH, HEIGHT, fill="#1e272e", outline="#ecf0f1", width=1)
+            # HUD on TOP RIGHT (minimal, doesn't block board)
+            hud_w = 180
+            hud_x = WIDTH - hud_w - 10
+            canvas.create_rectangle(hud_x, 50, WIDTH - 5, 250, fill="#1e272e", outline="#ecf0f1", width=2)
             
-            y = HEIGHT - hud_h + 12
+            y = 60
             cash_color = "#2ecc71" if self.cash >= 0 else "#e74c3c"
-            canvas.create_text(20, y, anchor="w", text=f"💵 Cash: ${self.cash:,.0f}", 
-                              fill=cash_color, font=("Arial", 12, "bold"))
-            canvas.create_text(20, y + 25, anchor="w", text=f"📊 Net Worth: ${self.net_worth:,.0f}", 
-                              fill="#3498db", font=("Arial", 12, "bold"))
-            canvas.create_text(20, y + 50, anchor="w", text=f"🎯 Assets: {len(self.portfolio)} | 📈 Profit: ${self.total_profit:,.0f}", 
-                              fill="#f1c40f", font=("Arial", 11, "bold"))
+            canvas.create_text(hud_x + 10, y, anchor="w", text=f"💵 Cash", fill="#ecf0f1", font=("Arial", 9, "bold"))
+            canvas.create_text(hud_x + 10, y + 15, anchor="w", text=f"${self.cash:,.0f}", 
+                              fill=cash_color, font=("Arial", 10, "bold"))
             
-            # Market event display
+            y += 40
+            canvas.create_text(hud_x + 10, y, anchor="w", text=f"📊 Net Worth", fill="#ecf0f1", font=("Arial", 9, "bold"))
+            canvas.create_text(hud_x + 10, y + 15, anchor="w", text=f"${self.net_worth:,.0f}", 
+                              fill="#3498db", font=("Arial", 10, "bold"))
+            
+            y += 40
+            canvas.create_text(hud_x + 10, y, anchor="w", text=f"🎯 Assets: {len(self.portfolio)}", 
+                              fill="#f1c40f", font=("Arial", 9, "bold"))
+            
+            y += 25
+            profit_color = "#2ecc71" if self.total_profit >= 0 else "#e74c3c"
+            canvas.create_text(hud_x + 10, y, anchor="w", text=f"📈 Profit: ${self.total_profit:,.0f}", 
+                              fill=profit_color, font=("Arial", 9, "bold"))
+            
+            # Market event display (center top)
             if self.event_message_timer > 0:
-                canvas.create_text(WIDTH / 2, HEIGHT - hud_h - 30, text=self.market_event_message,
+                canvas.create_text(WIDTH / 2, 70, text=self.market_event_message,
                                   fill="#f39c12", font=("Arial", 12, "bold"))
             
-            # Market snapshot
-            canvas.create_text(WIDTH - 20, y, anchor="e",
-                              text=f"Tech: ${self.market_prices['stocks_tech']:.1f} | RE: ${self.market_prices['residential']:.0f}",
-                              fill="#95a5a6", font=("Arial", 8))
-            
-            # Controls
-            controls_text = "SPACE=Details | P=Portfolio | M=Market | WASD=Move"
-            canvas.create_text(WIDTH - 20, y + 60, anchor="e", text=controls_text,
+            # Controls at bottom
+            canvas.create_text(WIDTH / 2, HEIGHT - 20, anchor="center",
+                              text="SPACE=View | SPACE=Buy | P=Portfolio | M=Market | BACKSPACE=Close",
                               fill="#95a5a6", font=("Arial", 8))
         
         elif self.ui_state == "portfolio":
