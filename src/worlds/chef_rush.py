@@ -43,6 +43,8 @@ class ChefRushWorld(BaseWorld):
         self.active_order = None # The customer index they are focusing on
         self.current_steps = []
         self.step_progress = 0.0
+        self.recipe_book_open = False
+        self.station_labels = {"PANTRY": "PANTRY", "PREP": "COUNTER", "STOVE": "STOVE"}
         
         # Positions
         self.counter_pos = (WIDTH/2, 100)
@@ -66,6 +68,7 @@ class ChefRushWorld(BaseWorld):
         self.active_order = None
         self.current_steps = []
         self.step_progress = 0.0
+        self.recipe_book_open = False
 
         # Spawn 3 customers
         self.customers = [
@@ -93,13 +96,21 @@ class ChefRushWorld(BaseWorld):
                  if self.active_order == c["id"]:
                       self.active_order = None
                       self.current_steps = []
+                      self.recipe_book_open = False
 
         # Stations logic
         # 1. Counter (Select order & Deliver)
+        nearest_customer = None
+        nearest_dist = 70.0
         for c in self.customers:
-             if math.hypot(player.x - c["x"], player.y - c["y"]) < 60:
+             dist = math.hypot(player.x - c["x"], player.y - c["y"])
+             if dist < nearest_dist:
+                  nearest_customer = c
+                  nearest_dist = dist
+             if dist < 60:
                   if self.active_order is None and len(self.current_steps) == 0:
                        self.active_order = c["id"]
+                       self.recipe_book_open = False
                   elif self.active_order == c["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
                        # Delivered!
                        tip = int((c["patience"] / c["max_patience"]) * 50)
@@ -109,6 +120,10 @@ class ChefRushWorld(BaseWorld):
                        c["patience"] = c["max_patience"]
                        self.active_order = None
                        self.step_progress = 0.0
+                       self.recipe_book_open = False
+
+        if nearest_customer and self.active_order is None:
+             self.active_order = nearest_customer["id"]
 
         if self.active_order is not None and self.step_progress != -1:
              c = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
@@ -118,18 +133,20 @@ class ChefRushWorld(BaseWorld):
                        if math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1]) < 60:
                             self.current_steps = self.recipes[c["order"]].copy()
                             self.step_progress = 0.0
+                            self.recipe_book_open = True
+                            self.message = f"{c['order']}: follow the route shown on the left."
                   # 3. Work Stations
                   elif len(self.current_steps) > 0:
                        next_station = self.current_steps[0]
                        station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
                        
                        if math.hypot(player.x - station_pos[0], player.y - station_pos[1]) < 50:
-                            self.step_progress += 40.0 * dt
-                            if self.step_progress >= 100.0:
-                                 self.current_steps.pop(0)
-                                 self.step_progress = 0.0
-                                 if len(self.current_steps) == 0:
-                                      self.step_progress = -1 # Ready for delivery
+                            completed_step = self.current_steps.pop(0)
+                            self.step_progress = 0.0
+                            self.message = f"{self.station_labels[completed_step]} handled. Keep moving."
+                            if len(self.current_steps) == 0:
+                                 self.step_progress = -1 # Ready for delivery
+                                 self.message = "Meal ready. Return to the customer."
 
         if self.timer <= 0:
             self.finished = True
@@ -159,13 +176,14 @@ class ChefRushWorld(BaseWorld):
         # Stations
         for name, pos, color in [("RECIPE BOOK", self.book_pos, "#8e44ad"), 
                                  ("PANTRY", self.pantry_pos, "#d35400"), 
-                                 ("PREP", self.prep_pos, "#27ae60"), 
+                                 ("COUNTER", self.prep_pos, "#27ae60"), 
                                  ("STOVE", self.stove_pos, "#c0392b")]:
              canvas.create_rectangle(pos[0]-45+sx, pos[1]-45+sy, pos[0]+45+sx, pos[1]+45+sy, fill=color, outline="#fff", width=2)
              canvas.create_text(pos[0]+sx, pos[1]+sy, text=name, fill="#fff", font=("Arial", 9, "bold"))
              
              # Draw progress rings if working here
-             if self.active_order is not None and len(self.current_steps) > 0 and self.current_steps[0] == name:
+             station_key = "PREP" if name == "COUNTER" else name
+             if self.active_order is not None and len(self.current_steps) > 0 and self.current_steps[0] == station_key:
                   if math.hypot(player.x - pos[0], player.y - pos[1]) < 50:
                        canvas.create_rectangle(pos[0]-40+sx, pos[1]+30+sy, pos[0]+40+sx, pos[1]+40+sy, fill="#fff")
                        canvas.create_rectangle(pos[0]-38+sx, pos[1]+32+sy, pos[0]-38+76*(self.step_progress/100)+sx, pos[1]+38+sy, fill="#f1c40f")
@@ -192,12 +210,34 @@ class ChefRushWorld(BaseWorld):
                   elif len(self.current_steps) == 0:
                        canvas.create_text(cx, cy-35, text="READ BOOK!", fill="#8e44ad", font=("Arial", 10, "bold"))
                   else:
-                       canvas.create_text(cx, cy-35, text=f"GO TO {self.current_steps[0]}", fill="#e67e22", font=("Arial", 10, "bold"))
+                       canvas.create_text(cx, cy-35, text=f"GO TO {self.station_labels[self.current_steps[0]]}", fill="#e67e22", font=("Arial", 10, "bold"))
 
         player.draw(canvas)
         
         # HUD
         canvas.create_text(WIDTH-20, 150, anchor="e", text=f"CASH: ${self.money}", fill="#2ecc71", font=("Arial", 18, "bold"))
+        if self.active_order is not None and self.recipe_book_open:
+             customer = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
+             if customer:
+                  all_steps = self.recipes[customer["order"]]
+                  completed_count = len(all_steps) - len(self.current_steps)
+                  route_lines = []
+                  if self.step_progress == -1:
+                       route_lines = ["READY", "Go to CUSTOMER"]
+                  else:
+                       for index, step in enumerate(all_steps):
+                            label = self.station_labels[step]
+                            if index < completed_count:
+                                 route_lines.append(f"DONE: {label}")
+                            elif index == completed_count:
+                                 route_lines.append(f"NEXT: {label}")
+                            else:
+                                 route_lines.append(f"THEN: {label}")
+                  panel_top = HEIGHT - 128
+                  panel_bottom = HEIGHT - 44
+                  canvas.create_rectangle(14, panel_top, 260, panel_bottom, fill="#ffffff", outline="#2c3e50", width=2)
+                  canvas.create_text(24, panel_top + 12, anchor="nw", text=f"{customer['order']} route", fill="#2c3e50", font=("Arial", 10, "bold"))
+                  canvas.create_text(24, panel_top + 30, anchor="nw", text="\n".join(route_lines), fill="#2c3e50", font=("Arial", 9, "bold"), width=220)
 
         if self.finished:
             self.draw_result(canvas)
