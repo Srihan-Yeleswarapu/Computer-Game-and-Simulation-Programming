@@ -202,11 +202,11 @@ class ElectricianWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Building stabilized. All circuits were repaired and safely re-energized."
-            if self.system_health >= 85.0 and self.timer >= 35.0:
+            if self.system_health >= 80.0 and self.timer >= 40.0:
                 self.grade = "S"
-            elif self.system_health >= 70.0 and self.timer >= 20.0:
+            elif self.system_health >= 62.0 and self.timer >= 25.0:
                 self.grade = "A"
-            elif self.system_health >= 55.0:
+            elif self.system_health >= 45.0 or self.timer >= 15.0:
                 self.grade = "B"
             else:
                 self.grade = "C"

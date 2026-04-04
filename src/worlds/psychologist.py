@@ -188,14 +188,20 @@ class PsychologistWorld(BaseWorld):
                 )
                 patient["bubble_timer"] = random.uniform(2.6, 4.3)
 
-            distress_rate = float(patient["baseline_rate"])
-            if float(patient["rapport"]) < 30:
-                distress_rate += 1.0
-            if float(patient["distress"]) > 75:
-                distress_rate += 0.8
-            patient["distress"] = clamp(float(patient["distress"]) + distress_rate * dt, 0.0, 100.0)
+            intervention = self.interventions[self.selected_intervention]
+            treating_here = index == self.active_patient and "space" in keys
+            match_focus = intervention["focus"] == patient["focus"]
+            secondary_match = intervention["focus"] == patient["secondary_focus"]
 
-            if random.random() < 0.09 * dt and float(patient["distress"]) < 88:
+            if not (treating_here and (match_focus or secondary_match)):
+                distress_rate = float(patient["baseline_rate"])
+                if float(patient["rapport"]) < 30:
+                    distress_rate += 1.0
+                if float(patient["distress"]) > 75:
+                    distress_rate += 0.8
+                patient["distress"] = clamp(float(patient["distress"]) + distress_rate * dt, 0.0, 100.0)
+
+            if not treating_here and random.random() < 0.09 * dt and float(patient["distress"]) < 88:
                 patient["distress"] = clamp(float(patient["distress"]) + random.uniform(5.0, 9.0), 0.0, 100.0)
                 patient["speaking"] = random.choice(
                     [
@@ -209,14 +215,13 @@ class PsychologistWorld(BaseWorld):
                 self.shake = max(self.shake, 1.4)
 
             if index == self.active_patient and "space" in keys:
-                intervention = self.interventions[self.selected_intervention]
                 effectiveness = 0.0
-                if intervention["focus"] == patient["focus"]:
+                if match_focus:
                     effectiveness = 1.0
-                elif intervention["focus"] == patient["secondary_focus"]:
+                elif secondary_match:
                     effectiveness = 0.55
                 else:
-                    effectiveness = -0.55
+                    effectiveness = -0.35
 
                 if effectiveness > 0:
                     patient["rapport"] = clamp(float(patient["rapport"]) + 14.0 * dt * effectiveness, 0.0, 100.0)
@@ -227,7 +232,7 @@ class PsychologistWorld(BaseWorld):
                 else:
                     patient["rapport"] = clamp(float(patient["rapport"]) + 16.0 * dt * effectiveness, 0.0, 100.0)
                     patient["progress"] = clamp(float(patient["progress"]) + 10.0 * dt * effectiveness, 0.0, 100.0)
-                    patient["distress"] = clamp(float(patient["distress"]) - 18.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["distress"] = clamp(float(patient["distress"]) + 9.0 * dt * abs(effectiveness), 0.0, 100.0)
                     patient["speaking"] = f"{intervention['name']} does not fit right now."
                     patient["bubble_timer"] = 1.0
                     self.shake = max(self.shake, 1.0)
@@ -304,11 +309,11 @@ class PsychologistWorld(BaseWorld):
 
     def draw_patient_room(self, canvas: tk.Canvas, patient: dict[str, Any], index: int, is_active: bool, player: Player) -> None:
         room_w = WIDTH / 2 - 72
-        room_h = 176
+        room_h = 166
         room_col = index % 2
         room_row = index // 2
         x1 = 38 + room_col * (room_w + 28)
-        y1 = 92 + room_row * (room_h + 22)
+        y1 = 100 + room_row * (room_h + 18)
         x2 = x1 + room_w
         y2 = y1 + room_h
 
@@ -324,8 +329,8 @@ class PsychologistWorld(BaseWorld):
         canvas.create_text(x1 + 14, y1 + 35, anchor="nw", text=patient["issue"], fill="#4a657d", font=("Helvetica", 9, "bold"), width=room_w - 108)
 
         bubble_fill = "#edf6ff" if not self.high_contrast else "#111111"
-        canvas.create_rectangle(x1 + 14, y1 + 64, x2 - 14, y1 + 106, fill=bubble_fill, outline="#c7d8e8")
-        canvas.create_text(x1 + 26, y1 + 76, anchor="nw", text=patient["speaking"], fill="#1f2d3d", font=("Helvetica", 9, "bold"), width=room_w - 54)
+        canvas.create_rectangle(x1 + 14, y1 + 60, x2 - 14, y1 + 98, fill=bubble_fill, outline="#c7d8e8")
+        canvas.create_text(x1 + 22, y1 + 70, anchor="nw", text=patient["speaking"], fill="#1f2d3d", font=("Helvetica", 8, "bold"), width=room_w - 46)
 
         chair_x = x1 + 62
         chair_y = y1 + room_h - 50
@@ -335,8 +340,8 @@ class PsychologistWorld(BaseWorld):
         canvas.create_rectangle(client_x - 22, client_y - 14, client_x + 22, client_y + 22, fill=color, outline="#2f3e46", width=2)
         canvas.create_text(client_x, client_y - 28, text=f"Distress {int(distress)}", fill="#1f2d3d", font=("Helvetica", 9, "bold"))
 
-        canvas.create_text(x1 + 14, y1 + 114, anchor="nw", text="Observed Cues", fill="#1d3557", font=("Helvetica", 9, "bold"))
-        canvas.create_text(x1 + 14, y1 + 129, anchor="nw", text=patient["notes"], fill="#44586d", font=("Helvetica", 9), width=room_w - 128)
+        canvas.create_text(x1 + 14, y1 + 106, anchor="nw", text="Observed Cues", fill="#1d3557", font=("Helvetica", 9, "bold"))
+        canvas.create_text(x1 + 14, y1 + 121, anchor="nw", text=patient["notes"], fill="#44586d", font=("Helvetica", 8), width=room_w - 128)
 
         bar_x1 = x1 + room_w - 110
         rapport_top = y2 - 46
@@ -370,14 +375,14 @@ class PsychologistWorld(BaseWorld):
         canvas.create_text(WIDTH - 170, 20, anchor="e", text=f"Time: {self.timer:05.1f}s", fill="#f2f7fb", font=("Helvetica", 12, "bold"))
         canvas.create_text(WIDTH - 18, 20, anchor="e", text=f"Unit Risk: {int(self.global_risk)}", fill="#ffcf99", font=("Helvetica", 12, "bold"))
 
-        canvas.create_text(20, 52, anchor="nw", text="Match the client's cue to the right intervention:", fill="#26445f", font=("Helvetica", 10, "bold"))
-        canvas.create_text(20, 68, anchor="nw", text="1 Grounding  2 Breathing  3 Reflection  4 Reframing", fill="#45657f", font=("Helvetica", 9))
+        canvas.create_text(20, 50, anchor="nw", text="Match the client's cue to the right intervention.", fill="#26445f", font=("Helvetica", 10, "bold"))
+        canvas.create_text(20, 66, anchor="nw", text="1 Grounding  2 Breathing  3 Reflection  4 Reframing", fill="#45657f", font=("Helvetica", 8, "bold"))
         if self.message and self.message_timer > 0:
-            canvas.create_rectangle(312, 46, WIDTH - 20, 78, fill="#17314b", outline="#3b6d96")
-            canvas.create_text((312 + WIDTH - 20) / 2, 62, text=self.message, fill="#eef7ff", font=("Helvetica", 9, "bold"), width=WIDTH - 356)
+            canvas.create_rectangle(360, 46, WIDTH - 20, 78, fill="#17314b", outline="#3b6d96")
+            canvas.create_text((360 + WIDTH - 20) / 2, 62, text=self.message, fill="#eef7ff", font=("Helvetica", 9, "bold"), width=WIDTH - 410)
 
         self.draw_intervention_bar(canvas)
-        canvas.create_text(WIDTH / 2, HEIGHT - 106, text=self.hints[self.current_hint_index], fill="#4f6d86", font=("Helvetica", 9, "italic"))
+        canvas.create_text(WIDTH / 2, HEIGHT - 110, text=self.hints[self.current_hint_index], fill="#4f6d86", font=("Helvetica", 8, "italic"))
         player.draw(canvas)
 
         if self.finished:

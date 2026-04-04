@@ -51,6 +51,7 @@ class MarineWorld(BaseWorld):
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
+        self.tutorial_timer = 4.0
         self.scan_timer = 0.0
         self.discovery_msg = ""
         self.msg_timer = 0.0
@@ -71,7 +72,7 @@ class MarineWorld(BaseWorld):
         for _ in range(2):
             self.sharks.append({
                 "x": random.uniform(100, WIDTH-100), "y": random.uniform(300, HEIGHT-100),
-                "dx": random.choice([-1, 1]) * 120, "dy": 0, "w": 60
+                "dx": random.choice([-1, 1]) * 120, "dy": random.uniform(-18, 18), "w": 60
             })
 
         self.samples = []
@@ -84,12 +85,14 @@ class MarineWorld(BaseWorld):
         ]
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
         if self.finished:
             self.draw(canvas, player)
             return
         
         # tick_timer handled by engine
         if self.tutorial_timer > 0:
+            self.tutorial_timer = max(0.0, self.tutorial_timer - dt)
             self.draw(canvas, player)
             return
             
@@ -108,11 +111,19 @@ class MarineWorld(BaseWorld):
         x1, y1, x2, y2 = self.bounds
         for f in self.fish:
             f["x"] += f["dx"] * dt
-            if f["x"] < x1 or f["x"] > x2: f["dx"] *= -1
+            f["y"] = clamp(float(f["y"]) + float(f["dy"]) * dt, y1 + 40, y2 - 60)
+            if f["x"] < x1 or f["x"] > x2:
+                f["dx"] *= -1
+            if f["y"] <= y1 + 40 or f["y"] >= y2 - 60:
+                f["dy"] *= -1
         
         for s in self.sharks:
             s["x"] += s["dx"] * dt
-            if s["x"] < x1 or s["x"] > x2: s["dx"] *= -1
+            s["y"] = clamp(float(s["y"]) + float(s["dy"]) * dt, y1 + 70, y2 - 40)
+            if s["x"] < x1 or s["x"] > x2:
+                s["dx"] *= -1
+            if s["y"] <= y1 + 70 or s["y"] >= y2 - 40:
+                s["dy"] *= -1
             
             # Shark Bite Logic
             dist = math.hypot(player.x - s["x"], player.y - s["y"])

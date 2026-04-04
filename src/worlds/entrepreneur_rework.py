@@ -38,6 +38,7 @@ class TycoonWorld(BaseWorld):
             "Orange service calls appear on holdings you own. Move there and press E to resolve them.",
             "Press P to review holdings and ENTER to sell the selected position.",
             "Press M for the market board to see prices, drift, and recent events.",
+            "Press L to borrow working capital and K to pay debt back down.",
             "Cash flow matters. This version moves slower, so active management matters more.",
         ]
         self.asset_specs: dict[str, dict[str, Any]] = {
@@ -85,6 +86,9 @@ class TycoonWorld(BaseWorld):
         self.peak_net_worth = self.starting_cash
         self.message = ""
         self._pressed: dict[str, bool] = {}
+        self.loan_balance = 0.0
+        self.loan_rate = 0.082
+        self.loan_increment = 25000.0
         self.reset_market_state()
 
     def reset_market_state(self) -> None:
@@ -132,6 +136,7 @@ class TycoonWorld(BaseWorld):
         self.buy_count = 0
         self.sell_count = 0
         self.peak_net_worth = self.starting_cash
+        self.loan_balance = 0.0
         self.market_timer = 0.0
         self.spawn_timer = 0.0
         self.event_timer = 0.0
@@ -207,11 +212,16 @@ class TycoonWorld(BaseWorld):
             return
         prop = self.properties[self.selected_detail_idx]
         price = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0)))
-        if self.cash < price:
-            self.message = "Not enough cash for that deal."
+        risk = float(prop["risk"])
+        down_payment_ratio = clamp(0.20 + risk * 0.35, 0.20, 0.35)
+        down_payment = price * down_payment_ratio
+        financed_amount = price - down_payment
+        if self.cash < down_payment:
+            self.message = "Not enough cash for the down payment."
             return
         annual_income = price * float(prop["annual_yield"]) * float(prop["occupancy"])
         annual_expense = price * float(prop["annual_expense"]) / max(0.70, float(prop["quality"]))
+        annual_debt_service = financed_amount * self.loan_rate
         holding = {
             "name": str(prop["name"]),
             "asset_type": str(prop["asset_type"]),
@@ -224,15 +234,19 @@ class TycoonWorld(BaseWorld):
             "annual_expense": annual_expense,
             "quality": float(prop["quality"]),
             "risk": float(prop["risk"]),
-            "cash_flow": annual_income - annual_expense,
+            "cash_flow": annual_income - annual_expense - annual_debt_service,
             "profit": 0.0,
             "x": float(prop["x"]),
             "y": float(prop["y"]),
             "stress": 0.0,
+            "loan_principal": financed_amount,
+            "annual_debt_service": annual_debt_service,
+            "down_payment": down_payment,
         }
-        self.cash -= price
+        self.cash -= down_payment
+        self.loan_balance += financed_amount
         self.portfolio.append(holding)
-        self.transaction_history.append(f"BUY {holding['name']} for {self.money(price)}")
+        self.transaction_history.append(f"BUY {holding['name']} for {self.money(down_payment)} down")
         self.transaction_history = self.transaction_history[-8:]
         self.properties.pop(self.selected_detail_idx)
         self.buy_count += 1
@@ -250,13 +264,36 @@ class TycoonWorld(BaseWorld):
         index = int(self.selected_portfolio_idx)
         holding = self.portfolio.pop(index)
         sale_price = float(holding["market_value"]) * random.uniform(0.985, 1.015)
-        self.cash += sale_price
-        self.transaction_history.append(f"SELL {holding['name']} for {self.money(sale_price)}")
+        payoff = min(sale_price, float(holding.get("loan_principal", 0.0)))
+        self.loan_balance = max(0.0, self.loan_balance - payoff)
+        self.cash += sale_price - payoff
+        self.transaction_history.append(f"SELL {holding['name']} for {self.money(sale_price - payoff)} net")
         self.transaction_history = self.transaction_history[-8:]
         self.sell_count += 1
         self.message = f"Sold {holding['name']}."
         self.selected_portfolio_idx = max(0, min(index, len(self.portfolio) - 1))
         self.active_tasks = [task for task in self.active_tasks if task["holding_name"] != holding["name"]]
+
+    def borrow_capital(self) -> None:
+        self.cash += self.loan_increment
+        self.loan_balance += self.loan_increment
+        self.message = f"Borrowed {self.money(self.loan_increment)} in working capital."
+        self.transaction_history.append(f"LOAN +{self.money(self.loan_increment)}")
+        self.transaction_history = self.transaction_history[-8:]
+
+    def repay_loan(self) -> None:
+        if self.loan_balance <= 0.0:
+            self.message = "No loan balance to repay."
+            return
+        payment = min(self.cash, self.loan_increment, self.loan_balance)
+        if payment <= 0.0:
+            self.message = "Need cash before paying down debt."
+            return
+        self.cash -= payment
+        self.loan_balance -= payment
+        self.message = f"Paid down {self.money(payment)} of debt."
+        self.transaction_history.append(f"LOAN -{self.money(payment)}")
+        self.transaction_history = self.transaction_history[-8:]
 
     def research_highlighted_property(self) -> None:
         if self.highlighted_property < 0:
@@ -303,19 +340,19 @@ class TycoonWorld(BaseWorld):
             self.event_timer = max(0.0, self.event_timer - dt)
         for key, price in list(self.market_prices.items()):
             drift = self.market_drifts[key]
-            noise = random.uniform(-1.0, 1.0) * (0.03 + abs(drift) * 0.5)
-            growth = drift * year_fraction + noise * math.sqrt(year_fraction) * 0.16
+            noise = random.uniform(-1.0, 1.0) * (0.015 + abs(drift) * 0.22)
+            growth = drift * year_fraction + noise * math.sqrt(year_fraction) * 0.10
             if key == "crypto_miner":
-                growth *= 1.35
+                growth *= 1.18
             new_price = max(3500.0, price * (1.0 + growth))
             self.market_prices[key] = new_price
             history = self.price_history[key]
             history.append(new_price)
             if len(history) > 32:
                 history.pop(0)
-        if self.market_timer >= 14.0:
+        if self.market_timer >= 20.0:
             self.market_timer = 0.0
-            if random.random() < 0.45:
+            if random.random() < 0.30:
                 self.trigger_market_event()
 
     def update_properties(self, dt: float) -> None:
@@ -393,13 +430,18 @@ class TycoonWorld(BaseWorld):
             if stress > 0.75:
                 holding["annual_expense"] *= 1.0 + dt * 0.01
                 holding["annual_income"] *= max(0.998, 1.0 - dt * 0.003)
-            period_cash = (holding["annual_income"] - holding["annual_expense"]) * year_fraction
+            annual_debt_service = float(holding.get("loan_principal", 0.0)) * self.loan_rate
+            holding["annual_debt_service"] = annual_debt_service
+            principal_payment = min(float(holding.get("loan_principal", 0.0)), float(holding.get("loan_principal", 0.0)) * year_fraction * 0.28)
+            holding["loan_principal"] = max(0.0, float(holding.get("loan_principal", 0.0)) - principal_payment)
+            self.loan_balance = max(0.0, self.loan_balance - principal_payment)
+            period_cash = (holding["annual_income"] - holding["annual_expense"] - annual_debt_service) * year_fraction
             self.cash += period_cash
-            cash_flow += holding["annual_income"] - holding["annual_expense"]
-            holding["cash_flow"] = holding["annual_income"] - holding["annual_expense"]
-            holding["profit"] = holding["market_value"] - holding["purchase_price"]
+            cash_flow += holding["annual_income"] - holding["annual_expense"] - annual_debt_service
+            holding["cash_flow"] = holding["annual_income"] - holding["annual_expense"] - annual_debt_service
+            holding["profit"] = holding["market_value"] - holding["purchase_price"] + float(holding.get("down_payment", 0.0)) - float(holding.get("loan_principal", 0.0))
             total_value += holding["market_value"]
-        self.net_worth = self.cash + total_value
+        self.net_worth = self.cash + total_value - self.loan_balance
         self.total_profit = self.net_worth - self.starting_cash
         self.monthly_cash_flow = cash_flow / 12.0
         self.peak_net_worth = max(self.peak_net_worth, self.net_worth)
@@ -417,6 +459,10 @@ class TycoonWorld(BaseWorld):
                 self.negotiate_highlighted_property()
             if self.just_pressed(keys, "e"):
                 self.resolve_highlighted_task()
+            if self.just_pressed(keys, "l"):
+                self.borrow_capital()
+            if self.just_pressed(keys, "k"):
+                self.repay_loan()
             if self.just_pressed(keys, "p"):
                 self.ui_state = "portfolio"
             if self.just_pressed(keys, "m"):
@@ -513,7 +559,7 @@ class TycoonWorld(BaseWorld):
             ("Cash", self.money(self.cash), "#7ee787"),
             ("Net Worth", self.money(self.net_worth), "#7cc8ff"),
             ("Cash Flow", f"{self.money(self.monthly_cash_flow)}/mo", "#ffd166"),
-            ("Holdings", str(len(self.portfolio)), "#f4f1de"),
+            ("Debt", self.money(self.loan_balance), "#ffb4a2"),
         ]
         for index, (label, value, color) in enumerate(labels):
             x1 = 18 + index * 183
@@ -557,7 +603,7 @@ class TycoonWorld(BaseWorld):
         row_y = y1 + 38
         for key in ("real_estate", "industrial", "tech_fund", "dividend_fund", "bond_ladder", "crypto_miner"):
             history = self.price_history[key]
-            drift = history[-1] - history[-2] if len(history) > 1 else 0.0
+            drift = history[-1] - history[max(0, len(history) - 20)] if len(history) > 1 else 0.0
             color = "#69db7c" if drift >= 0 else "#ff8787"
             label = key.replace("_", " ").title()
             canvas.create_text(x1 + 14, row_y, anchor="w", text=label, fill="#93b9d6", font=("Helvetica", 9))
@@ -570,6 +616,7 @@ class TycoonWorld(BaseWorld):
             "R Research deal",
             "F Negotiate price",
             "E Resolve service call",
+            "L Borrow / K repay",
             "SPACE Inspect",
             f"Open tasks: {len(self.active_tasks)}",
         ]
@@ -600,29 +647,31 @@ class TycoonWorld(BaseWorld):
             f"Zone: {prop['zone']}",
             f"Asking Price: {self.money(float(prop['price']))}",
             f"Negotiated Price: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0)) ))}",
+            f"Down Payment: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * clamp(0.20 + float(prop['risk']) * 0.35, 0.20, 0.35))}",
             f"Projected Annual Yield: {float(prop['annual_yield']) * 100:.1f}%",
             f"Projected Annual Expense: {float(prop['annual_expense']) * 100:.1f}%",
             f"Occupancy / Utilization: {float(prop['occupancy']) * 100:.0f}%",
             f"Research Level: {int(prop.get('research', 0))}/2",
             f"Risk Score: {int(float(prop['risk']) * 100)} / 100",
-            f"Estimated Monthly Cash Flow: {self.money((float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (float(prop['annual_yield']) * float(prop['occupancy']) - float(prop['annual_expense']))) / 12.0)}",
+            f"Estimated Monthly Cash Flow: {self.money((float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (float(prop['annual_yield']) * float(prop['occupancy']) - float(prop['annual_expense'])) - (float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (1.0 - clamp(0.20 + float(prop['risk']) * 0.35, 0.20, 0.35)) * self.loan_rate)) / 12.0)}",
             f"Cash Available: {self.money(self.cash)}",
         ]
         y = y1 + 68
         for line in lines:
             canvas.create_text(x1 + 26, y, anchor="w", text=line, fill="#d6e9f8", font=("Helvetica", 11))
             y += 28
-        can_afford = self.cash >= float(prop["price"])
+        down_payment_needed = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0))) * clamp(0.20 + float(prop["risk"]) * 0.35, 0.20, 0.35)
+        can_afford = self.cash >= down_payment_needed
         button_fill = "#2f9e44" if can_afford else "#7f8c8d"
         canvas.create_rectangle(x1 + 42, y2 - 76, x2 - 42, y2 - 34, fill=button_fill, outline="")
-        canvas.create_text((x1 + x2) / 2, y2 - 55, text="Press ENTER to acquire" if can_afford else "Insufficient cash", fill="#ffffff", font=("Helvetica", 12, "bold"))
+        canvas.create_text((x1 + x2) / 2, y2 - 55, text="Press ENTER to acquire with financing" if can_afford else "Insufficient down payment", fill="#ffffff", font=("Helvetica", 12, "bold"))
         canvas.create_text((x1 + x2) / 2, y2 - 14, text="BACKSPACE closes the card", fill="#9bc0da", font=("Helvetica", 10))
 
     def draw_portfolio(self, canvas: tk.Canvas) -> None:
         canvas.create_rectangle(22, 62, WIDTH - 22, HEIGHT - 40, fill="#0b1520", outline="#355670", width=2)
         canvas.create_text(38, 82, anchor="w", text="Portfolio", fill="#eef7ff", font=("Helvetica", 16, "bold"))
         canvas.create_text(WIDTH - 38, 82, anchor="e", text="ENTER sells selected holding", fill="#8fb9d8", font=("Helvetica", 10))
-        summary = [("Cash", self.money(self.cash)), ("Net Worth", self.money(self.net_worth)), ("Cash Flow", f"{self.money(self.monthly_cash_flow)}/mo"), ("Profit", self.money(self.total_profit))]
+        summary = [("Cash", self.money(self.cash)), ("Net Worth", self.money(self.net_worth)), ("Cash Flow", f"{self.money(self.monthly_cash_flow)}/mo"), ("Debt", self.money(self.loan_balance))]
         for index, (label, value) in enumerate(summary):
             x1 = 36 + index * 220
             canvas.create_rectangle(x1, 100, x1 + 200, 148, fill="#132435", outline="#31506a")
@@ -646,7 +695,7 @@ class TycoonWorld(BaseWorld):
                 fill = "#17314b" if selected else "#0f1a27"
                 outline = "#67b7ff" if selected else "#1f3346"
                 canvas.create_rectangle(48, row_y, WIDTH - 48, row_y + 38, fill=fill, outline=outline)
-                text = f"{holding['name']}  |  Value {self.money(float(holding['market_value']))}  |  Profit {self.money(float(holding['profit']))}  |  Cash Flow {self.money(float(holding['cash_flow']) / 12.0)}/mo"
+                text = f"{holding['name']}  |  Value {self.money(float(holding['market_value']))}  |  Debt {self.money(float(holding.get('loan_principal', 0.0)))}  |  Cash Flow {self.money(float(holding['cash_flow']) / 12.0)}/mo"
                 canvas.create_text(62, row_y + 20, anchor="w", text=text, fill="#edf6ff", font=("Helvetica", 10), width=WIDTH - 160)
                 row_y += 46
         ach_text = ", ".join(self.achievements[-4:]) if self.achievements else "No milestones yet."
