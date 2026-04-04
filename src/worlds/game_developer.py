@@ -5,19 +5,592 @@ import math
 import os
 import random
 import tkinter as tk
+from dataclasses import dataclass
 
 from src.player import Player
 from src.utils import ACCENT, DANGER, HEIGHT, SUCCESS, TEXT, WIDTH, Particle, clamp
 from src.worlds.base import BaseWorld
 
-from src.game.abilities import AbilitySystem
-from src.game.bugs import BugDifficultyScaler, BugManager
-from src.game.chaos_events import ChaosEventManager
-from src.game.complaints import ComplaintManager
-from src.game.features import FeatureUnlockManager
-from src.game.panic_mode import PanicModeManager
-from src.game.systems import CoreSystems, Difficulty
-from src.game.ui import draw_bar, draw_panic_banner, draw_toast
+
+@dataclass(slots=True)
+class AbilityState:
+    cooldown: float = 0.0
+    active: float = 0.0
+
+
+class AbilitySystem:
+    """Active abilities that encourage movement and tactical resource trades."""
+
+    def __init__(self) -> None:
+        self.dash = AbilityState()
+        self.emergency_patch = AbilityState()
+        self.coffee_boost = AbilityState()
+        self.debug_burst = AbilityState()
+
+        self.cooldown_scale = 1.0
+        self.coffee_charges = 0
+        self.patch_kits = 0
+        self.has_inventory = False
+        self.has_crafting = False
+        self.has_skill_tree = False
+
+    def unlock_inventory(self) -> None:
+        self.has_inventory = True
+
+    def unlock_crafting(self) -> None:
+        self.has_crafting = True
+
+    def unlock_skill_tree(self) -> None:
+        self.has_skill_tree = True
+
+    def tick(self, dt: float) -> None:
+        for ability in (self.dash, self.emergency_patch, self.coffee_boost, self.debug_burst):
+            ability.cooldown = max(0.0, ability.cooldown - dt)
+            ability.active = max(0.0, ability.active - dt)
+
+    def try_dash(self, keys: set[str]) -> bool:
+        if self.dash.cooldown > 0.0:
+            return False
+        if not ({"Shift_L", "Shift_R"} & keys):
+            return False
+        self.dash.active = 0.22
+        self.dash.cooldown = 1.8 * self.cooldown_scale
+        return True
+
+    def dash_multiplier(self) -> float:
+        return 2.25 if self.dash.active > 0.0 else 1.0
+
+    def try_emergency_patch(self, keys: set[str]) -> bool:
+        if self.emergency_patch.cooldown > 0.0 or "e" not in keys:
+            return False
+        if self.has_crafting and self.patch_kits <= 0:
+            return False
+        if self.has_crafting:
+            self.patch_kits -= 1
+        self.emergency_patch.cooldown = 7.5 * self.cooldown_scale
+        return True
+
+    def try_coffee_boost(self, keys: set[str]) -> bool:
+        if self.coffee_boost.cooldown > 0.0 or "c" not in keys:
+            return False
+        if self.has_inventory:
+            if self.coffee_charges <= 0:
+                return False
+            self.coffee_charges -= 1
+        self.coffee_boost.active = 3.0
+        base_cd = 9.5 if self.has_inventory else 13.0
+        self.coffee_boost.cooldown = base_cd * self.cooldown_scale
+        return True
+
+    def coffee_multiplier(self) -> float:
+        return 1.25 if self.coffee_boost.active > 0.0 else 1.0
+
+    def try_debug_burst(self, keys: set[str]) -> bool:
+        if not self.has_skill_tree or self.debug_burst.cooldown > 0.0 or "f" not in keys:
+            return False
+        self.debug_burst.cooldown = 11.5 * self.cooldown_scale
+        return True
+
+    def can_craft_patch_kit(self) -> bool:
+        return self.has_crafting and self.coffee_charges >= 3
+
+    def craft_patch_kit(self) -> bool:
+        if not self.can_craft_patch_kit():
+            return False
+        self.coffee_charges -= 3
+        self.patch_kits += 1
+        return True
+
+    def on_bug_squashed(self) -> None:
+        if self.has_inventory:
+            self.coffee_charges = int(clamp(self.coffee_charges + 1, 0, 9))
+
+
+@dataclass(slots=True)
+class CoreSystems:
+    progress: float = 0.0
+    stability: float = 100.0
+    motivation: float = 100.0
+
+    def clamp_all(self) -> None:
+        self.progress = clamp(self.progress, 0.0, 100.0)
+        self.stability = clamp(self.stability, 0.0, 100.0)
+        self.motivation = clamp(self.motivation, 0.0, 100.0)
+
+    def add_progress(self, amount: float) -> None:
+        self.progress = clamp(self.progress + amount, 0.0, 100.0)
+
+    def add_stability(self, amount: float) -> None:
+        self.stability = clamp(self.stability + amount, 0.0, 100.0)
+
+    def add_motivation(self, amount: float) -> None:
+        self.motivation = clamp(self.motivation + amount, 0.0, 100.0)
+
+
+@dataclass(slots=True)
+class Difficulty:
+    level: int = 0
+    chaos_meter: float = 0.0
+
+    def advance(self, shipped_features: int, time_ratio: float) -> None:
+        self.level = shipped_features
+        self.chaos_meter = clamp(0.15 + shipped_features * 0.12 + time_ratio * 0.55, 0.0, 1.3)
+
+
+@dataclass(slots=True)
+class Feature:
+    name: str
+    hook: str
+
+
+class FeatureUnlockManager:
+    BASELINE = Feature("Core Loop", "Dash is online. Ship features before the build collapses.")
+    UNLOCKS = [
+        Feature("Inventory", "Coffee drops from squashed bugs. C now consumes coffee."),
+        Feature("Crafting", "Craft patch kits from 3 coffee. E consumes a patch kit."),
+        Feature("Skill Tree", "Debug Burst unlocked (F). Emergency control of swarms."),
+        Feature("Upgrade Menu", "Cooldowns shrink. Momentum becomes a build strategy."),
+        Feature("Live Ops", "Automation enabled. High motivation slowly restores stability."),
+    ]
+
+    def __init__(self) -> None:
+        self.index = 0
+        self.shipped = 0
+
+    def current(self) -> Feature:
+        if self.index >= len(self.UNLOCKS):
+            return self.UNLOCKS[-1]
+        return self.UNLOCKS[self.index]
+
+    def is_done(self) -> bool:
+        return self.shipped >= len(self.UNLOCKS)
+
+    def on_reset(self) -> None:
+        self.index = 0
+        self.shipped = 0
+
+    def try_ship(self, *, systems: CoreSystems, abilities: AbilitySystem) -> Feature | None:
+        if systems.progress < 100.0 or self.index >= len(self.UNLOCKS):
+            return None
+        shipped = self.UNLOCKS[self.index]
+        self.shipped += 1
+        if shipped.name == "Inventory":
+            abilities.unlock_inventory()
+        elif shipped.name == "Crafting":
+            abilities.unlock_crafting()
+        elif shipped.name == "Skill Tree":
+            abilities.unlock_skill_tree()
+        systems.progress = 10.0
+        self.index += 1
+        return shipped
+
+
+@dataclass(slots=True)
+class Bug:
+    x: float
+    y: float
+    speed: float
+    radius: float = 13.0
+    attached: bool = False
+
+
+@dataclass(slots=True)
+class BugDifficultyModifiers:
+    stability_drain_per_bug: float
+    speed_bonus: float
+    input_glitch: float
+    screen_flicker: float
+    crash_risk_per_sec: float
+
+
+class BugDifficultyScaler:
+    @staticmethod
+    def stage(bug_count: int) -> int:
+        if bug_count <= 0:
+            return 0
+        if bug_count <= 3:
+            return 1
+        if bug_count <= 8:
+            return 2
+        if bug_count <= 12:
+            return 3
+        return 4
+
+    @staticmethod
+    def modifiers(bug_count: int) -> BugDifficultyModifiers:
+        stg = BugDifficultyScaler.stage(bug_count)
+        if stg == 0:
+            return BugDifficultyModifiers(0.0, 0.0, 0.0, 0.0, 0.0)
+        if stg == 1:
+            return BugDifficultyModifiers(0.32, 0.0, 0.0, 0.0, 0.0)
+        if stg == 2:
+            return BugDifficultyModifiers(0.40, 10.0, 0.06, 0.0, 0.0)
+        if stg == 3:
+            return BugDifficultyModifiers(0.52, 18.0, 0.10, 0.35, 0.0)
+        return BugDifficultyModifiers(0.68, 28.0, 0.16, 0.55, 0.08)
+
+
+class BugManager:
+    def __init__(self, *, bounds: tuple[float, float, float, float], desk_pos: tuple[float, float]) -> None:
+        self.bounds = bounds
+        self.desk_pos = desk_pos
+        self.bugs: list[Bug] = []
+        self.spawn_cooldown = 0.6
+        self.spawn_timer = self.spawn_cooldown
+
+    def count(self) -> int:
+        return len(self.bugs)
+
+    def clear(self) -> None:
+        self.bugs.clear()
+
+    def spawn(self, *, n: int, speed_base: float) -> None:
+        if n <= 0:
+            return
+        x1, y1, x2, y2 = self.bounds
+        for _ in range(n):
+            side = random.choice(["top", "right", "bottom", "left"])
+            if side == "top":
+                x, y = random.uniform(x1 + 20, x2 - 20), y1
+            elif side == "right":
+                x, y = x2, random.uniform(y1 + 20, y2 - 20)
+            elif side == "bottom":
+                x, y = random.uniform(x1 + 20, x2 - 20), y2
+            else:
+                x, y = x1, random.uniform(y1 + 20, y2 - 20)
+            speed = random.uniform(speed_base * 0.85, speed_base * 1.25)
+            self.bugs.append(Bug(x=x, y=y, speed=speed))
+
+    def update_spawning(self, dt: float, *, spawn_mult: float, speed_base: float) -> None:
+        self.spawn_timer -= dt
+        if self.spawn_timer > 0.0:
+            return
+        base = self.spawn_cooldown / max(0.35, spawn_mult)
+        self.spawn_timer = random.uniform(base * 0.75, base * 1.25)
+        self.spawn(n=1, speed_base=speed_base)
+
+    def remove_near(self, *, x: float, y: float, radius: float) -> int:
+        removed = 0
+        keep: list[Bug] = []
+        r2 = radius * radius
+        for bug in self.bugs:
+            if (bug.x - x) * (bug.x - x) + (bug.y - y) * (bug.y - y) <= r2:
+                removed += 1
+            else:
+                keep.append(bug)
+        self.bugs = keep
+        return removed
+
+    def update(
+        self,
+        dt: float,
+        *,
+        player: Player,
+        systems: CoreSystems,
+        speed_bonus: float,
+        on_squash: callable | None = None,
+    ) -> None:
+        x1, y1, x2, y2 = self.bounds
+        desk_x, desk_y = self.desk_pos
+        attached_drain = 0.0
+        kept: list[Bug] = []
+        for bug in self.bugs:
+            if not bug.attached and math.hypot(bug.x - desk_x, bug.y - desk_y) < 24:
+                bug.attached = True
+            if not bug.attached:
+                dx = desk_x - bug.x
+                dy = desk_y - bug.y
+                dist = math.hypot(dx, dy) or 1.0
+                bug.x += (dx / dist) * (bug.speed + speed_bonus) * dt
+                bug.y += (dy / dist) * (bug.speed + speed_bonus) * dt
+                bug.x = clamp(bug.x, x1 + 10, x2 - 10)
+                bug.y = clamp(bug.y, y1 + 10, y2 - 10)
+            else:
+                attached_drain += 1.25
+            if math.hypot(player.x - bug.x, player.y - bug.y) < player.size + bug.radius:
+                systems.add_progress(3.2)
+                systems.add_stability(0.8)
+                systems.add_motivation(0.45)
+                if on_squash:
+                    on_squash()
+                continue
+            kept.append(bug)
+        self.bugs = kept
+        if attached_drain > 0.0:
+            systems.add_stability(-attached_drain * dt * 3.4)
+
+
+@dataclass(slots=True)
+class ComplaintPopup:
+    x: float
+    y: float
+    vx: float
+    vy: float
+    text: str
+    timer: float
+
+
+class ComplaintManager:
+    POOL = [
+        "Add multiplayer.",
+        "Controller support when?",
+        "Too many bugs.",
+        "UI is confusing.",
+        "Needs more hats.",
+        "Balance feels off.",
+        "My save deleted itself.",
+        "Patch this before launch.",
+        "Why is crafting mandatory?",
+        "This is fun but broken.",
+    ]
+
+    def __init__(self, *, bounds: tuple[float, float, float, float]) -> None:
+        self.bounds = bounds
+        self.popups: list[ComplaintPopup] = []
+        self.spawn_timer = 2.8
+
+    def count(self) -> int:
+        return len(self.popups)
+
+    def clear(self) -> None:
+        self.popups.clear()
+
+    def spawn(self, *, n: int) -> None:
+        if n <= 0:
+            return
+        x1, y1, x2, y2 = self.bounds
+        for _ in range(n):
+            x = random.uniform(x1 + 60, x2 - 60)
+            y = random.uniform(y1 + 50, y2 - 50)
+            angle = random.uniform(0.0, math.tau)
+            speed = random.uniform(24.0, 48.0)
+            self.popups.append(
+                ComplaintPopup(
+                    x=x,
+                    y=y,
+                    vx=math.cos(angle) * speed,
+                    vy=math.sin(angle) * speed,
+                    text=random.choice(self.POOL),
+                    timer=random.uniform(7.0, 11.0),
+                )
+            )
+
+    def update_spawning(self, dt: float, *, spawn_mult: float) -> None:
+        self.spawn_timer -= dt
+        if self.spawn_timer > 0.0:
+            return
+        self.spawn_timer = random.uniform(3.0, 5.2) / max(0.6, spawn_mult)
+        self.spawn(n=1)
+
+    def update(self, dt: float, *, player: Player, systems: CoreSystems) -> None:
+        x1, y1, x2, y2 = self.bounds
+        kept: list[ComplaintPopup] = []
+        for popup in self.popups:
+            popup.timer -= dt
+            popup.x += popup.vx * dt
+            popup.y += popup.vy * dt
+            if popup.x < x1 + 24 or popup.x > x2 - 24:
+                popup.vx *= -1
+            if popup.y < y1 + 24 or popup.y > y2 - 24:
+                popup.vy *= -1
+            popup.x = clamp(popup.x, x1 + 30, x2 - 30)
+            popup.y = clamp(popup.y, y1 + 30, y2 - 30)
+            if math.hypot(player.x - popup.x, player.y - popup.y) < player.size + 20:
+                systems.add_motivation(6.0)
+                systems.add_stability(1.5)
+                continue
+            if popup.timer > 0.0:
+                kept.append(popup)
+        self.popups = kept
+        if self.popups:
+            systems.add_motivation(-(0.22 + 0.06 * len(self.popups)) * dt)
+            if len(self.popups) >= 6:
+                systems.add_stability(-(0.22 * (len(self.popups) - 5)) * dt)
+
+
+@dataclass(slots=True)
+class PanicState:
+    active: bool = False
+    intensity: float = 0.0
+    bug_spawn_mult: float = 1.0
+    shake: float = 0.0
+    flash: float = 0.0
+
+
+class PanicModeManager:
+    def __init__(self, *, duration: float) -> None:
+        self.duration = max(1.0, duration)
+        self.state = PanicState()
+
+    def update(self, dt: float, *, systems: CoreSystems, time_left: float) -> PanicState:
+        stability_risk = clamp((30.0 - systems.stability) / 30.0, 0.0, 1.0)
+        motivation_risk = clamp((30.0 - systems.motivation) / 30.0, 0.0, 1.0)
+        deadline_window = self.duration * 0.25
+        deadline_risk = clamp((deadline_window - time_left) / max(1.0, deadline_window), 0.0, 1.0)
+        intensity = max(stability_risk, motivation_risk, deadline_risk)
+        active = intensity > 0.0
+        self.state.active = active
+        self.state.intensity = intensity
+        self.state.bug_spawn_mult = 1.0 + intensity * 1.05
+        self.state.shake = intensity * 1.25
+        self.state.flash = max(0.0, self.state.flash - dt)
+        if active:
+            self.state.flash = max(self.state.flash, 0.12 + intensity * 0.18)
+        return self.state
+
+
+@dataclass(slots=True)
+class ChaosEffects:
+    bug_spawn_mult: float = 1.0
+    bug_speed_bonus: float = 0.0
+    progress_mult: float = 1.0
+    motivation_drain: float = 0.0
+    crash_risk_bonus: float = 0.0
+    screen_flash: float = 0.0
+    shake: float = 0.0
+
+
+@dataclass(slots=True)
+class ActiveChaosEvent:
+    name: str
+    description: str
+    time_left: float
+
+
+class ChaosEventManager:
+    def __init__(self) -> None:
+        self.cooldown = 5.2
+        self.timer = self.cooldown
+        self.active: ActiveChaosEvent | None = None
+        self.toast_text = ""
+        self.toast_timer = 0.0
+
+    def set_toast(self, text: str, duration: float = 2.2) -> None:
+        self.toast_text = text
+        self.toast_timer = max(self.toast_timer, duration)
+
+    def update(
+        self,
+        dt: float,
+        *,
+        systems: CoreSystems,
+        bugs: BugManager,
+        complaints: ComplaintManager,
+        difficulty: Difficulty,
+    ) -> ChaosEffects:
+        effects = ChaosEffects()
+        self.toast_timer = max(0.0, self.toast_timer - dt)
+        if self.active is None:
+            self.timer -= dt
+            if self.timer > 0.0:
+                return effects
+            trigger_chance = clamp(0.16 + difficulty.chaos_meter * 0.55, 0.0, 0.85)
+            self.timer = random.uniform(4.2, 6.6) / max(0.6, 1.0 + difficulty.chaos_meter)
+            if random.random() > trigger_chance:
+                return effects
+            self.active = self._roll_event(difficulty)
+            self.set_toast(f"CHAOS EVENT: {self.active.name}", 2.4)
+            if self.active.name == "System Failure":
+                systems.add_stability(-(10.0 + 2.5 * difficulty.level))
+            elif self.active.name == "Mass Bug Spawn":
+                bugs.spawn(n=4 + 2 * difficulty.level, speed_base=70.0 + 4.0 * difficulty.level)
+            elif self.active.name == "Complaint Storm":
+                complaints.spawn(n=2 + difficulty.level)
+            return effects
+        self.active.time_left -= dt
+        if self.active.time_left <= 0.0:
+            self.set_toast(f"{self.active.name} ended.", 1.4)
+            self.active = None
+            return effects
+        name = self.active.name
+        if name == "Mass Bug Spawn":
+            effects.bug_spawn_mult = 1.55 + 0.10 * difficulty.level
+            effects.bug_speed_bonus = 10.0
+            effects.screen_flash = 0.08
+        elif name == "Complaint Storm":
+            effects.motivation_drain = 1.2 + 0.35 * difficulty.level
+            effects.screen_flash = 0.06
+        elif name == "Feature Creep Overload":
+            effects.progress_mult = 0.62
+            effects.motivation_drain = 0.9 + 0.25 * difficulty.level
+            effects.bug_spawn_mult = 1.15
+        elif name == "Deadline Rush":
+            effects.progress_mult = 1.15
+            effects.motivation_drain = 1.15
+            effects.bug_spawn_mult = 1.75
+            effects.shake = 0.55
+        elif name == "System Failure":
+            effects.bug_speed_bonus = 18.0 + 4.0 * difficulty.level
+            effects.bug_spawn_mult = 1.25
+            effects.crash_risk_bonus = 0.06 + 0.02 * difficulty.level
+            effects.screen_flash = 0.10
+            effects.shake = 0.8
+        if name in {"Mass Bug Spawn", "Complaint Storm"} and random.random() < 0.25 * dt:
+            if name == "Mass Bug Spawn":
+                bugs.spawn(n=1, speed_base=80.0 + 3.0 * difficulty.level)
+            else:
+                complaints.spawn(n=1)
+        return effects
+
+    def _roll_event(self, difficulty: Difficulty) -> ActiveChaosEvent:
+        events: list[tuple[str, str, float, int]] = [
+            ("Mass Bug Spawn", "A refactor unleashed a nest of bugs.", 5.5, 4),
+            ("Complaint Storm", "Influencers found your build.", 6.0, 3),
+            ("Feature Creep Overload", "Someone said 'it would be cool if...'", 7.0, 3),
+            ("Deadline Rush", "Producer: 'We can still make it, right?'", 6.0, 2),
+            ("System Failure", "Build pipeline exploded. Again.", 5.0, 2),
+        ]
+        weights = []
+        for name, _desc, _dur, base_w in events:
+            weight = base_w
+            if name == "System Failure":
+                weight += int(difficulty.level * 1.2)
+            if name == "Deadline Rush":
+                weight += int(difficulty.chaos_meter * 3)
+            weights.append(max(1, weight))
+        name, desc, dur, _ = random.choices(events, weights=weights, k=1)[0]
+        return ActiveChaosEvent(name=name, description=desc, time_left=dur + 0.3 * difficulty.level)
+
+
+def draw_bar(
+    canvas: tk.Canvas,
+    *,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    value: float,
+    label: str,
+    fill: str,
+    outline: str = "#0b1220",
+    back: str = "#111827",
+) -> None:
+    value = clamp(value, 0.0, 100.0)
+    canvas.create_rectangle(x, y, x + w, y + h, fill=back, outline=outline, width=2)
+    canvas.create_rectangle(x + 2, y + 2, x + 2 + (w - 4) * (value / 100.0), y + h - 2, fill=fill, outline="")
+    canvas.create_text(x + 10, y + h / 2, anchor="w", fill=TEXT, font=("Helvetica", 11, "bold"), text=f"{label}: {value:0.0f}")
+
+
+def draw_toast(canvas: tk.Canvas, *, text: str, timer: float) -> None:
+    if timer <= 0.0:
+        return
+    alpha = clamp(timer / 2.2, 0.0, 1.0)
+    stipple = "gray25" if alpha < 0.6 else "gray12"
+    width = min(680, max(320, 14 * len(text)))
+    x1 = (WIDTH - width) / 2
+    x2 = x1 + width
+    y1 = 52
+    y2 = 96
+    canvas.create_rectangle(x1, y1, x2, y2, fill="#0b1220", outline="#5fb6ff", width=2, stipple=stipple)
+    canvas.create_text(WIDTH / 2, (y1 + y2) / 2, fill="#e7f3ff", font=("Helvetica", 13, "bold"), text=text)
+
+
+def draw_panic_banner(canvas: tk.Canvas, *, active: bool, intensity: float) -> None:
+    if not active:
+        return
+    pulse = 0.55 + 0.45 * clamp(intensity, 0.0, 1.0)
+    canvas.create_rectangle(0, 40, WIDTH, 44, fill="#ff2f2f", outline="", stipple="gray12" if pulse < 0.75 else "gray25")
+    canvas.create_text(WIDTH / 2, 62, fill="#ffdddd", font=("Helvetica", 16, "bold"), text="PANIC MODE: STABILIZE THE BUILD")
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
