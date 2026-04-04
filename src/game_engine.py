@@ -19,7 +19,7 @@ from src.worlds.cybersecurity_analyst import CybersecurityAnalystWorld
 from src.worlds.data_scientist import DataScientistWorld
 from src.worlds.doctor import DoctorWorld
 from src.worlds.electrician import ElectricianWorld
-from src.worlds.entrepreneur import TycoonWorld
+from src.worlds.entrepreneur_rework import TycoonWorld
 from src.worlds.fire_rescue import FireRescueWorld
 from src.worlds.game_developer import GameDeveloperWorld
 from src.worlds.marine import MarineWorld
