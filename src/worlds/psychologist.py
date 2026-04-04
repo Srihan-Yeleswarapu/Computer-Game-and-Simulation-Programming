@@ -1,50 +1,146 @@
-import random
 import math
+import random
 import tkinter as tk
-from src.utils import WIDTH, HEIGHT, TEXT, clamp
-from src.player import Player
-from src.worlds.base import BaseWorld
 from typing import Any
+
+from src.player import Player
+from src.utils import HEIGHT, TEXT, WIDTH, clamp
+from src.worlds.base import BaseWorld
+
 
 class PsychologistWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Psychologist",
-            summary="Help patients manage stress during a crisis",
+            summary="Triage clients, identify what they need, and use the right intervention to de-escalate the room.",
             duration=90.0,
         )
         self.briefing = [
-             "CRISIS ALERT: Patients are experiencing high stress levels!",
-             "As the Psychologist, you must help patients stabilize",
-             "their emotions and maintain mental well-being.",
-             "Balance multiple patients and provide effective solutions.",
-             "Warning: If stress levels rise too high, it will be a failure!"
+            "CLINIC OVERLOAD: Four clients arrive with different emotional needs.",
+            "Move between rooms, read each client's presentation, and choose the right support approach.",
+            "Use grounding for panic, breathing for acute physiological arousal, reflection for grief or overwhelm,",
+            "and reframing for distorted self-talk. Wrong interventions damage trust and raise distress.",
         ]
         self.hints = [
-             "Tip: Prioritize patients with highest stress levels.",
-             "Tip: Use calming techniques to reduce stress quickly.",
-             "Tip: Balance time between multiple patients.",
-             "Tip: Monitor emotional stability indicators carefully."
+            "Tip: Match the intervention to the client's cue words, not just the distress meter.",
+            "Tip: Rapport improves when you stay with the right client and use the right approach.",
+            "Tip: Mismatched interventions can escalate distress instead of reducing it.",
+            "Tip: Stabilize each client's session progress before moving on.",
+        ]
+        self.interventions = [
+            {"key": "1", "name": "Grounding", "focus": "panic", "color": "#4cc9f0"},
+            {"key": "2", "name": "Breathing", "focus": "activation", "color": "#90be6d"},
+            {"key": "3", "name": "Reflection", "focus": "overwhelm", "color": "#f9c74f"},
+            {"key": "4", "name": "Reframing", "focus": "negative_thoughts", "color": "#f9844a"},
+        ]
+        self.client_templates = [
+            {
+                "name": "Mia",
+                "presenting_issue": "panic spike before an exam",
+                "cue": "I cannot slow my body down.",
+                "focus": "activation",
+                "secondary_focus": "panic",
+                "notes": "shaky breathing, racing heart, can't sit still",
+            },
+            {
+                "name": "Jordan",
+                "presenting_issue": "grief after a family loss",
+                "cue": "Everything feels too heavy to say out loud.",
+                "focus": "overwhelm",
+                "secondary_focus": "negative_thoughts",
+                "notes": "withdrawn posture, quiet voice, tearful pauses",
+            },
+            {
+                "name": "Alex",
+                "presenting_issue": "catastrophic self-talk after rejection",
+                "cue": "This proves I fail at everything.",
+                "focus": "negative_thoughts",
+                "secondary_focus": "overwhelm",
+                "notes": "spiraling thoughts, harsh self-judgment",
+            },
+            {
+                "name": "Noah",
+                "presenting_issue": "acute panic after a crowded commute",
+                "cue": "I feel trapped and the room keeps closing in.",
+                "focus": "panic",
+                "secondary_focus": "activation",
+                "notes": "scanning exits, tense shoulders, hypervigilance",
+            },
+            {
+                "name": "Sofia",
+                "presenting_issue": "burnout and emotional flooding",
+                "cue": "I have too many things in my head at once.",
+                "focus": "overwhelm",
+                "secondary_focus": "activation",
+                "notes": "mental overload, difficulty sequencing tasks",
+            },
+            {
+                "name": "Ethan",
+                "presenting_issue": "performance anxiety before a presentation",
+                "cue": "My chest is tight and I think I am going to freeze.",
+                "focus": "activation",
+                "secondary_focus": "negative_thoughts",
+                "notes": "rapid speech, clenched hands, fear of embarrassment",
+            },
+        ]
+        self.room_positions = [
+            (WIDTH * 0.25, HEIGHT * 0.27),
+            (WIDTH * 0.75, HEIGHT * 0.27),
+            (WIDTH * 0.25, HEIGHT * 0.66),
+            (WIDTH * 0.75, HEIGHT * 0.66),
         ]
         self.patients: list[dict[str, Any]] = []
         self.active_patient = -1
+        self.selected_intervention = 0
+        self.completed_sessions = 0
+        self.session_goal = 4
+        self.global_risk = 0.0
+        self.message_timer = 0.0
+        self.bounds = (28.0, 58.0, WIDTH - 28.0, HEIGHT - 28.0)
 
     def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT / 2)
         self.timer = self.duration
         self.finished = False
         self.success = False
-        self.message = ""
+        self.message = "Assess the room, then choose the right intervention."
+        self.message_timer = 3.0
         self.shake = 0.0
         self.particles = []
-        
-        self.patients = [
-            {"x": WIDTH/4, "y": HEIGHT/4, "stress": 20.0, "rate": 2.5, "bubble": "", "bubble_timer": 0.0},
-            {"x": WIDTH*3/4, "y": HEIGHT/4, "stress": 30.0, "rate": 3.0, "bubble": "", "bubble_timer": 0.0},
-            {"x": WIDTH/4, "y": HEIGHT*3/4, "stress": 10.0, "rate": 4.0, "bubble": "", "bubble_timer": 0.0},
-            {"x": WIDTH*3/4, "y": HEIGHT*3/4, "stress": 40.0, "rate": 2.0, "bubble": "", "bubble_timer": 0.0},
-        ]
-        self.spike_options = ["Failed Interview", "Bad Grade", "Lost Wallet", "Missed Bus", "Social Anxiety", "Work Stress"]
+        self.hint_display_timer = 0.0
+        self.current_hint_index = 0
+        self.active_patient = -1
+        self.selected_intervention = 0
+        self.completed_sessions = 0
+        self.global_risk = 0.0
+
+        templates = random.sample(self.client_templates, 4)
+        base_distress = [34.0, 48.0, 56.0, 42.0]
+        base_rates = [1.15, 2, 2.1, 1.7]
+        self.patients = []
+        for index, template in enumerate(templates):
+            x, y = self.room_positions[index]
+            self.patients.append(
+                {
+                    "x": x,
+                    "y": y,
+                    "name": template["name"],
+                    "issue": template["presenting_issue"],
+                    "cue": template["cue"],
+                    "notes": template["notes"],
+                    "focus": template["focus"],
+                    "secondary_focus": template["secondary_focus"],
+                    "distress": base_distress[index] + random.uniform(-6.0, 10.0),
+                    "baseline_rate": base_rates[index] + random.uniform(-0.35, 0.45),
+                    "rapport": 45.0 + random.uniform(-8.0, 8.0),
+                    "progress": 0.0,
+                    "speaking": template["cue"],
+                    "bubble_timer": 3.5,
+                    "cooldown": 0.0,
+                    "resolved": False,
+                    "escalated": False,
+                }
+            )
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -52,88 +148,237 @@ class PsychologistWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
+        self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
-        
-        # Increase stress
+        self.message_timer = max(0.0, self.message_timer - dt)
+
+        if "1" in keys:
+            self.selected_intervention = 0
+        elif "2" in keys:
+            self.selected_intervention = 1
+        elif "3" in keys:
+            self.selected_intervention = 2
+        elif "4" in keys:
+            self.selected_intervention = 3
+
         failed = False
         self.active_patient = -1
-        
-        for i, p in enumerate(self.patients):
-            dist = math.hypot(player.x - p["x"], player.y - p["y"])
-            # GEOFENCING: Check if player is in the same quadrant as patient
-            same_quadrant = (player.x < WIDTH/2) == (p["x"] < WIDTH/2) and (player.y < HEIGHT/2) == (p["y"] < HEIGHT/2)
-            
-            if dist < 200 and same_quadrant:
-                self.active_patient = i
-            
-            p["bubble_timer"] = max(0.0, p["bubble_timer"] - dt)
-            if p["bubble_timer"] <= 0: p["bubble"] = ""
+        best_dist = 9999.0
+        for index, patient in enumerate(self.patients):
+            if patient["resolved"]:
+                continue
+            dist = math.hypot(player.x - float(patient["x"]), player.y - float(patient["y"]))
+            if dist < 125 and dist < best_dist:
+                best_dist = dist
+                self.active_patient = index
 
-            # Random stress spikes (Only if patient is not already critical)
-            if p["stress"] < 70 and random.random() < 0.15 * dt:
-                 p["bubble"] = random.choice(self.spike_options)
-                 p["bubble_timer"] = 3.0
-                 p["stress"] += 15.0
-                 self.shake = 1.0
-                 
-            if i == self.active_patient and "space" in keys:
-                # Therapy in progress
-                p["stress"] = max(0.0, p["stress"] - dt * 25.0)
-            else:
-                p["stress"] += p["rate"] * dt
-                
-            if p["stress"] >= 100.0:
+        for index, patient in enumerate(self.patients):
+            if patient["resolved"]:
+                continue
+
+            patient["bubble_timer"] = max(0.0, float(patient["bubble_timer"]) - dt)
+            patient["cooldown"] = max(0.0, float(patient["cooldown"]) - dt)
+            if patient["bubble_timer"] <= 0:
+                patient["speaking"] = random.choice(
+                    [
+                        str(patient["cue"]),
+                        f"Need: {patient['issue']}",
+                        f"Observe: {patient['notes']}",
+                    ]
+                )
+                patient["bubble_timer"] = random.uniform(2.6, 4.3)
+
+            distress_rate = float(patient["baseline_rate"])
+            if float(patient["rapport"]) < 30:
+                distress_rate += 1.0
+            if float(patient["distress"]) > 75:
+                distress_rate += 0.8
+            patient["distress"] = clamp(float(patient["distress"]) + distress_rate * dt, 0.0, 100.0)
+
+            if random.random() < 0.09 * dt and float(patient["distress"]) < 88:
+                patient["distress"] = clamp(float(patient["distress"]) + random.uniform(5.0, 9.0), 0.0, 100.0)
+                patient["speaking"] = random.choice(
+                    [
+                        "I am losing control.",
+                        "I cannot organize my thoughts.",
+                        "Nothing I do is enough.",
+                        "My body will not settle down.",
+                    ]
+                )
+                patient["bubble_timer"] = 2.6
+                self.shake = max(self.shake, 1.4)
+
+            if index == self.active_patient and "space" in keys:
+                intervention = self.interventions[self.selected_intervention]
+                effectiveness = 0.0
+                if intervention["focus"] == patient["focus"]:
+                    effectiveness = 1.0
+                elif intervention["focus"] == patient["secondary_focus"]:
+                    effectiveness = 0.55
+                else:
+                    effectiveness = -0.55
+
+                if effectiveness > 0:
+                    patient["rapport"] = clamp(float(patient["rapport"]) + 14.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["progress"] = clamp(float(patient["progress"]) + 23.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["distress"] = clamp(float(patient["distress"]) - 20.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["speaking"] = f"{intervention['name']} is helping..."
+                    patient["bubble_timer"] = 0.8
+                else:
+                    patient["rapport"] = clamp(float(patient["rapport"]) + 16.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["progress"] = clamp(float(patient["progress"]) + 10.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["distress"] = clamp(float(patient["distress"]) - 18.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["speaking"] = f"{intervention['name']} does not fit right now."
+                    patient["bubble_timer"] = 1.0
+                    self.shake = max(self.shake, 1.0)
+
+            if float(patient["progress"]) >= 100.0 and not patient["resolved"]:
+                patient["resolved"] = True
+                patient["distress"] = max(8.0, float(patient["distress"]) - 10.0)
+                self.completed_sessions += 1
+                self.message = f"{patient['name']} stabilized with a full intervention plan."
+                self.message_timer = 2.6
+
+            if float(patient["distress"]) >= 100.0:
                 failed = True
-                
+                patient["escalated"] = True
+
+        unresolved = [p for p in self.patients if not p["resolved"]]
+        if unresolved:
+            self.global_risk = sum(float(p["distress"]) for p in unresolved) / len(unresolved)
+        else:
+            self.global_risk = 0.0
+
         if failed:
             self.finished = True
             self.success = False
-            self.message = "Crisis escalation! Stress levels reached maximum capacity."
-            
-        if self.timer <= 0:
+            self.message = "Clinic escalation: a client decompensated before the room could be stabilized."
+            self.grade = "C"
+        elif self.completed_sessions >= self.session_goal:
             self.finished = True
             self.success = True
-            self.message = "Shift complete. Patients are stabilized."
-            avg_stress = sum(p["stress"] for p in self.patients) / len(self.patients)
-            if avg_stress < 20: self.grade = "S"
-            elif avg_stress < 40: self.grade = "A"
-            elif avg_stress < 60: self.grade = "B"
-            else: self.grade = "C"
+            avg_rapport = sum(float(p["rapport"]) for p in self.patients) / len(self.patients)
+            avg_distress = sum(float(p["distress"]) for p in self.patients) / len(self.patients)
+            self.message = "Shift complete. The clinic is calm and each client left with a targeted plan."
+            if avg_rapport >= 78 and avg_distress <= 20:
+                self.grade = "S"
+            elif avg_rapport >= 66 and avg_distress <= 30:
+                self.grade = "A"
+            elif avg_rapport >= 52 and avg_distress <= 42:
+                self.grade = "B"
+            else:
+                self.grade = "C"
+        elif self.timer <= 0:
+            self.finished = True
+            self.success = False
+            self.message = f"Shift ended with {self.completed_sessions}/{self.session_goal} clients stabilized."
+            self.grade = "C"
 
         self.update_particles(dt)
         self.draw(canvas, player)
 
+    def get_patient_color(self, distress: float) -> str:
+        if distress >= 80:
+            return "#d62828"
+        if distress >= 55:
+            return "#f77f00"
+        if distress >= 30:
+            return "#fcbf49"
+        return "#52b788"
+
+    def draw_intervention_bar(self, canvas: tk.Canvas) -> None:
+        panel_y = HEIGHT - 96
+        canvas.create_rectangle(18, panel_y, WIDTH - 18, HEIGHT - 18, fill="#18212d", outline="#30506c", width=2)
+        canvas.create_text(34, panel_y + 16, anchor="w", text="Interventions", fill="#b8d8f1", font=("Helvetica", 11, "bold"))
+
+        for index, intervention in enumerate(self.interventions):
+            x1 = 190 + index * 182
+            x2 = x1 + 164
+            selected = index == self.selected_intervention
+            fill = intervention["color"] if selected else "#0f1823"
+            text_fill = "#0a1018" if selected else "#edf6ff"
+            outline = "#ffffff" if selected else "#31506a"
+            canvas.create_rectangle(x1, panel_y + 10, x2, panel_y + 58, fill=fill, outline=outline, width=2 if selected else 1)
+            canvas.create_text((x1 + x2) / 2, panel_y + 25, text=f"[{intervention['key']}] {intervention['name']}", fill=text_fill, font=("Helvetica", 10, "bold"))
+            canvas.create_text((x1 + x2) / 2, panel_y + 43, text=f"Best for {intervention['focus'].replace('_', ' ')}", fill=text_fill, font=("Helvetica", 8))
+
+    def draw_patient_room(self, canvas: tk.Canvas, patient: dict[str, Any], index: int, is_active: bool, player: Player) -> None:
+        room_w = WIDTH / 2 - 72
+        room_h = 176
+        room_col = index % 2
+        room_row = index // 2
+        x1 = 38 + room_col * (room_w + 28)
+        y1 = 92 + room_row * (room_h + 22)
+        x2 = x1 + room_w
+        y2 = y1 + room_h
+
+        distress = float(patient["distress"])
+        color = self.get_patient_color(distress)
+        room_fill = "#ffffff" if not self.high_contrast else "#050505"
+        border = "#78c6ff" if is_active else "#c7d8e8"
+        if patient["resolved"]:
+            border = "#52b788"
+
+        canvas.create_rectangle(x1, y1, x2, y2, fill=room_fill, outline=border, width=3 if is_active else 2)
+        canvas.create_text(x1 + 14, y1 + 14, anchor="nw", text=patient["name"], fill="#1d3557", font=("Helvetica", 14, "bold"))
+        canvas.create_text(x1 + 14, y1 + 35, anchor="nw", text=patient["issue"], fill="#4a657d", font=("Helvetica", 9, "bold"), width=room_w - 108)
+
+        bubble_fill = "#edf6ff" if not self.high_contrast else "#111111"
+        canvas.create_rectangle(x1 + 14, y1 + 64, x2 - 14, y1 + 106, fill=bubble_fill, outline="#c7d8e8")
+        canvas.create_text(x1 + 26, y1 + 76, anchor="nw", text=patient["speaking"], fill="#1f2d3d", font=("Helvetica", 9, "bold"), width=room_w - 54)
+
+        chair_x = x1 + 62
+        chair_y = y1 + room_h - 50
+        client_x = x2 - 66
+        client_y = y1 + room_h - 50
+        canvas.create_rectangle(chair_x - 18, chair_y - 10, chair_x + 18, chair_y + 18, fill="#8d99ae", outline="")
+        canvas.create_rectangle(client_x - 22, client_y - 14, client_x + 22, client_y + 22, fill=color, outline="#2f3e46", width=2)
+        canvas.create_text(client_x, client_y - 28, text=f"Distress {int(distress)}", fill="#1f2d3d", font=("Helvetica", 9, "bold"))
+
+        canvas.create_text(x1 + 14, y1 + 114, anchor="nw", text="Observed Cues", fill="#1d3557", font=("Helvetica", 9, "bold"))
+        canvas.create_text(x1 + 14, y1 + 129, anchor="nw", text=patient["notes"], fill="#44586d", font=("Helvetica", 9), width=room_w - 128)
+
+        bar_x1 = x1 + room_w - 110
+        rapport_top = y2 - 46
+        progress_top = y2 - 24
+        canvas.create_text(bar_x1, rapport_top - 15, anchor="nw", text="Rapport", fill="#1d3557", font=("Helvetica", 9, "bold"))
+        canvas.create_rectangle(bar_x1, rapport_top, x2 - 14, rapport_top + 10, fill="#dce7f3", outline="")
+        canvas.create_rectangle(bar_x1, rapport_top, bar_x1 + (x2 - 14 - bar_x1) * (float(patient["rapport"]) / 100.0), rapport_top + 10, fill="#4cc9f0", outline="")
+
+        canvas.create_text(bar_x1, progress_top - 15, anchor="nw", text="Stabilize", fill="#1d3557", font=("Helvetica", 9, "bold"))
+        canvas.create_rectangle(bar_x1, progress_top, x2 - 14, progress_top + 10, fill="#dce7f3", outline="")
+        canvas.create_rectangle(bar_x1, progress_top, bar_x1 + (x2 - 14 - bar_x1) * (float(patient["progress"]) / 100.0), progress_top + 10, fill="#52b788", outline="")
+
+        if is_active:
+            canvas.create_line(player.x, player.y, chair_x, chair_y - 4, fill="#5fa8ff", width=3, dash=(4, 3))
+            canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="SPACE", fill="#0d6efd", font=("Helvetica", 9, "bold"))
+        elif patient["resolved"]:
+            canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="DONE", fill="#2a9d8f", font=("Helvetica", 9, "bold"))
+
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
-        bg = "#f5f6fa" if not self.high_contrast else "#000000"
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg)
-        
-        # Draw rooms
-        canvas.create_rectangle(50, 50, WIDTH/2 - 20, HEIGHT/2 - 20, outline="#dcdde1", width=2)
-        canvas.create_rectangle(WIDTH/2 + 20, 50, WIDTH - 50, HEIGHT/2 - 20, outline="#dcdde1", width=2)
-        canvas.create_rectangle(50, HEIGHT/2 + 20, WIDTH/2 - 20, HEIGHT - 50, outline="#dcdde1", width=2)
-        canvas.create_rectangle(WIDTH/2 + 20, HEIGHT/2 + 20, WIDTH - 50, HEIGHT - 50, outline="#dcdde1", width=2)
+        bg = "#eef4f8" if not self.high_contrast else "#000000"
+        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=bg, outline="")
+        canvas.create_rectangle(0, 40, WIDTH, 84, fill="#dde9f3", outline="")
 
-        for i, p in enumerate(self.patients):
-            color = "#e84118" if p["stress"] > 75 else ("#fbc531" if p["stress"] > 40 else "#4cd137")
-            canvas.create_oval(p["x"]-20, p["y"]-20, p["x"]+20, p["y"]+20, fill=color, outline="#2f3640", width=2)
-            
-            # Stress bar
-            canvas.create_rectangle(p["x"]-25, p["y"]-35, p["x"]+25, p["y"]-25, fill="#353b48")
-            canvas.create_rectangle(p["x"]-24, p["y"]-34, p["x"]-24 + 48*(p["stress"]/100.0), p["y"]-26, fill=color)
-            canvas.create_text(p["x"], p["y"]-45, text=f"Stress: {int(p['stress'])}%", fill="#2f3640" if not self.high_contrast else "#fff", font=("Avenir", 10, "bold"))
-            
-            if i == self.active_patient and "space" in self.keys:
-                 canvas.create_line(player.x, player.y, p["x"], p["y"], fill="#4bcffa", width=3, dash=(4,4))
-            
-            # Draw speech bubble
-            if p["bubble"]:
-                bx, by = p["x"], p["y"]-70
-                canvas.create_rectangle(bx-60, by-15, bx+60, by+15, fill="#fff", outline="#ddd", width=2)
-                canvas.create_text(bx, by, text=p["bubble"], fill="#333", font=("Arial", 9, "bold"))
-                canvas.create_polygon(bx-5, by+15, bx+5, by+15, bx, by+25, fill="#fff", outline="#ddd")
+        for index, patient in enumerate(self.patients):
+            self.draw_patient_room(canvas, patient, index, index == self.active_patient, player)
+
+        canvas.create_rectangle(0, 0, WIDTH, 40, fill="#122033", outline="")
+        canvas.create_text(16, 20, anchor="w", text="Psychology Intake Wing", fill="#f2f7fb", font=("Helvetica", 15, "bold"))
+        canvas.create_text(WIDTH / 2, 20, text=f"Stabilized: {self.completed_sessions}/{self.session_goal}", fill="#d9ecff", font=("Helvetica", 12, "bold"))
+        canvas.create_text(WIDTH - 170, 20, anchor="e", text=f"Time: {self.timer:05.1f}s", fill="#f2f7fb", font=("Helvetica", 12, "bold"))
+        canvas.create_text(WIDTH - 18, 20, anchor="e", text=f"Unit Risk: {int(self.global_risk)}", fill="#ffcf99", font=("Helvetica", 12, "bold"))
+
+        canvas.create_text(20, 52, anchor="nw", text="Match the client's cue to the right intervention:", fill="#26445f", font=("Helvetica", 10, "bold"))
+        canvas.create_text(20, 68, anchor="nw", text="1 Grounding  2 Breathing  3 Reflection  4 Reframing", fill="#45657f", font=("Helvetica", 9))
+        if self.message and self.message_timer > 0:
+            canvas.create_rectangle(312, 46, WIDTH - 20, 78, fill="#17314b", outline="#3b6d96")
+            canvas.create_text((312 + WIDTH - 20) / 2, 62, text=self.message, fill="#eef7ff", font=("Helvetica", 9, "bold"), width=WIDTH - 356)
+
+        self.draw_intervention_bar(canvas)
+        canvas.create_text(WIDTH / 2, HEIGHT - 106, text=self.hints[self.current_hint_index], fill="#4f6d86", font=("Helvetica", 9, "italic"))
         player.draw(canvas)
 
         if self.finished:
             self.draw_result(canvas)
-        self.draw_hud(canvas)

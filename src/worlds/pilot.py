@@ -54,7 +54,7 @@ class PilotWorld(BaseWorld):
 
         # tick_timer handled by engine
         player.update(dt, keys, self.bounds)
-        self.fuel -= dt * 2.5  # Balanced drainrate
+        self.fuel -= dt * 5  # Balanced drainrate
         
         # Spawn clouds
         if random.random() < 0.05 + dt:
@@ -62,7 +62,7 @@ class PilotWorld(BaseWorld):
             self.clouds.append({"x": random.uniform(0, WIDTH), "y": -100, "w": w, "h": w*0.6, "bad": random.random() < 0.35})
             
         # Spawn fuel
-        if random.random() < 0.02 + dt * 0.5:
+        if random.random() < 0.005 + dt * 0.003:
             self.fuels.append({"x": random.uniform(20, WIDTH-20), "y": -20})
             
         new_clouds = []
@@ -75,7 +75,7 @@ class PilotWorld(BaseWorld):
             # Collision with player
             if player.x > c["x"] - c["w"]/2 and player.x < c["x"] + c["w"]/2 and player.y > c["y"] - c["h"]/2 and player.y < c["y"] + c["h"]/2:
                 if c["bad"]:
-                    self.hull -= dt * 25
+                    self.hull -= dt * 80
                     self.shake = 5.0
                     in_bad_cloud = True
                 else:

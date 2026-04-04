@@ -96,7 +96,7 @@ class RoboticsEngineerWorld(BaseWorld):
             self.success = False
             self.message = "Critical Failure! The prototype exploded."
             
-        if self.robots_built >= 2.0:
+        if self.robots_built >= 3.0:
             self.finished = True
             self.success = True
             self.message = "Assembly complete! 2 functional prototypes built."

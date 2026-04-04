@@ -12,7 +12,7 @@ class ATCWorld(BaseWorld):
         super().__init__(
             name="Air Traffic Control",
             summary="Coordinate approach vectors to land aircraft safely",
-            duration=60.0,
+            duration=70.0,
         )
         self.briefing = [
              "TRAFFIC ALERT: Extremely heavy volume entering airspace.",
@@ -30,10 +30,12 @@ class ATCWorld(BaseWorld):
         self.planes = []
         self.landed_count = 0
         self.spawn_timer = 0.2
-        self.plane_limit = 35
+        self.plane_limit = 42
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
+        self.collision_radius = 22.0
+        self.landing_radius = 30.0
         
         self.runways = [
             {"x": WIDTH/2, "y": HEIGHT/2, "w": 200, "h": 40, "angle": 0},
@@ -77,7 +79,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(0.5, 1.5)
+            self.spawn_timer = random.uniform(0.35, 0.85)
             side = random.randint(0, 3)
             # Spawn at edges, slightly inside so they don't instantly bounce
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
@@ -85,14 +87,17 @@ class ATCWorld(BaseWorld):
             elif side == 2: x, y = random.uniform(20, WIDTH-20), HEIGHT-20
             else: x, y = 20, random.uniform(20, HEIGHT-20)
             
-            # Target center initially
-            angle = math.atan2(HEIGHT/2 - y, WIDTH/2 - x)
-            vx = math.cos(angle) * 75
-            vy = math.sin(angle) * 75
+            # Bias traffic through the central airspace with slight variance so paths cross often.
+            target_x = WIDTH / 2 + random.uniform(-120, 120)
+            target_y = HEIGHT / 2 + random.uniform(-90, 90)
+            angle = math.atan2(target_y - y, target_x - x) + random.uniform(-0.18, 0.18)
+            speed = random.uniform(95, 125)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
             
             self.planes.append({
                 "x": x, "y": y, "vx": vx, "vy": vy, 
-                "path": [], "landed": False, "color": "#fff"
+                "path": [], "landed": False, "color": "#fff", "speed": speed
             })
             
         # Selection Logic
@@ -128,8 +133,9 @@ class ATCWorld(BaseWorld):
                         px = float(self.selected_plane["x"])
                         py = float(self.selected_plane["y"])
                         angle = math.atan2(pt[1] - py, pt[0] - px)
-                        self.selected_plane["vx"] = math.cos(angle) * 90
-                        self.selected_plane["vy"] = math.sin(angle) * 90
+                        speed = float(self.selected_plane.get("speed", 105.0))
+                        self.selected_plane["vx"] = math.cos(angle) * speed
+                        self.selected_plane["vy"] = math.sin(angle) * speed
                 self.is_drawing = False
                 self.selected_plane = None
                 self.current_path = []
@@ -156,29 +162,41 @@ class ATCWorld(BaseWorld):
                 else:
                     # Move towards target
                     angle = math.atan2(dy, dx)
-                    p["vx"] = math.cos(angle) * 90
-                    p["vy"] = math.sin(angle) * 90
+                    speed = float(p.get("speed", 105.0))
+                    p["vx"] = math.cos(angle) * speed
+                    p["vy"] = math.sin(angle) * speed
             
             p["x"] = px + float(p.get("vx", 0.0)) * dt
             p["y"] = py + float(p.get("vy", 0.0)) * dt
             
             # Boundary check - bounce or wrap? Bounce implies "Holding pattern" logic needed, wrap implies easy mode.
             # Let's just clamp and bounce
-            if p["x"] < 0 or p["x"] > WIDTH: p["vx"] *= -1
-            if p["y"] < 0 or p["y"] > HEIGHT: p["vy"] *= -1
-            
-            # Collision detection
-            for other in self.planes:
-                if p != other and not p["landed"] and not other["landed"]:
-                     if math.hypot(float(p["x"])-float(other["x"]), float(p["y"])-float(other["y"])) < 14:
-                         crashed = True
-                         
-            # Universal Landing Check
+            if p["x"] < 0 or p["x"] > WIDTH:
+                p["vx"] *= -1
+                p["x"] = max(0.0, min(WIDTH, float(p["x"])))
+            if p["y"] < 0 or p["y"] > HEIGHT:
+                p["vy"] *= -1
+                p["y"] = max(0.0, min(HEIGHT, float(p["y"])))
+
+            # Narrow landing zone so aircraft remain in the traffic pattern longer.
             if not p["landed"]:
                 r_dist = math.hypot(p["x"] - float(runway["x"]), p["y"] - float(runway["y"]))
-                if r_dist < 60:
+                if r_dist < self.landing_radius:
                      p["landed"] = True
                      self.landed_count += 1
+
+        active_planes = [p for p in self.planes if not p["landed"]]
+        for index, plane in enumerate(active_planes):
+            for other in active_planes[index + 1:]:
+                separation = math.hypot(
+                    float(plane["x"]) - float(other["x"]),
+                    float(plane["y"]) - float(other["y"]),
+                )
+                if separation < self.collision_radius:
+                    crashed = True
+                    break
+            if crashed:
+                break
         
         self.planes = [p for p in self.planes if not p["landed"]]
         
@@ -192,7 +210,7 @@ class ATCWorld(BaseWorld):
         # Success check
         if self.timer <= 0 and not crashed:
             self.finished = True
-            self.success = self.landed_count >= 10  # Assuming 10 is needed for S
+            self.success = self.landed_count >= 15
             if self.success:
                 self.message = f"Shift over! Successfully landed {self.landed_count} aircraft without collisions."
                 self.grade = "S"
