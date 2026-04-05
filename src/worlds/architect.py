@@ -53,7 +53,7 @@ class ArchitectWorld(BaseWorld):
         }
         self.blocks: list[dict[str, Any]] = []
         self.selected_room = 0
-        self.budget_limit = 2200
+        self.budget_limit = 3400
         self.budget = self.budget_limit
         self.phase = "build"
         self.review_timer = 0.0
@@ -254,16 +254,13 @@ class ArchitectWorld(BaseWorld):
             delete_down = "BackSpace" in keys or "Delete" in keys
             enter_down = "Return" in keys
 
-            self.place_hold_timer = max(0.0, self.place_hold_timer - dt)
             if space_down:
                 current_cell = (gx, gy)
-                if current_cell != self.last_place_cell or self.place_hold_timer <= 0.0:
+                if current_cell != self.last_place_cell:
                     self.place_selected_room(gx, gy)
-                    self.place_hold_timer = 0.10
                     self.last_place_cell = current_cell
             else:
                 self.last_place_cell = None
-                self.place_hold_timer = 0.0
             if delete_down and not self.last_delete_down:
                 self.remove_room(gx, gy)
             if enter_down and not self.last_enter_down:

@@ -79,10 +79,14 @@ class DataScientistWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Model deployed! 99.9% accuracy achieved."
-            if self.timer > 50: self.grade = "S"
-            elif self.timer > 30: self.grade = "A"
-            elif self.timer > 10: self.grade = "B"
-            else: self.grade = "C"
+            if self.timer >= 50:
+                self.grade = "S"
+            elif self.timer >= 30:
+                self.grade = "A"
+            elif self.timer >= 10:
+                self.grade = "B"
+            else:
+                self.grade = "C"
             
         if self.timer <= 0:
             self.finished = True

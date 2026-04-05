@@ -45,7 +45,7 @@ class PilotWorld(BaseWorld):
         self.fuels = []
         self.shake = 0.0
         self.particles = []
-        player.speed = 400.0
+        player.speed = 500.0
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -62,7 +62,7 @@ class PilotWorld(BaseWorld):
             self.clouds.append({"x": random.uniform(0, WIDTH), "y": -100, "w": w, "h": w*0.6, "bad": random.random() < 0.35})
             
         # Spawn fuel
-        if random.random() < 0.005 + dt * 0.003:
+        if random.random() < 0.005 + dt * 0.007:
             self.fuels.append({"x": random.uniform(20, WIDTH-20), "y": -20})
             
         new_clouds = []

@@ -89,19 +89,18 @@ class MarineWorld(BaseWorld):
         if self.finished:
             self.draw(canvas, player)
             return
-        
+
         # tick_timer handled by engine
         if self.tutorial_timer > 0:
             self.tutorial_timer = max(0.0, self.tutorial_timer - dt)
-            self.draw(canvas, player)
-            return
-            
+
         player.update(dt, keys, self.bounds)
-        
-        # Buoyancy
-        if "Down" not in keys and "s" not in keys: player.vy -= 80 * dt
-        player.vx = clamp(player.vx, -200, 200)
-        player.vy = clamp(player.vy, -200, 200)
+
+        # Buoyancy: Player.update overwrites velocity each frame, so apply a simple positional lift.
+        if "Down" not in keys and "s" not in keys:
+            player.y -= 80.0 * dt
+            x1, y1, x2, y2 = self.bounds
+            player.y = clamp(player.y, y1 + player.size, y2 - player.size)
 
         # Oxygen
         depth_factor = 1.0 + (player.y / HEIGHT)
@@ -234,6 +233,11 @@ class MarineWorld(BaseWorld):
         canvas.create_rectangle(22, HEIGHT-38, 22+196*(self.oxygen/100), HEIGHT-22, fill="#0af")
         canvas.create_text(WIDTH-100, 80, text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Arial", 12, "bold"))
         canvas.create_text(WIDTH-100, 105, text=f"Samples: {self.collected_count}/3", fill="#fff", font=("Arial", 12, "bold"))
+
+        if self.tutorial_timer > 0.0 and not self.finished:
+             canvas.create_rectangle(150, 120, WIDTH - 150, 210, fill="#07182a", outline="#ffffff", width=2)
+             canvas.create_text(WIDTH / 2, 145, text="Dive Mission", fill="#ffffff", font=("Arial", 16, "bold"))
+             canvas.create_text(WIDTH / 2, 178, text="Move with WASD/arrows. Hold SPACE near a fish to scan.", fill="#dcecff", font=("Arial", 10, "bold"))
 
         if self.finished: self.draw_result(canvas)
         self.draw_hud(canvas)

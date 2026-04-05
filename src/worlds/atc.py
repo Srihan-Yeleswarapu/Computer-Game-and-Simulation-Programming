@@ -29,8 +29,8 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.45
-        self.plane_limit = 30
+        self.spawn_timer = 0.6
+        self.plane_limit = 22
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
@@ -48,7 +48,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.45
+        self.spawn_timer = 0.6
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -79,7 +79,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(0.50, 1.10)
+            self.spawn_timer = random.uniform(0.65, 1.45)
             side = random.randint(0, 3)
             # Spawn at edges, slightly inside so they don't instantly bounce
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
@@ -91,7 +91,7 @@ class ATCWorld(BaseWorld):
             target_x = WIDTH / 2 + random.uniform(-155, 155)
             target_y = HEIGHT / 2 + random.uniform(-115, 115)
             angle = math.atan2(target_y - y, target_x - x) + random.uniform(-0.13, 0.13)
-            speed = random.uniform(82, 110)
+            speed = random.uniform(75, 100)
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
             

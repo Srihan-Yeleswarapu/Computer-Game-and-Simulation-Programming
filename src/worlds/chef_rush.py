@@ -33,6 +33,11 @@ class ChefRushWorld(BaseWorld):
             "SALAD": ["PANTRY", "PREP"],
             "SOUP": ["PANTRY", "STOVE"]
         }
+        self.recipe_step_text = {
+            "BURGER": ["Grab buns + patty", "Assemble on counter", "Cook on stove"],
+            "SALAD": ["Grab greens + toppings", "Chop/mix on counter"],
+            "SOUP": ["Grab broth + ingredients", "Simmer on stove"],
+        }
         
         self.customers = []
         self.money = 0
@@ -46,6 +51,7 @@ class ChefRushWorld(BaseWorld):
         self.recipe_book_open = False
         self.station_labels = {"PANTRY": "PANTRY", "PREP": "COUNTER", "STOVE": "STOVE"}
         self.repeat_customer = None
+        self.hover_customer = None
         
         # Positions
         self.counter_pos = (WIDTH/2, 100)
@@ -70,6 +76,7 @@ class ChefRushWorld(BaseWorld):
         self.current_steps = []
         self.step_progress = 0.0
         self.recipe_book_open = False
+        self.hover_customer = None
 
         # Spawn 3 customers
         self.customers = [
@@ -82,82 +89,96 @@ class ChefRushWorld(BaseWorld):
         if self.finished:
             self.draw(canvas, player)
             return
-        
+
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
 
-        # Update customers
-        for c in self.customers:
-            c["patience"] -= dt
-            if c["patience"] <= 0:
-                 self.customers_failed += 1
-                 self.shake = 3.0
-                 c["order"] = random.choice(list(self.recipes.keys()))
-                 c["patience"] = c["max_patience"]
-                 if self.active_order == c["id"]:
-                      self.active_order = None
-                      self.current_steps = []
-                      self.recipe_book_open = False
+        # Update customers (patience + reroll orders on timeout).
+        for customer in self.customers:
+            customer["patience"] -= dt
+            if customer["patience"] <= 0:
+                self.customers_failed += 1
+                self.shake = 3.0
+                customer["order"] = random.choice(list(self.recipes.keys()))
+                customer["patience"] = customer["max_patience"]
+                if self.active_order == customer["id"]:
+                    self.active_order = None
+                    self.current_steps = []
+                    self.step_progress = 0.0
+                    self.recipe_book_open = False
 
-        # Stations logic
-        # 1. Counter (Select order & Deliver)
+        # Hover/select/deliver at customers.
         nearest_customer = None
         nearest_dist = 70.0
-        for c in self.customers:
-             dist = math.hypot(player.x - c["x"], player.y - c["y"])
-             if dist < nearest_dist:
-                  nearest_customer = c
-                  nearest_dist = dist
-             if  self.repeat_customer != None and math.hypot(player.x - self.repeat_customer["x"], player.y - self.repeat_customer["y"]) > 60:
-                    self.repeat_customer = None
-             if dist < 60:
+        for customer in self.customers:
+            dist = math.hypot(player.x - customer["x"], player.y - customer["y"])
+            if dist < nearest_dist:
+                nearest_customer = customer
+                nearest_dist = dist
 
-                  if self.repeat_customer == None and self.active_order is None and len(self.current_steps) == 0:
-                       self.active_order = c["id"]
-                       self.recipe_book_open = False
-                  elif self.active_order == c["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
-                       # Delivered!
-                       tip = int((c["patience"] / c["max_patience"]) * 50)
-                       self.money += 100 + tip
-                       self.customers_served += 1
-                       c["order"] = random.choice(list(self.recipes.keys()))
-                       c["patience"] = c["max_patience"]
-                       self.active_order = None
-                       self.repeat_customer = c
-                       self.step_progress = 0.0
-                       self.recipe_book_open = False
+        if self.repeat_customer is not None and math.hypot(player.x - self.repeat_customer["x"], player.y - self.repeat_customer["y"]) > 60:
+            self.repeat_customer = None
 
+        self.hover_customer = nearest_customer["id"] if nearest_customer else None
+
+        for customer in self.customers:
+            dist = math.hypot(player.x - customer["x"], player.y - customer["y"])
+            if dist >= 60:
+                continue
+
+            if self.repeat_customer is None and self.active_order is None and len(self.current_steps) == 0:
+                self.active_order = customer["id"]
+                self.step_progress = 0.0
+                self.recipe_book_open = False
+                break
+
+            if self.active_order == customer["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
+                tip = int((customer["patience"] / customer["max_patience"]) * 50)
+                self.money += 100 + tip
+                self.customers_served += 1
+                customer["order"] = random.choice(list(self.recipes.keys()))
+                customer["patience"] = customer["max_patience"]
+                self.active_order = None
+                self.repeat_customer = customer
+                self.step_progress = 0.0
+                self.recipe_book_open = False
+                break
+
+        # Route logic: go to recipe book once, then visit stations in order.
         if self.active_order is not None and self.step_progress != -1:
-             c = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
-             if c:
-                  # 2. Recipe Book
-                  if len(self.current_steps) == 0:
-                       if math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1]) < 60:
-                            self.current_steps = self.recipes[c["order"]].copy()
-                            self.step_progress = 0.0
-                            self.recipe_book_open = True
-                            self.message = f"{c['order']}: follow the route shown on the left."
-                  # 3. Work Stations
-                  elif len(self.current_steps) > 0:
-                       next_station = self.current_steps[0]
-                       station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
-                       
-                       if math.hypot(player.x - station_pos[0], player.y - station_pos[1]) < 50:
-                            completed_step = self.current_steps.pop(0)
-                            self.step_progress = 0.0
-                            self.message = f"{self.station_labels[completed_step]} handled. Keep moving."
-                            if len(self.current_steps) == 0:
-                                 self.step_progress = -1 # Ready for delivery
-                                 self.message = "Meal ready. Return to the customer."
+            customer = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
+            if customer:
+                if len(self.current_steps) == 0:
+                    if math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1]) < 60:
+                        self.current_steps = self.recipes[customer["order"]].copy()
+                        self.step_progress = 0.0
+                        self.recipe_book_open = True
+                        self.message = f"{customer['order']}: follow the route shown on the left."
+                else:
+                    next_station = self.current_steps[0]
+                    station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
+                    if math.hypot(player.x - station_pos[0], player.y - station_pos[1]) < 50:
+                        completed_step = self.current_steps.pop(0)
+                        self.step_progress = 0.0
+                        completed_index = len(self.recipes[customer["order"]]) - len(self.current_steps) - 1
+                        step_detail = self.recipe_step_text.get(customer["order"], [])
+                        detail = step_detail[completed_index] if 0 <= completed_index < len(step_detail) else "Step complete"
+                        self.message = f"{self.station_labels[completed_step]}: {detail}."
+                        if len(self.current_steps) == 0:
+                            self.step_progress = -1
+                            self.message = "Meal ready. Return to the customer."
 
         if self.timer <= 0:
             self.finished = True
             self.success = self.customers_served >= 3
             if self.success:
                 self.message = f"Shift over! Served {self.customers_served} meals. Earned ${self.money}!"
-                if self.customers_served >= 7: self.grade = "S"
-                elif self.customers_served >= 5: self.grade = "A"
-                elif self.customers_served >= 3: self.grade = "B"
+                if self.customers_served >= 7:
+                    self.grade = "S"
+                elif self.customers_served >= 5:
+                    self.grade = "A"
+                elif self.customers_served >= 3:
+                    self.grade = "B"
             else:
                 self.message = f"Restaurant failed! Only served {self.customers_served} meals."
                 self.grade = "C"
@@ -213,6 +234,22 @@ class ChefRushWorld(BaseWorld):
                        canvas.create_text(cx, cy-35, text="READ BOOK!", fill="#8e44ad", font=("Arial", 10, "bold"))
                   else:
                        canvas.create_text(cx, cy-35, text=f"GO TO {self.station_labels[self.current_steps[0]]}", fill="#e67e22", font=("Arial", 10, "bold"))
+             elif self.hover_customer == c["id"] and self.active_order is None and self.repeat_customer is None:
+                  canvas.create_oval(cx-25, cy-25, cx+25, cy+25, outline="#3498db", width=3)
+                  canvas.create_text(cx, cy-35, text="ORDER", fill="#3498db", font=("Arial", 10, "bold"))
+
+        # Direction line to the next objective (drawn under the player).
+        if self.active_order is not None:
+             if self.step_progress == -1:
+                  target = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
+                  if target:
+                       canvas.create_line(player.x, player.y, target["x"], target["y"], fill="#2ecc71", width=3, dash=(6, 4))
+             elif len(self.current_steps) == 0:
+                  canvas.create_line(player.x, player.y, self.book_pos[0], self.book_pos[1], fill="#8e44ad", width=3, dash=(6, 4))
+             else:
+                  next_station = self.current_steps[0]
+                  station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
+                  canvas.create_line(player.x, player.y, station_pos[0], station_pos[1], fill="#e67e22", width=3, dash=(6, 4))
 
         player.draw(canvas)
         
@@ -222,19 +259,22 @@ class ChefRushWorld(BaseWorld):
              customer = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
              if customer:
                   all_steps = self.recipes[customer["order"]]
+                  step_text = self.recipe_step_text.get(customer["order"], [""] * len(all_steps))
                   completed_count = len(all_steps) - len(self.current_steps)
                   route_lines = []
                   if self.step_progress == -1:
-                       route_lines = ["READY", "Go to CUSTOMER"]
+                       route_lines = ["READY", "Go to CUSTOMER to serve"]
                   else:
                        for index, step in enumerate(all_steps):
                             label = self.station_labels[step]
+                            detail = step_text[index] if index < len(step_text) else ""
+                            suffix = f" ({detail})" if detail else ""
                             if index < completed_count:
-                                 route_lines.append(f"DONE: {label}")
+                                 route_lines.append(f"DONE: {label}{suffix}")
                             elif index == completed_count:
-                                 route_lines.append(f"NEXT: {label}")
+                                 route_lines.append(f"NEXT: {label}{suffix}")
                             else:
-                                 route_lines.append(f"THEN: {label}")
+                                 route_lines.append(f"THEN: {label}{suffix}")
                   panel_top = HEIGHT - 128
                   panel_bottom = HEIGHT - 44
                   canvas.create_rectangle(14, panel_top, 260, panel_bottom, fill="#ffffff", outline="#2c3e50", width=2)

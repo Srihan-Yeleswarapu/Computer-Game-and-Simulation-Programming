@@ -91,6 +91,10 @@ class TycoonWorld(BaseWorld):
         self.loan_increment = 25000.0
         self.reset_market_state()
 
+    def down_payment_ratio(self, risk: float) -> float:
+        # Keep deals accessible; higher risk still requires more equity up front.
+        return clamp(0.12 + risk * 0.22, 0.12, 0.25)
+
     def reset_market_state(self) -> None:
         self.market_prices = {
             "real_estate": 52000.0,
@@ -213,7 +217,7 @@ class TycoonWorld(BaseWorld):
         prop = self.properties[self.selected_detail_idx]
         price = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0)))
         risk = float(prop["risk"])
-        down_payment_ratio = clamp(0.20 + risk * 0.35, 0.20, 0.35)
+        down_payment_ratio = self.down_payment_ratio(risk)
         down_payment = price * down_payment_ratio
         financed_amount = price - down_payment
         if self.cash < down_payment:
@@ -340,15 +344,15 @@ class TycoonWorld(BaseWorld):
             self.event_timer = max(0.0, self.event_timer - dt)
         for key, price in list(self.market_prices.items()):
             drift = self.market_drifts[key]
-            noise = random.uniform(-1.0, 1.0) * (0.015 + abs(drift) * 0.22)
-            growth = drift * year_fraction + noise * math.sqrt(year_fraction) * 0.10
+            noise = random.uniform(-1.0, 1.0) * (0.012 + abs(drift) * 0.18)
+            growth = drift * year_fraction + noise * math.sqrt(year_fraction) * 0.06
             if key == "crypto_miner":
-                growth *= 1.18
+                growth *= 1.10
             new_price = max(3500.0, price * (1.0 + growth))
             self.market_prices[key] = new_price
             history = self.price_history[key]
             history.append(new_price)
-            if len(history) > 32:
+            if len(history) > 180:
                 history.pop(0)
         if self.market_timer >= 20.0:
             self.market_timer = 0.0
@@ -603,7 +607,8 @@ class TycoonWorld(BaseWorld):
         row_y = y1 + 38
         for key in ("real_estate", "industrial", "tech_fund", "dividend_fund", "bond_ladder", "crypto_miner"):
             history = self.price_history[key]
-            drift = history[-1] - history[max(0, len(history) - 20)] if len(history) > 1 else 0.0
+            lookback = min(120, len(history) - 1) if len(history) > 1 else 1
+            drift = history[-1] - history[max(0, len(history) - 1 - lookback)] if len(history) > 1 else 0.0
             color = "#69db7c" if drift >= 0 else "#ff8787"
             label = key.replace("_", " ").title()
             canvas.create_text(x1 + 14, row_y, anchor="w", text=label, fill="#93b9d6", font=("Helvetica", 9))
@@ -647,20 +652,20 @@ class TycoonWorld(BaseWorld):
             f"Zone: {prop['zone']}",
             f"Asking Price: {self.money(float(prop['price']))}",
             f"Negotiated Price: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0)) ))}",
-            f"Down Payment: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * clamp(0.20 + float(prop['risk']) * 0.35, 0.20, 0.35))}",
+            f"Down Payment: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * self.down_payment_ratio(float(prop['risk'])))}",
             f"Projected Annual Yield: {float(prop['annual_yield']) * 100:.1f}%",
             f"Projected Annual Expense: {float(prop['annual_expense']) * 100:.1f}%",
             f"Occupancy / Utilization: {float(prop['occupancy']) * 100:.0f}%",
             f"Research Level: {int(prop.get('research', 0))}/2",
             f"Risk Score: {int(float(prop['risk']) * 100)} / 100",
-            f"Estimated Monthly Cash Flow: {self.money((float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (float(prop['annual_yield']) * float(prop['occupancy']) - float(prop['annual_expense'])) - (float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (1.0 - clamp(0.20 + float(prop['risk']) * 0.35, 0.20, 0.35)) * self.loan_rate)) / 12.0)}",
+            f"Estimated Monthly Cash Flow: {self.money((float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (float(prop['annual_yield']) * float(prop['occupancy']) - float(prop['annual_expense'])) - (float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (1.0 - self.down_payment_ratio(float(prop['risk']))) * self.loan_rate)) / 12.0)}",
             f"Cash Available: {self.money(self.cash)}",
         ]
         y = y1 + 68
         for line in lines:
             canvas.create_text(x1 + 26, y, anchor="w", text=line, fill="#d6e9f8", font=("Helvetica", 11))
             y += 28
-        down_payment_needed = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0))) * clamp(0.20 + float(prop["risk"]) * 0.35, 0.20, 0.35)
+        down_payment_needed = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0))) * self.down_payment_ratio(float(prop["risk"]))
         can_afford = self.cash >= down_payment_needed
         button_fill = "#2f9e44" if can_afford else "#7f8c8d"
         canvas.create_rectangle(x1 + 42, y2 - 76, x2 - 42, y2 - 34, fill=button_fill, outline="")

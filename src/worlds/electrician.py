@@ -209,7 +209,8 @@ class ElectricianWorld(BaseWorld):
             elif self.system_health >= 45.0 or self.timer >= 15.0:
                 self.grade = "B"
             else:
-                self.grade = "C"
+                # Success should never feel like a low rank if the building is stabilized.
+                self.grade = "B"
         elif self.system_health <= 0.0:
             self.finished = True
             self.success = False

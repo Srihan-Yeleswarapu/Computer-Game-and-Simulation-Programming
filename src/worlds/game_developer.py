@@ -235,7 +235,7 @@ class BugManager:
         self.bounds = bounds
         self.desk_pos = desk_pos
         self.bugs: list[Bug] = []
-        self.spawn_cooldown = 0.6
+        self.spawn_cooldown = 1.3
         self.spawn_timer = self.spawn_cooldown
 
     def count(self) -> int:
@@ -265,8 +265,9 @@ class BugManager:
         self.spawn_timer -= dt
         if self.spawn_timer > 0.0:
             return
-        base = self.spawn_cooldown / max(0.35, spawn_mult)
-        self.spawn_timer = random.uniform(base * 0.75, base * 1.25)
+        effective_mult = max(0.45, min(spawn_mult, 1.35))
+        base = self.spawn_cooldown / effective_mult
+        self.spawn_timer = base
         self.spawn(n=1, speed_base=speed_base)
 
     def remove_near(self, *, x: float, y: float, radius: float) -> int:
@@ -431,7 +432,7 @@ class PanicModeManager:
         active = intensity > 0.0
         self.state.active = active
         self.state.intensity = intensity
-        self.state.bug_spawn_mult = 1.0 + intensity * 1.05
+        self.state.bug_spawn_mult = 1.0 + intensity * 0.55
         self.state.shake = intensity * 1.25
         self.state.flash = max(0.0, self.state.flash - dt)
         if active:
@@ -493,7 +494,7 @@ class ChaosEventManager:
             if self.active.name == "System Failure":
                 systems.add_stability(-(10.0 + 2.5 * difficulty.level))
             elif self.active.name == "Mass Bug Spawn":
-                bugs.spawn(n=4 + 2 * difficulty.level, speed_base=70.0 + 4.0 * difficulty.level)
+                bugs.spawn(n=max(1, 1 + difficulty.level), speed_base=66.0 + 3.0 * difficulty.level)
             elif self.active.name == "Complaint Storm":
                 complaints.spawn(n=2 + difficulty.level)
             return effects
@@ -504,9 +505,9 @@ class ChaosEventManager:
             return effects
         name = self.active.name
         if name == "Mass Bug Spawn":
-            effects.bug_spawn_mult = 1.55 + 0.10 * difficulty.level
-            effects.bug_speed_bonus = 10.0
-            effects.screen_flash = 0.08
+            effects.bug_spawn_mult = 1.15 + 0.05 * difficulty.level
+            effects.bug_speed_bonus = 4.0
+            effects.screen_flash = 0.03
         elif name == "Complaint Storm":
             effects.motivation_drain = 1.2 + 0.35 * difficulty.level
             effects.screen_flash = 0.06
@@ -517,19 +518,16 @@ class ChaosEventManager:
         elif name == "Deadline Rush":
             effects.progress_mult = 1.15
             effects.motivation_drain = 1.15
-            effects.bug_spawn_mult = 1.75
-            effects.shake = 0.55
+            effects.bug_spawn_mult = 1.35
+            effects.shake = 0.35
         elif name == "System Failure":
-            effects.bug_speed_bonus = 18.0 + 4.0 * difficulty.level
-            effects.bug_spawn_mult = 1.25
-            effects.crash_risk_bonus = 0.06 + 0.02 * difficulty.level
-            effects.screen_flash = 0.10
-            effects.shake = 0.8
-        if name in {"Mass Bug Spawn", "Complaint Storm"} and random.random() < 0.25 * dt:
-            if name == "Mass Bug Spawn":
-                bugs.spawn(n=1, speed_base=80.0 + 3.0 * difficulty.level)
-            else:
-                complaints.spawn(n=1)
+            effects.bug_speed_bonus = 10.0 + 3.0 * difficulty.level
+            effects.bug_spawn_mult = 1.15
+            effects.crash_risk_bonus = 0.04 + 0.01 * difficulty.level
+            effects.screen_flash = 0.08
+            effects.shake = 0.5
+        if name == "Complaint Storm" and random.random() < 0.25 * dt:
+            complaints.spawn(n=1)
         return effects
 
     def _roll_event(self, difficulty: Difficulty) -> ActiveChaosEvent:
@@ -827,10 +825,11 @@ class GameDeveloperWorld(BaseWorld):
             self.systems.add_motivation(-(0.85 + 0.12 * self.difficulty.level) * dt)
 
         # Spawns and entity updates.
-        spawn_mult = (1.0 + 0.10 * self.difficulty.level) * chaos_fx.bug_spawn_mult * panic_state.bug_spawn_mult
+        base_spawn = 0.85 + 0.06 * self.difficulty.level
+        spawn_mult = base_spawn * chaos_fx.bug_spawn_mult * panic_state.bug_spawn_mult
         if coding:
-            spawn_mult *= 1.15
-        speed_base = 64.0 + 6.0 * self.difficulty.level
+            spawn_mult *= 1.08
+        speed_base = 56.0 + 4.0 * self.difficulty.level
         self.bugs.update_spawning(dt, spawn_mult=spawn_mult, speed_base=speed_base)
         self.bugs.update(
             dt,
@@ -866,7 +865,7 @@ class GameDeveloperWorld(BaseWorld):
             self.toast_timer = max(self.toast_timer, 3.0)
             self.screen_flash = max(self.screen_flash, 0.14)
             self.shake = max(self.shake, 1.2)
-            self.bugs.spawn(n=3 + self.difficulty.level, speed_base=78.0 + 5.0 * self.difficulty.level)
+            self.bugs.spawn(n=1 + self.difficulty.level // 2, speed_base=74.0 + 4.0 * self.difficulty.level)
             self.complaints.spawn(n=1 + self.difficulty.level // 2)
             if shipped.name == "Upgrade Menu":
                 self.abilities.cooldown_scale = 0.85

@@ -91,6 +91,7 @@ class PsychologistWorld(BaseWorld):
         ]
         self.patients: list[dict[str, Any]] = []
         self.active_patient = -1
+        self.locked_patient = -1
         self.selected_intervention = 0
         self.completed_sessions = 0
         self.session_goal = 4
@@ -110,6 +111,7 @@ class PsychologistWorld(BaseWorld):
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
         self.active_patient = -1
+        self.locked_patient = -1
         self.selected_intervention = 0
         self.completed_sessions = 0
         self.global_risk = 0.0
@@ -162,7 +164,11 @@ class PsychologistWorld(BaseWorld):
             self.selected_intervention = 3
 
         failed = False
-        self.active_patient = -1
+        space_down = "space" in keys
+        if not space_down:
+            self.locked_patient = -1
+
+        nearest_patient = -1
         best_dist = 9999.0
         for index, patient in enumerate(self.patients):
             if patient["resolved"]:
@@ -170,7 +176,14 @@ class PsychologistWorld(BaseWorld):
             dist = math.hypot(player.x - float(patient["x"]), player.y - float(patient["y"]))
             if dist < 125 and dist < best_dist:
                 best_dist = dist
-                self.active_patient = index
+                nearest_patient = index
+
+        if space_down:
+            if self.locked_patient == -1:
+                self.locked_patient = nearest_patient
+            self.active_patient = self.locked_patient
+        else:
+            self.active_patient = nearest_patient
 
         for index, patient in enumerate(self.patients):
             if patient["resolved"]:
@@ -357,6 +370,17 @@ class PsychologistWorld(BaseWorld):
         if is_active:
             canvas.create_line(player.x, player.y, chair_x, chair_y - 4, fill="#5fa8ff", width=3, dash=(4, 3))
             canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="SPACE", fill="#0d6efd", font=("Helvetica", 9, "bold"))
+            intervention = self.interventions[self.selected_intervention]
+            if intervention["focus"] == patient["focus"]:
+                status_text = "MATCH"
+                status_fill = "#2a9d8f"
+            elif intervention["focus"] == patient["secondary_focus"]:
+                status_text = "CLOSE"
+                status_fill = "#f4a261"
+            else:
+                status_text = "MISMATCH"
+                status_fill = "#d62828"
+            canvas.create_text(x2 - 14, y1 + 34, anchor="ne", text=status_text, fill=status_fill, font=("Helvetica", 9, "bold"))
         elif patient["resolved"]:
             canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="DONE", fill="#2a9d8f", font=("Helvetica", 9, "bold"))
 

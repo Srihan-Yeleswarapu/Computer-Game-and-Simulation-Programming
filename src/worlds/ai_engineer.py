@@ -39,7 +39,7 @@ class AIEngineerWorld(BaseWorld):
         self.shake = 0.0
         self.particles = []
         
-        self.ai_node = {"x": WIDTH/2, "y": 50, "speed": 120.0}
+        self.ai_node = {"x": WIDTH/2, "y": 50, "speed": 160.0}
         self.data_points = []
         self.accuracy = 25.0
 
@@ -59,11 +59,15 @@ class AIEngineerWorld(BaseWorld):
         # Spawn data
         if random.random() < 2.5 * dt:
             typ = random.choice(["valid", "bias"])
-            self.data_points.append({"x": random.uniform(50, WIDTH-50), "y": random.uniform(50, HEIGHT-50), "type": typ})
+            ttl = 6.0 if typ == "valid" else 3.0
+            self.data_points.append({"x": random.uniform(50, WIDTH-50), "y": random.uniform(50, HEIGHT-50), "type": typ, "ttl": ttl})
             
         # Data expiry and AI consumption
         new_data = []
         for d in self.data_points:
+            d["ttl"] = float(d.get("ttl", 4.0)) - dt
+            if float(d["ttl"]) <= 0.0:
+                 continue
             # Did AI eat it?
             if math.hypot(self.ai_node["x"] - d["x"], self.ai_node["y"] - d["y"]) < 25:
                  if d["type"] == "valid":
