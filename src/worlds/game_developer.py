@@ -48,36 +48,34 @@ class AbilitySystem:
             ability.cooldown = max(0.0, ability.cooldown - dt)
             ability.active = max(0.0, ability.active - dt)
 
-    def try_dash(self, keys: set[str]) -> bool:
-        if self.dash.cooldown > 0.0:
+    def try_dash(self, pressed: bool) -> bool:
+        if self.dash.cooldown > 0.0 or not pressed:
             return False
-        if not ({"Shift_L", "Shift_R"} & keys):
-            return False
-        self.dash.active = 0.22
-        self.dash.cooldown = 1.8 * self.cooldown_scale
+        self.dash.active = 0.38
+        self.dash.cooldown = 1.6 * self.cooldown_scale
         return True
 
     def dash_multiplier(self) -> float:
         return 2.25 if self.dash.active > 0.0 else 1.0
 
-    def try_emergency_patch(self, keys: set[str]) -> bool:
-        if self.emergency_patch.cooldown > 0.0 or "e" not in keys:
+    def try_emergency_patch(self, pressed: bool) -> bool:
+        if self.emergency_patch.cooldown > 0.0 or not pressed:
             return False
         if self.has_crafting and self.patch_kits <= 0:
             return False
         if self.has_crafting:
             self.patch_kits -= 1
-        self.emergency_patch.cooldown = 7.5 * self.cooldown_scale
+        self.emergency_patch.cooldown = 6.0 * self.cooldown_scale
         return True
 
-    def try_coffee_boost(self, keys: set[str]) -> bool:
-        if self.coffee_boost.cooldown > 0.0 or "c" not in keys:
+    def try_coffee_boost(self, pressed: bool) -> bool:
+        if self.coffee_boost.cooldown > 0.0 or not pressed:
             return False
         if self.has_inventory:
             if self.coffee_charges <= 0:
                 return False
             self.coffee_charges -= 1
-        self.coffee_boost.active = 3.0
+        self.coffee_boost.active = 4.0
         base_cd = 9.5 if self.has_inventory else 13.0
         self.coffee_boost.cooldown = base_cd * self.cooldown_scale
         return True
@@ -85,10 +83,10 @@ class AbilitySystem:
     def coffee_multiplier(self) -> float:
         return 1.25 if self.coffee_boost.active > 0.0 else 1.0
 
-    def try_debug_burst(self, keys: set[str]) -> bool:
-        if not self.has_skill_tree or self.debug_burst.cooldown > 0.0 or "f" not in keys:
+    def try_debug_burst(self, pressed: bool) -> bool:
+        if not self.has_skill_tree or self.debug_burst.cooldown > 0.0 or not pressed:
             return False
-        self.debug_burst.cooldown = 11.5 * self.cooldown_scale
+        self.debug_burst.cooldown = 9.5 * self.cooldown_scale
         return True
 
     def can_craft_patch_kit(self) -> bool:
@@ -282,6 +280,12 @@ class BugManager:
         self.bugs = keep
         return removed
 
+    def remove_attached(self) -> int:
+        removed = sum(1 for bug in self.bugs if bug.attached)
+        if removed:
+            self.bugs = [bug for bug in self.bugs if not bug.attached]
+        return removed
+
     def update(
         self,
         dt: float,
@@ -318,7 +322,7 @@ class BugManager:
             kept.append(bug)
         self.bugs = kept
         if attached_drain > 0.0:
-            systems.add_stability(-attached_drain * dt * 3.4)
+            systems.add_stability(-attached_drain * dt * 2.2)
 
 
 @dataclass(slots=True)
@@ -606,21 +610,22 @@ class GameDeveloperWorld(BaseWorld):
 
         self.office_bounds = (88.0, 88.0, 872.0, 548.0)
         self.desk_pos = (250.0, 310.0)
+        self.support_pos = (650.0, 310.0)
 
         self.briefing = [
-            "Hold SPACE to code. Coding is faster at the Dev Desk.",
-            "Stomp red bugs by running through them. Too many bugs escalate into glitches and crash risk.",
-            "Run into floating complaints to reply (no inbox walking). Too many unresolved complaints drain you fast.",
-            "Abilities: Dash (Shift), Emergency Patch (E), Coffee Boost (C), Debug Burst (F - unlock later).",
-            "Ship the unlock features, then survive the Launch Window.",
+            "Stand at the Dev Desk and hold SPACE to build progress. You do not code effectively in the middle of the room.",
+            "Run through red bugs to squash them before they attach to the desk and drain stability.",
+            "Run through orange complaint cards to clear community backlash before motivation tanks.",
+            "Use abilities on key press: Shift dash, C coffee, E emergency patch, X craft patch kits, F debug burst later.",
+            "Ship each feature unlock, then hold the launch together when the final window opens.",
         ]
         self.warning = "If Stability hits 0: crash. If Motivation hits 0: burnout."
         self.hints = [
-            "Tip: SPACE to code anywhere, but the desk is faster.",
-            "Tip: Dash (Shift) lets you stomp a swarm without losing tempo.",
-            "Tip: Coffee (C) is the safe way to keep speed and progress up.",
-            "Tip: Complaints are targets. Run into them.",
-            "Tip: 13+ bugs means crash risk. Do not let it sit.",
+            "Tip: If SPACE is doing nothing, move back to the glowing Dev Desk.",
+            "Tip: Emergency Patch clears desk-attached bugs and restores stability.",
+            "Tip: Coffee gives a longer work burst; after Inventory it costs one coffee charge.",
+            "Tip: Craft patch kits with X after Crafting unlocks, then spend them with E.",
+            "Tip: Clear bugs before they hit double digits or the room starts glitching.",
         ]
 
         self.meta = self._load_meta()
@@ -644,6 +649,7 @@ class GameDeveloperWorld(BaseWorld):
         self.in_launch_window = False
         self.launch_timer = 0.0
         self.automation_on = False
+        self.status_text = ""
 
     def _load_meta(self) -> dict[str, int | float]:
         default: dict[str, int | float] = {"best_features": 0, "clears": 0}
@@ -676,7 +682,7 @@ class GameDeveloperWorld(BaseWorld):
         self.message = ""
         self.grade = "-"
 
-        self.systems = CoreSystems(progress=10.0, stability=92.0, motivation=84.0)
+        self.systems = CoreSystems(progress=18.0, stability=96.0, motivation=90.0)
         self.difficulty = Difficulty()
 
         self.abilities = AbilitySystem()
@@ -691,6 +697,7 @@ class GameDeveloperWorld(BaseWorld):
         self.screen_flash = 0.0
         self.flicker_strength = 0.0
         self.action_lock = 0.0
+        self.status_text = "Code at the Dev Desk. Stomp bugs. Clear complaints."
 
         self.in_launch_window = False
         self.launch_timer = 0.0
@@ -730,12 +737,21 @@ class GameDeveloperWorld(BaseWorld):
         bug_mod = BugDifficultyScaler.modifiers(bug_count)
         self.flicker_strength = bug_mod.screen_flicker
 
+        desk_dist = math.hypot(player.x - self.desk_pos[0], player.y - self.desk_pos[1])
+        at_desk = desk_dist < 96.0
+        build_pressed = "space" in keys and not self.in_launch_window
+        shift_pressed = self.just_pressed(keys, "Shift_L") or self.just_pressed(keys, "Shift_R")
+        coffee_pressed = self.just_pressed(keys, "c")
+        patch_pressed = self.just_pressed(keys, "e")
+        craft_pressed = self.just_pressed(keys, "x")
+        debug_pressed = self.just_pressed(keys, "f")
+
         # Baseline drains (the "job"), scaled up by shipped features.
-        self.systems.add_motivation(-(0.12 + 0.035 * self.difficulty.level) * dt)
+        self.systems.add_motivation(-(0.08 + 0.025 * self.difficulty.level) * dt)
         self.systems.add_motivation(-chaos_fx.motivation_drain * dt)
         if bug_count > 0:
             stability_drain = bug_mod.stability_drain_per_bug * bug_count
-            stability_drain *= 1.0 + 0.12 * self.difficulty.level
+            stability_drain *= 0.82 + 0.10 * self.difficulty.level
             self.systems.add_stability(-stability_drain * dt)
 
         # Live Ops automation: if you're doing well, the build self-heals a little.
@@ -744,42 +760,49 @@ class GameDeveloperWorld(BaseWorld):
 
         # Abilities (key taps) are evaluated before movement so the feedback feels instant.
         if self.action_lock <= 0.0:
-            if self.abilities.try_dash(keys):
+            if self.abilities.try_dash(shift_pressed):
+                removed = self.bugs.remove_near(x=player.x, y=player.y, radius=54.0)
+                if removed > 0:
+                    self.systems.add_stability(removed * 0.9)
+                    self.systems.add_progress(removed * 1.0)
                 self.shake = max(self.shake, 0.8)
                 self._spawn_particles(player.x, player.y, "#65d6ff", 12, 240)
+                self.toast_text = "Dash: burst through bugs and reposition fast."
+                self.toast_timer = max(self.toast_timer, 1.3)
                 self.action_lock = 0.05
 
-            if self.abilities.try_coffee_boost(keys):
+            if self.abilities.try_coffee_boost(coffee_pressed):
                 self.systems.add_motivation(22.0)
-                self.toast_text = "Coffee Boost: motivation up, tempo up."
+                self.toast_text = "Coffee Boost: move faster and build faster for a short burst."
                 self.toast_timer = max(self.toast_timer, 1.9)
                 self.screen_flash = max(self.screen_flash, 0.08)
                 self.action_lock = 0.12
 
-            if self.abilities.try_emergency_patch(keys):
-                self.systems.add_stability(20.0)
-                self.systems.add_motivation(-10.0)
-                self.toast_text = "Emergency Patch: stability up, motivation down."
+            if self.abilities.try_emergency_patch(patch_pressed):
+                fixed_attached = self.bugs.remove_attached()
+                self.systems.add_stability(16.0 + fixed_attached * 4.0)
+                self.systems.add_motivation(-6.0)
+                self.toast_text = f"Emergency Patch: restored stability and cleared {fixed_attached} desk bugs."
                 self.toast_timer = max(self.toast_timer, 2.0)
                 self.screen_flash = max(self.screen_flash, 0.12)
                 self.shake = max(self.shake, 0.9)
                 self._spawn_particles(self.desk_pos[0], self.desk_pos[1], "#50fa7b", 16, 210)
                 self.action_lock = 0.14
 
-            if "x" in keys and self.abilities.can_craft_patch_kit():
+            if craft_pressed and self.abilities.can_craft_patch_kit():
                 if self.abilities.craft_patch_kit():
                     self.toast_text = "Crafted Patch Kit: E is stocked."
                     self.toast_timer = max(self.toast_timer, 1.8)
                     self.screen_flash = max(self.screen_flash, 0.08)
                     self.action_lock = 0.18
 
-            if self.abilities.try_debug_burst(keys):
+            if self.abilities.try_debug_burst(debug_pressed):
                 removed = self.bugs.remove_near(x=player.x, y=player.y, radius=96.0)
                 if removed > 0:
-                    self.systems.add_progress(4.0 + removed * 1.1)
-                    self.systems.add_stability(2.5 + removed * 0.35)
-                self.systems.add_motivation(-8.0)
-                self.toast_text = f"Debug Burst: purged {removed} bugs."
+                    self.systems.add_progress(6.0 + removed * 1.4)
+                    self.systems.add_stability(4.0 + removed * 0.5)
+                self.systems.add_motivation(-5.0)
+                self.toast_text = f"Debug Burst: purged {removed} bugs in a radius."
                 self.toast_timer = max(self.toast_timer, 1.8)
                 self.screen_flash = max(self.screen_flash, 0.12)
                 self.shake = max(self.shake, 1.3)
@@ -815,21 +838,22 @@ class GameDeveloperWorld(BaseWorld):
         player.speed = original_speed
         player.accel = original_accel
 
-        # Coding (active, not walking): hold SPACE anywhere; desk is a bonus zone.
-        coding = "space" in keys and not self.in_launch_window
+        # Coding is anchored to the desk so the objective reads clearly.
+        coding = build_pressed and at_desk
         if coding:
-            desk_bonus = 1.45 if math.hypot(player.x - self.desk_pos[0], player.y - self.desk_pos[1]) < 90 else 1.0
-            progress_rate = 15.0 + 1.6 * self.difficulty.level
+            progress_rate = 19.0 + 1.8 * self.difficulty.level
             progress_mult = chaos_fx.progress_mult * self.abilities.coffee_multiplier()
-            self.systems.add_progress(progress_rate * desk_bonus * progress_mult * dt)
-            self.systems.add_motivation(-(0.85 + 0.12 * self.difficulty.level) * dt)
+            self.systems.add_progress(progress_rate * progress_mult * dt)
+            self.systems.add_motivation(-(0.55 + 0.10 * self.difficulty.level) * dt)
+        elif build_pressed and not at_desk:
+            self.status_text = "Move to the glowing Dev Desk to build progress."
 
         # Spawns and entity updates.
-        base_spawn = 0.85 + 0.06 * self.difficulty.level
+        base_spawn = 0.72 + 0.05 * self.difficulty.level
         spawn_mult = base_spawn * chaos_fx.bug_spawn_mult * panic_state.bug_spawn_mult
         if coding:
-            spawn_mult *= 1.08
-        speed_base = 56.0 + 4.0 * self.difficulty.level
+            spawn_mult *= 1.05
+        speed_base = 50.0 + 3.5 * self.difficulty.level
         self.bugs.update_spawning(dt, spawn_mult=spawn_mult, speed_base=speed_base)
         self.bugs.update(
             dt,
@@ -848,7 +872,7 @@ class GameDeveloperWorld(BaseWorld):
         # Crash risk spikes (13+ bugs and/or System Failure).
         crash_per_sec = bug_mod.crash_risk_per_sec + chaos_fx.crash_risk_bonus
         if crash_per_sec > 0.0 and random.random() < crash_per_sec * dt:
-            spike = 30.0 + 6.0 * self.difficulty.level
+            spike = 20.0 + 4.0 * self.difficulty.level
             self.systems.add_stability(-spike)
             self.toast_text = "Crash spike: stack trace everywhere."
             self.toast_timer = max(self.toast_timer, 2.0)
@@ -859,8 +883,8 @@ class GameDeveloperWorld(BaseWorld):
         # Ship features.
         shipped = self.features.try_ship(systems=self.systems, abilities=self.abilities)
         if shipped:
-            self.systems.add_stability(-(7.0 + 2.0 * self.difficulty.level))
-            self.systems.add_motivation(-(6.0 + 1.5 * self.difficulty.level))
+            self.systems.add_stability(-(4.0 + 1.3 * self.difficulty.level))
+            self.systems.add_motivation(-(3.5 + 1.0 * self.difficulty.level))
             self.toast_text = f"FEATURE SHIPPED: {shipped.name}  |  {shipped.hook}"
             self.toast_timer = max(self.toast_timer, 3.0)
             self.screen_flash = max(self.screen_flash, 0.14)
@@ -872,15 +896,15 @@ class GameDeveloperWorld(BaseWorld):
             if shipped.name == "Live Ops":
                 self.automation_on = True
                 self.in_launch_window = True
-                self.launch_timer = 12.0
-                self.toast_text = "LAUNCH WINDOW: keep stability alive for 12 seconds."
+                self.launch_timer = 9.0
+                self.toast_text = "LAUNCH WINDOW: survive 9 seconds with stability above zero."
                 self.toast_timer = max(self.toast_timer, 3.2)
 
         # Launch window logic (high intensity finale).
         if self.in_launch_window:
             self.launch_timer = max(0.0, self.launch_timer - dt)
-            self.systems.add_motivation(-0.55 * dt)
-            self.bugs.update_spawning(dt, spawn_mult=2.0 + panic_state.intensity, speed_base=92.0 + 8.0 * self.difficulty.level)
+            self.systems.add_motivation(-0.35 * dt)
+            self.bugs.update_spawning(dt, spawn_mult=1.45 + panic_state.intensity, speed_base=78.0 + 6.0 * self.difficulty.level)
             if self.launch_timer <= 0.0:
                 self.finished = True
                 self.success = True
@@ -908,6 +932,19 @@ class GameDeveloperWorld(BaseWorld):
             self.shake = max(self.shake, chaos_fx.shake)
         if chaos_fx.screen_flash > 0.0:
             self.screen_flash = max(self.screen_flash, chaos_fx.screen_flash)
+
+        if self.in_launch_window:
+            self.status_text = "Hold the build together until the launch timer ends."
+        elif bug_count >= 9:
+            self.status_text = "Bug swarm building. Clear red bugs before crash pressure spikes."
+        elif self.complaints.count() >= 5:
+            self.status_text = "Community backlash rising. Run through complaint cards."
+        elif self.systems.progress >= 100.0:
+            self.status_text = "Feature ready. Shipping now."
+        elif at_desk:
+            self.status_text = "At desk: hold SPACE to build the next feature."
+        else:
+            self.status_text = "Move to the Dev Desk to code, then clean bugs and complaints."
 
         self.systems.clamp_all()
         self.draw(canvas, player)
@@ -944,6 +981,7 @@ class GameDeveloperWorld(BaseWorld):
         x2 += ox
         y2 += oy
         desk_x, desk_y = self.desk_pos[0] + ox, self.desk_pos[1] + oy
+        support_x, support_y = self.support_pos[0] + ox, self.support_pos[1] + oy
 
         # Background (studio vibe).
         for i in range(7):
@@ -964,6 +1002,10 @@ class GameDeveloperWorld(BaseWorld):
         canvas.create_rectangle(desk_x - 74, desk_y - 34, desk_x + 74, desk_y + 34, fill="#111d2d", outline="#65d6ff", width=3)
         canvas.create_text(desk_x, desk_y - 12, text="DEV DESK", fill="#cbe2ff", font=("Helvetica", 12, "bold"))
         canvas.create_text(desk_x, desk_y + 12, text="SPACE to code", fill="#8fb4cf", font=("Helvetica", 10, "bold"))
+
+        canvas.create_rectangle(support_x - 88, support_y - 30, support_x + 88, support_y + 30, fill="#121a27", outline="#ffb86c", width=2)
+        canvas.create_text(support_x, support_y - 8, text="COMMUNITY FEED", fill="#ffe6c7", font=("Helvetica", 11, "bold"))
+        canvas.create_text(support_x, support_y + 12, text="Run through cards to reply", fill="#d9b88d", font=("Helvetica", 9, "bold"))
 
         # Bugs.
         for bug in self.bugs.bugs:
@@ -1005,22 +1047,29 @@ class GameDeveloperWorld(BaseWorld):
         canvas.create_text(340, 56, anchor="w", fill="#dbeeff", font=("Helvetica", 12, "bold"), text=f"Next: {feature_name}")
         canvas.create_text(340, 78, anchor="w", fill="#8fb4cf", font=("Helvetica", 10, "bold"), text=f"Shipped: {self.features.shipped}/{len(self.features.UNLOCKS)}")
         canvas.create_text(340, 98, anchor="w", fill="#8fb4cf", font=("Helvetica", 10, "bold"), text=f"Bugs: {self.bugs.count()}  Complaints: {self.complaints.count()}")
+        canvas.create_text(340, 118, anchor="w", fill="#f7d794", font=("Helvetica", 10, "bold"), text=self.status_text)
 
         ax = WIDTH - 280
-        canvas.create_rectangle(ax, 46, WIDTH - 14, 138, fill="#0b1220", outline="#21486b", width=2)
+        canvas.create_rectangle(ax, 46, WIDTH - 14, 176, fill="#0b1220", outline="#21486b", width=2)
         canvas.create_text(ax + 10, 56, anchor="w", fill="#e7f3ff", font=("Helvetica", 10, "bold"), text="Abilities")
-        canvas.create_text(ax + 10, 76, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=f"Shift Dash  CD {self.abilities.dash.cooldown:0.1f}s")
-        canvas.create_text(ax + 10, 92, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=f"E Patch    CD {self.abilities.emergency_patch.cooldown:0.1f}s  Kits {self.abilities.patch_kits}")
+        dash_state = "READY" if self.abilities.dash.cooldown <= 0.0 else f"CD {self.abilities.dash.cooldown:0.1f}s"
+        canvas.create_text(ax + 10, 76, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=f"Shift Dash   {dash_state}  Burst move + squash")
+        patch_state = "READY" if self.abilities.emergency_patch.cooldown <= 0.0 else f"CD {self.abilities.emergency_patch.cooldown:0.1f}s"
+        patch_suffix = f"Kits {self.abilities.patch_kits}" if self.abilities.has_crafting else "No kit needed yet"
+        canvas.create_text(ax + 10, 92, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=f"E Patch      {patch_state}  {patch_suffix}")
         canvas.create_text(
             ax + 10,
             108,
             anchor="w",
             fill=TEXT,
             font=("Helvetica", 10, "bold"),
-            text=f"C Coffee   CD {self.abilities.coffee_boost.cooldown:0.1f}s  Coffee {self.abilities.coffee_charges}",
+            text=f"C Coffee     {'READY' if self.abilities.coffee_boost.cooldown <= 0.0 else f'CD {self.abilities.coffee_boost.cooldown:0.1f}s'}  Coffee {self.abilities.coffee_charges}",
         )
-        if self.abilities.has_skill_tree:
-            canvas.create_text(ax + 10, 124, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=f"F Debug    CD {self.abilities.debug_burst.cooldown:0.1f}s")
+        craft_text = "X Craft Kit  LOCKED" if not self.abilities.has_crafting else f"X Craft Kit  {'READY' if self.abilities.can_craft_patch_kit() else 'Need 3 coffee'}"
+        canvas.create_text(ax + 10, 124, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=craft_text)
+        debug_text = "F Debug      LOCKED" if not self.abilities.has_skill_tree else f"F Debug      {'READY' if self.abilities.debug_burst.cooldown <= 0.0 else f'CD {self.abilities.debug_burst.cooldown:0.1f}s'}"
+        canvas.create_text(ax + 10, 140, anchor="w", fill=TEXT, font=("Helvetica", 10, "bold"), text=debug_text)
+        canvas.create_text(ax + 10, 158, anchor="w", fill="#8fb4cf", font=("Helvetica", 9, "bold"), text="Inventory unlock makes coffee drop from bugs.")
 
         if self.toast_timer > 0.0:
             draw_toast(canvas, text=self.toast_text, timer=self.toast_timer)
