@@ -36,8 +36,8 @@ class SoftwareDeveloperWorld(BaseWorld):
                   "cooldown": 0.0
              })
         self.fixed_count = 0
-        self.max_bugs = 4
-        self.bug_spawn_timer = 1.0
+        self.max_bugs = 3
+        self.bug_spawn_timer = 1.5
         self.stability = 100.0
 
     def reset(self, player: Player) -> None:
@@ -48,7 +48,7 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.message = ""
         self.stability = 100.0
         self.fixed_count = 0
-        self.bug_spawn_timer = 1.0
+        self.bug_spawn_timer = 1.5
         for m in self.modules:
             m["status"] = "ok"
             m["progress"] = 0.0
@@ -73,7 +73,7 @@ class SoftwareDeveloperWorld(BaseWorld):
                   idx = random.choice(candidate_indices)
                   self.modules[idx]["status"] = "bug"
                   self.modules[idx]["progress"] = 0.0
-                  self.bug_spawn_timer = random.uniform(1.5, 3.0)
+                  self.bug_spawn_timer = random.uniform(1.5, 3.5)
 
         # Update modules
         for m in self.modules:
@@ -84,7 +84,7 @@ class SoftwareDeveloperWorld(BaseWorld):
                   self.stability -= dt * 0.5
                   dist = math.hypot(player.x - m["x"], player.y - m["y"])
                   if dist < 60 and "space" in keys:
-                       m["progress"] += dt *65.0 # 1.5 seconds to fix
+                       m["progress"] += dt *90.0 # 1.1 seconds to fix
                        if m["progress"] >= 100.0:
                             m["status"] = "ok"
                             m["progress"] = 0.0

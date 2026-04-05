@@ -62,7 +62,7 @@ class PilotWorld(BaseWorld):
             self.clouds.append({"x": random.uniform(0, WIDTH), "y": -100, "w": w, "h": w*0.6, "bad": random.random() < 0.35})
             
         # Spawn fuel
-        if random.random() < 0.005 + dt * 0.007:
+        if random.random() < 0.007 + dt * 0.01:
             self.fuels.append({"x": random.uniform(20, WIDTH-20), "y": -20})
             
         new_clouds = []
