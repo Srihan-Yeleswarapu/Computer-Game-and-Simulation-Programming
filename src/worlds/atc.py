@@ -29,16 +29,16 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.4
-        self.plane_limit = 22
+        self.spawn_timer = 0.8
+        self.plane_limit = 18
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
         self.collision_radius = 22.0
-        self.landing_radius = 30.0
+        self.landing_radius = 42.0
         
         self.runways = [
-            {"x": WIDTH/2, "y": HEIGHT/2, "w": 200, "h": 40, "angle": 0},
+            {"x": WIDTH/2, "y": HEIGHT/2, "w": 320, "h": 60, "angle": 0},
         ]
         
     def reset(self, player: Player) -> None:
@@ -48,7 +48,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.4
+        self.spawn_timer = 0.8
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -79,7 +79,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(0.65, 1.45)
+            self.spawn_timer = random.uniform(0.9, 1.8)
             side = random.randint(0, 3)
             # Spawn at edges, slightly inside so they don't instantly bounce
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
@@ -91,7 +91,7 @@ class ATCWorld(BaseWorld):
             target_x = WIDTH / 2 + random.uniform(-155, 155)
             target_y = HEIGHT / 2 + random.uniform(-115, 115)
             angle = math.atan2(target_y - y, target_x - x) + random.uniform(-0.13, 0.13)
-            speed = random.uniform(75, 100)
+            speed = random.uniform(55, 80)
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
             
@@ -180,8 +180,8 @@ class ATCWorld(BaseWorld):
 
             # Narrow landing zone so aircraft remain in the traffic pattern longer.
             if not p["landed"]:
-                r_dist = math.hypot(p["x"] - float(runway["x"]), p["y"] - float(runway["y"]))
-                if r_dist < self.landing_radius:
+                rx1, ry1, rx2, ry2 = rw_rect
+                if rx1 <= float(p["x"]) <= rx2 and ry1 <= float(p["y"]) <= ry2:
                      p["landed"] = True
                      self.landed_count += 1
 

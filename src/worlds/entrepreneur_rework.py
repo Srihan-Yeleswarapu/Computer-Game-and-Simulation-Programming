@@ -170,6 +170,37 @@ class TycoonWorld(BaseWorld):
         market_price = self.market_prices[spec["price_key"]] * random.uniform(0.88, 1.12) * spec["price_scale"]
         annual_yield = random.uniform(*spec["yield_range"])
         annual_expense = random.uniform(*spec["expense_range"])
+        occupancy = random.uniform(0.84, 0.98)
+        quality = random.uniform(0.82, 1.14)
+        risk = float(spec["volatility"])
+
+        def monthly_flow(
+            price: float,
+            annual_yield: float,
+            occupancy: float,
+            expense_rate: float,
+            quality: float,
+            risk: float,
+        ) -> float:
+            down_payment = price * self.down_payment_ratio(risk)
+            loan_principal = price - down_payment
+            annual_income = price * annual_yield * occupancy
+            annual_expense_total = price * expense_rate / max(0.70, quality)
+            gross_monthly = (annual_income - annual_expense_total) / 12.0
+            loan_service = loan_principal * self.loan_rate / 12.0
+            return gross_monthly - loan_service
+
+        monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
+        boost_attempts = 0
+        while monthly_cash_flow < 0.0 and boost_attempts < 3:
+            annual_yield = min(spec["yield_range"][1], annual_yield + random.uniform(0.01, 0.05))
+            annual_expense = max(spec["expense_range"][0], annual_expense - random.uniform(0.001, 0.004))
+            occupancy = min(0.99, occupancy + random.uniform(0.01, 0.02))
+            quality = min(1.25, quality + 0.05)
+            risk = max(0.12, risk - 0.03)
+            monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
+            boost_attempts += 1
+
         return {
             "id": len(self.properties) + 1,
             "asset_type": asset_type,
@@ -180,9 +211,9 @@ class TycoonWorld(BaseWorld):
             "price": round(market_price, 2),
             "annual_yield": annual_yield,
             "annual_expense": annual_expense,
-            "risk": spec["volatility"],
-            "quality": random.uniform(0.82, 1.14),
-            "occupancy": random.uniform(0.84, 0.98),
+            "risk": risk,
+            "quality": quality,
+            "occupancy": occupancy,
             "research": 0,
             "negotiated_discount": 0.0,
             "x": x,
@@ -647,19 +678,23 @@ class TycoonWorld(BaseWorld):
         y2 = HEIGHT - 116
         canvas.create_rectangle(x1, y1, x2, y2, fill="#102033", outline="#4f88b6", width=3)
         canvas.create_text((x1 + x2) / 2, y1 + 26, text=prop["name"], fill="#eef7ff", font=("Helvetica", 16, "bold"))
+        price_after_discount = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0)))
+        down_payment_needed = price_after_discount * self.down_payment_ratio(float(prop["risk"]))
+        loan_principal = price_after_discount - down_payment_needed
+        annual_income = price_after_discount * float(prop["annual_yield"]) * float(prop["occupancy"])
+        annual_expense = price_after_discount * float(prop["annual_expense"]) / max(0.70, float(prop["quality"]))
+        debt_cost_monthly = loan_principal * self.loan_rate / 12.0
+        gross_monthly = (annual_income - annual_expense) / 12.0
+        monthly_cash_flow_effect = gross_monthly - debt_cost_monthly
+
         lines = [
             f"Sector: {str(prop['sector']).replace('_', ' ').title()}",
-            f"Zone: {prop['zone']}",
             f"Asking Price: {self.money(float(prop['price']))}",
-            f"Negotiated Price: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0)) ))}",
-            f"Down Payment: {self.money(float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * self.down_payment_ratio(float(prop['risk'])))}",
-            f"Projected Annual Yield: {float(prop['annual_yield']) * 100:.1f}%",
-            f"Projected Annual Expense: {float(prop['annual_expense']) * 100:.1f}%",
-            f"Occupancy / Utilization: {float(prop['occupancy']) * 100:.0f}%",
-            f"Research Level: {int(prop.get('research', 0))}/2",
-            f"Risk Score: {int(float(prop['risk']) * 100)} / 100",
-            f"Estimated Monthly Cash Flow: {self.money((float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (float(prop['annual_yield']) * float(prop['occupancy']) - float(prop['annual_expense'])) - (float(prop['price']) * (1.0 - float(prop.get('negotiated_discount', 0.0))) * (1.0 - self.down_payment_ratio(float(prop['risk']))) * self.loan_rate)) / 12.0)}",
-            f"Cash Available: {self.money(self.cash)}",
+            f"Down Payment: {self.money(down_payment_needed)}",
+            f"Gross Cash Flow: {self.money(gross_monthly)}/mo",
+            f"Loan Service: {self.money(-debt_cost_monthly)}/mo",
+            f"Net Cash Flow Impact: {self.money(monthly_cash_flow_effect)}/mo",
+            f"Post-Acquisition Flow: {self.money(self.monthly_cash_flow + monthly_cash_flow_effect)}/mo",
         ]
         y = y1 + 68
         for line in lines:

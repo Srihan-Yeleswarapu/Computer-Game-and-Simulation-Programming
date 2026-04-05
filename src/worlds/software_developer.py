@@ -15,34 +15,31 @@ class SoftwareDeveloperWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Software Developer",
-            summary="Triage production incidents, implement fixes, get review approval, and ship a stable release.",
-            duration=65.0,
+        summary="Triage production incidents, implement fixes, and ship a stable release.",
+            duration=95.0,
         )
         self.briefing = [
             "RELEASE NIGHT: Production services are unstable and the sprint board is stacked with urgent tickets.",
-            "Each ticket must move through a realistic workflow: investigate the incident, implement the fix, then request review.",
+            "Each ticket must move through a workflow: investigate the incident, then implement the fix.",
             "Stand at the highlighted location and hold the matching key to complete the current step.",
-            "Open incidents, stale review queues, and random pings all chip away at release health if you ignore them.",
-            "Clear the sprint board, then deploy from the release console before the shift ends.",
+            "Open incidents and random pings drain focus quickly if you ignore them.",
+            "Clear the sprint board, then deploy from the console before the shift ends.",
         ]
         self.hints = [
             "Investigate at the service node with SPACE, then code at the desk with C.",
-            "Take reviewed work to the PR station and hold R to merge it cleanly.",
-            "Aging tickets and unresolved pings drain release health and developer focus.",
-            "After all tickets are reviewed, deploy the release at the console with E.",
+            "Focus on high-priority tickets sequentially; avoid jumping around.",
+            "Aging tickets and unresolved pings drain your focus.",
+            "After all tickets are implemented, deploy the release at the console with E.",
         ]
         self.bounds = (40.0, 64.0, WIDTH - 40.0, HEIGHT - 48.0)
         self.service_positions = [
-            (150.0, 170.0),
-            (335.0, 150.0),
-            (520.0, 182.0),
-            (705.0, 150.0),
-            (810.0, 250.0),
+            (200.0, 170.0),
+            (470.0, 155.0),
+            (740.0, 170.0),
         ]
         self.tickets: list[dict[str, Any]] = []
         self.workstations = {
             "desk": {"x": 320.0, "y": 410.0, "label": "IDE DESK", "key": "c"},
-            "review": {"x": 625.0, "y": 410.0, "label": "PR REVIEW", "key": "r"},
             "deploy": {"x": 810.0, "y": 500.0, "label": "DEPLOY", "key": "e"},
         }
         self.pings = [
@@ -50,7 +47,6 @@ class SoftwareDeveloperWorld(BaseWorld):
             {"x": 130.0, "y": 350.0, "timer": 0.0},
             {"x": 840.0, "y": 355.0, "timer": 0.0},
         ]
-        self.release_health = 100.0
         self.focus = 100.0
         self.completed_tickets = 0
         self.current_ticket_index = 0
@@ -62,11 +58,9 @@ class SoftwareDeveloperWorld(BaseWorld):
 
     def build_ticket_queue(self) -> list[dict[str, Any]]:
         templates = [
-            {"name": "Auth token refresh", "service": "Auth API", "severity": "P1", "triage_time": 1.1, "code_time": 2.3, "review_time": 1.3},
-            {"name": "Billing retry loop", "service": "Billing Worker", "severity": "P1", "triage_time": 1.0, "code_time": 2.1, "review_time": 1.2},
-            {"name": "Search cache eviction", "service": "Search API", "severity": "P2", "triage_time": 1.2, "code_time": 2.0, "review_time": 1.4},
-            {"name": "Notification webhook lag", "service": "Notifications", "severity": "P2", "triage_time": 1.0, "code_time": 2.2, "review_time": 1.3},
-            {"name": "Analytics event dedupe", "service": "Analytics", "severity": "P3", "triage_time": 1.1, "code_time": 1.9, "review_time": 1.1},
+            {"name": "Auth token refresh", "service": "Auth API", "severity": "P1", "triage_time": 1.1, "code_time": 2.3},
+            {"name": "Billing retry loop", "service": "Billing Worker", "severity": "P1", "triage_time": 1.0, "code_time": 2.1},
+            {"name": "Search cache eviction", "service": "Search API", "severity": "P2", "triage_time": 1.2, "code_time": 2.0},
         ]
         queue: list[dict[str, Any]] = []
         for index, template in enumerate(templates):
@@ -78,7 +72,6 @@ class SoftwareDeveloperWorld(BaseWorld):
                     "severity": template["severity"],
                     "triage_time": template["triage_time"],
                     "code_time": template["code_time"],
-                    "review_time": template["review_time"],
                     "x": x,
                     "y": y,
                     "stage": "incident",
@@ -94,13 +87,12 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.finished = False
         self.success = False
         self.grade = "-"
-        self.message = "Work the queue in order: investigate, code, review, then deploy."
+        self.message = "Work the queue in order: investigate, code, then deploy."
         self.message_timer = 3.0
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
         self.shake = 0.0
         self.particles = []
-        self.release_health = 100.0
         self.focus = 100.0
         self.completed_tickets = 0
         self.current_ticket_index = 0
@@ -122,24 +114,19 @@ class SoftwareDeveloperWorld(BaseWorld):
 
     def decay_focus_and_health(self, dt: float) -> None:
         open_incidents = 0
-        blocked_reviews = 0
         for index, ticket in enumerate(self.tickets):
             if ticket["stage"] != "done":
                 ticket["age"] += dt
             if ticket["stage"] == "incident":
                 open_incidents += 1
-            elif ticket["stage"] == "review":
-                blocked_reviews += 1
             if index < self.current_ticket_index and ticket["stage"] != "done":
-                self.release_health = clamp(self.release_health - dt * 8.0, 0.0, 100.0)
-                self.focus = clamp(self.focus - dt * 6.5, 0.0, 100.0)
-                self.message = "You skipped priority work. Release health is dropping."
+                self.focus = clamp(self.focus - dt * 5.0, 0.0, 100.0)
+                self.message = "Skipped priority work; focus is waning."
                 self.message_timer = 0.5
 
         age_pressure = sum(max(0.0, ticket["age"] - 4.0) for ticket in self.tickets if ticket["stage"] != "done")
         ping_pressure = sum(1 for ping in self.pings if ping["timer"] > 0.0)
-        self.release_health = clamp(self.release_health - dt * (open_incidents * 0.45 + blocked_reviews * 0.3 + age_pressure * 0.03 + ping_pressure * 0.9), 0.0, 100.0)
-        self.focus = clamp(self.focus - dt * (blocked_reviews * 0.25 + ping_pressure * 1.15 + self.context_switch_penalty * 0.55), 0.0, 100.0)
+        self.focus = clamp(self.focus - dt * (open_incidents * 0.35 + ping_pressure * 1.0 + self.context_switch_penalty * 0.55 + age_pressure * 0.02), 0.0, 100.0)
         self.context_switch_penalty = max(0.0, self.context_switch_penalty - dt * 0.8)
 
     def update_pings(self, dt: float, player: Player, keys: set[str]) -> None:
@@ -160,7 +147,6 @@ class SoftwareDeveloperWorld(BaseWorld):
                 self.message = "Inbox cleared. You bought yourself some focus."
                 self.message_timer = 1.4
             elif ping["timer"] <= 0.0:
-                self.release_health = clamp(self.release_health - 5.0, 0.0, 100.0)
                 self.message = "A ping escalated because nobody answered it."
                 self.message_timer = 1.5
 
@@ -190,15 +176,8 @@ class SoftwareDeveloperWorld(BaseWorld):
             target_x = float(self.workstations["desk"]["x"])
             target_y = float(self.workstations["desk"]["y"])
             required_time = float(ticket["code_time"])
-            next_stage = "review"
-            action_name = "code"
-        elif ticket["stage"] == "review":
-            target_key = "r"
-            target_x = float(self.workstations["review"]["x"])
-            target_y = float(self.workstations["review"]["y"])
-            required_time = float(ticket["review_time"])
             next_stage = "done"
-            action_name = "review"
+            action_name = "code"
         else:
             return
 
@@ -218,12 +197,9 @@ class SoftwareDeveloperWorld(BaseWorld):
                 self.focus = clamp(self.focus - 4.0, 0.0, 100.0)
                 if next_stage == "coding":
                     self.message = f"Incident understood. Move to the desk and press C to implement {ticket['name']}."
-                elif next_stage == "review":
-                    self.message = f"Fix ready. Take it to review and hold R for approval."
                 else:
                     self.completed_tickets += 1
                     self.current_ticket_index += 1
-                    self.release_health = clamp(self.release_health + 6.0, 0.0, 100.0)
                     self.focus = clamp(self.focus + 3.0, 0.0, 100.0)
                     self.message = f"{ticket['service']} is merged. Next ticket is up."
                 self.message_timer = 2.0
@@ -244,26 +220,22 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.message_timer = 0.4
         if self.deploy_progress >= 100.0:
             self.finished = True
-            self.success = self.release_health >= 35.0
+            complete = self.completed_tickets >= len(self.tickets)
+            self.success = complete and self.focus >= 30.0
             if self.success:
-                self.message = "Release shipped cleanly. Incidents are stable and the sprint board is empty."
-                if self.release_health >= 82.0 and self.focus >= 65.0 and self.timer >= 18.0:
+                self.message = "Release shipped smoothly. The sprint board is empty."
+                if self.focus >= 70.0 and self.timer >= 25.0:
                     self.grade = "S"
-                elif self.release_health >= 68.0 and self.timer >= 10.0:
+                elif self.focus >= 50.0 and self.timer >= 12.0:
                     self.grade = "A"
                 else:
                     self.grade = "B"
             else:
                 self.grade = "C"
-                self.message = "The build shipped, but the release health was already in bad shape."
+                self.message = "The build shipped but focus or completion was lacking."
 
     def evaluate_failure(self) -> None:
-        if self.release_health <= 0.0:
-            self.finished = True
-            self.success = False
-            self.grade = "F"
-            self.message = "Production spiraled before you could stabilize the release."
-        elif self.focus <= 0.0:
+        if self.focus <= 0.0:
             self.finished = True
             self.success = False
             self.grade = "F"
@@ -271,10 +243,10 @@ class SoftwareDeveloperWorld(BaseWorld):
         elif self.timer <= 0.0:
             self.finished = True
             reviewed = sum(1 for ticket in self.tickets if ticket["stage"] == "done")
-            self.success = reviewed >= 4 and self.release_health >= 45.0
+            self.success = reviewed == len(self.tickets) and self.focus >= 25.0
             if self.success:
-                self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged and the release still standing."
-                self.grade = "B" if reviewed == len(self.tickets) else "C"
+                self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
+                self.grade = "B"
             else:
                 self.grade = "F"
                 self.message = "The release train missed the window."
@@ -313,7 +285,6 @@ class SoftwareDeveloperWorld(BaseWorld):
         stage_label = {
             "incident": "Investigate",
             "coding": "Implement",
-            "review": "Review",
             "done": "Merged",
         }[str(ticket["stage"])]
         canvas.create_text(x + 10, y + 70, anchor="w", text=stage_label, fill="#ffd166" if not done else "#9df1b5", font=("Courier", 10, "bold"))
@@ -343,7 +314,7 @@ class SoftwareDeveloperWorld(BaseWorld):
         active_ticket = self.active_ticket()
         for index, ticket in enumerate(self.tickets):
             self.draw_ticket_card(canvas, index, ticket)
-            color = "#ff5d73" if ticket["stage"] == "incident" else "#f6c85f" if ticket["stage"] == "coding" else "#6bc5ff" if ticket["stage"] == "review" else "#4bd18b"
+            color = "#ff5d73" if ticket["stage"] == "incident" else "#f6c85f" if ticket["stage"] == "coding" else "#4bd18b"
             radius = 34 if index == self.current_ticket_index else 28
             outline = "#ffffff" if index == self.current_ticket_index else "#1f2b36"
             canvas.create_oval(float(ticket["x"]) - radius, float(ticket["y"]) - radius, float(ticket["x"]) + radius, float(ticket["y"]) + radius, fill=color, outline=outline, width=3 if index == self.current_ticket_index else 1)
@@ -354,10 +325,8 @@ class SoftwareDeveloperWorld(BaseWorld):
                 canvas.create_rectangle(float(ticket["x"]) - 28, float(ticket["y"]) + 40, float(ticket["x"]) - 28 + 56 * (float(ticket["progress"]) / 100.0), float(ticket["y"]) + 48, fill="#ffffff", outline="")
 
         desk_active = active_ticket is not None and active_ticket["stage"] == "coding"
-        review_active = active_ticket is not None and active_ticket["stage"] == "review"
         deploy_active = active_ticket is None
         self.draw_station(canvas, self.workstations["desk"], desk_active)
-        self.draw_station(canvas, self.workstations["review"], review_active)
         self.draw_station(canvas, self.workstations["deploy"], deploy_active)
 
         if active_ticket is None:
@@ -373,12 +342,8 @@ class SoftwareDeveloperWorld(BaseWorld):
             canvas.create_text(float(ping["x"]), float(ping["y"]) + 12, text="Q", fill="#08111b", font=("Courier", 12, "bold"))
 
         canvas.create_rectangle(32, 520, 292, 540, fill="#0a111a", outline="")
-        canvas.create_rectangle(34, 522, 34 + 256 * (self.release_health / 100.0), 538, fill="#5fb6ff" if self.release_health > 35 else "#ff5d73", outline="")
-        canvas.create_text(162, 506, text=f"RELEASE HEALTH {int(self.release_health)}%", fill="#ffffff", font=("Courier", 12, "bold"))
-
-        canvas.create_rectangle(332, 520, 592, 540, fill="#0a111a", outline="")
-        canvas.create_rectangle(334, 522, 334 + 256 * (self.focus / 100.0), 538, fill="#8ce99a" if self.focus > 35 else "#ffb703", outline="")
-        canvas.create_text(462, 506, text=f"FOCUS {int(self.focus)}%", fill="#ffffff", font=("Courier", 12, "bold"))
+        canvas.create_rectangle(34, 522, 34 + 256 * (self.focus / 100.0), 538, fill="#8ce99a" if self.focus > 35 else "#ffb703", outline="")
+        canvas.create_text(162, 506, text=f"FOCUS {int(self.focus)}%", fill="#ffffff", font=("Courier", 12, "bold"))
 
         canvas.create_text(770, 36, text=f"Tickets merged: {self.completed_tickets}/{len(self.tickets)}", fill="#d2e9ff", font=("Courier", 12, "bold"))
 
