@@ -119,7 +119,7 @@ class ElectricianWorld(BaseWorld):
         return math.hypot(player.x - target["x"], player.y - target["y"]) < radius
 
     def inspect_fault(self, player: Player, keys: set[str]) -> None:
-        if "space" not in keys:
+        if not self.just_pressed(keys, "space"):
             return
         fault_index = self.nearest_fault(player)
         if fault_index >= 0:
@@ -131,7 +131,7 @@ class ElectricianWorld(BaseWorld):
         if not self.near_panel(player, self.breaker_panel):
             return
         for key, group in zip(("1", "2", "3"), self.groups):
-            if key in keys:
+            if self.just_pressed(keys, key):
                 state = self.breaker_states[group["id"]]
                 self.breaker_states[group["id"]] = not state
                 status = "OPEN" if not state else "ISOLATED"

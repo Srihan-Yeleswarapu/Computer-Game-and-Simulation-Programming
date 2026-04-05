@@ -31,6 +31,7 @@ class BaseWorld:
         self.particles: list[Particle] = []
         self.shake = 0.0
         self.keys: Set[str] = set()
+        self._pressed: dict[str, bool] = {}
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -59,6 +60,16 @@ class BaseWorld:
         if self.hint_display_timer > 3.0:
             self.hint_display_timer = 0.0
             self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
+
+    def clear_input_state(self) -> None:
+        self.keys.clear()
+        self._pressed = {}
+
+    def just_pressed(self, keys: set[str], key: str) -> bool:
+        is_down = key in keys
+        was_down = self._pressed.get(key, False)
+        self._pressed[key] = is_down
+        return is_down and not was_down
 
     def update_particles(self, dt: float) -> None:
         for particle in self.particles:

@@ -154,13 +154,13 @@ class PsychologistWorld(BaseWorld):
         player.update(dt, keys, self.bounds)
         self.message_timer = max(0.0, self.message_timer - dt)
 
-        if "1" in keys:
+        if self.just_pressed(keys, "1"):
             self.selected_intervention = 0
-        elif "2" in keys:
+        elif self.just_pressed(keys, "2"):
             self.selected_intervention = 1
-        elif "3" in keys:
+        elif self.just_pressed(keys, "3"):
             self.selected_intervention = 2
-        elif "4" in keys:
+        elif self.just_pressed(keys, "4"):
             self.selected_intervention = 3
 
         failed = False

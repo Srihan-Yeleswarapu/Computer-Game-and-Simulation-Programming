@@ -246,7 +246,7 @@ class ArchitectWorld(BaseWorld):
                 return
 
             for index, room in enumerate(self.room_types):
-                if room["key"] in keys:
+                if self.just_pressed(keys, room["key"]):
                     self.selected_room = index
 
             gx, gy = self.grid_position(player)

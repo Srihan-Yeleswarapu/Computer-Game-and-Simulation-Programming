@@ -15,7 +15,7 @@ An arcade-style set of mini-worlds that let players sample different careers. Ea
 ## Worlds
 - Firefighter Rescue: Grab five survivors while weaving through roaming flames that drain your timer.
 - Chef Rush: Complete the recipe in the exact station order; spills slow you down and melt the clock.
-- Software Engineer: Patch code nodes in order while dodging "glitches" that reset your position and waste time.
+- Software Engineer: Work an incident queue by triaging services, coding fixes, getting review approval, answering pings, and deploying before release health collapses.
 - Marine Biologist: Dive, scan fish, and collect samples before O2 runs out.
 - Architect: Design a stable Eco-Library that withstands the wind test.
 - Doctor: Diagnose and provide solutions for sick patients. 
@@ -43,7 +43,7 @@ All game graphics were developed using **native `tkinter.Canvas` primitives** (r
 
 ### Concept-Appropriate Asset Design
 Graphics were procedurally drawn to match the professional concepts of each world:
--   **Software Engineer**: Uses a high-contrast dark-mode palette, mimicking a code IDE with floating glitch nodes and scanline CRT effects.
+-   **Software Engineer**: Uses a dark release-war-room palette with service nodes, sprint cards, review stations, and active incident alerts.
 -   **Medical Simulation**: Employs a clean, clinical blue-and-white theme with active EKG heart-beat monitor animations.
 -   **Marine Biology**: Features deep-sea gradients, simulated water-bubbles, and species-specific fish shapes with anatomical tail-pivot simulations.
 -   **Architecture**: Uses an engineering grid blueprint style with background crane silhouettes to establish the "construction site" setting.
@@ -214,42 +214,42 @@ This document provides a comprehensive explanation of all game rules, mechanics,
 ## 💻 World 3: Software Engineer
 
 ### Objective
-**Patch 5 code nodes in sequence, then deploy to production (50 seconds)**
+**Stabilize the sprint board by triaging 5 production tickets, getting each one reviewed, then deploying the release (65 seconds)**
 
 ### Rules
-1. **Node Patching**:
-   - 5 nodes must be patched in this order: Telemetry → Physics → AI → UI → Netcode
-   - Nodes are connected by dashed lines showing the sequence
-   - Active node glows brightly and has a white outline
-   - Stand on the active node to patch it (progress bar fills)
-   - Completing a node adds +2.8 seconds to timer
+1. **Ticket Workflow**:
+   - 5 tickets must be cleared in sprint priority order
+   - Each ticket has 3 stages: investigate the incident, implement the fix, then complete PR review
+   - Stand at the highlighted service node and hold `SPACE` to investigate
+   - Move to the IDE desk and hold `C` to code the fix
+   - Move to the PR review station and hold `R` to merge it
 
-2. **Hazards**:
-   - **Glitches (red squares)**: 
-     - Move randomly around the code space
-     - Contact resets your position to start (140, 140)
-     - Drains timer 6x faster on contact
-   - **Memory Leak (expanding blue circle)**: 
-     - Located at center of screen
-     - Grows from radius 40 to 130 over time
-     - Entering the leak slows movement to 180 (from 260)
-     - Drains timer 3x faster while inside
-   - **Wrong Nodes**: 
-     - Touching non-active nodes drains timer 0.5x faster
-     - "Wrong Node!" warning appears
+2. **Operational Pressure**:
+   - **Open Incidents**:
+     - Tickets left in the incident stage continuously reduce release health
+     - Older tickets create additional pressure as their age increases
+   - **Blocked Review Queue**:
+     - Tickets sitting in review slowly drain focus
+     - Excess context switching also burns focus down faster
+   - **Pings / Interrupts**:
+     - Alert pings appear around the office at random intervals
+     - Stand on a ping and hold `Q` to clear it
+     - Ignored pings expire into small release-health penalties
+   - **Skipping Priority Work**:
+     - Trying to work ahead of the active ticket causes the release to destabilize
 
 3. **Deployment Phase**:
-   - After all 5 nodes are patched, a "DEPLOY" console appears at bottom-center
-   - Move to the console and hold position to deploy (progress bar fills)
-   - Deployment takes ~0.67 seconds of continuous contact
+   - After all 5 tickets are merged, the deploy console becomes active
+   - Move to the deploy station and hold `E` to ship the release
+   - Deployment succeeds only if release health is still above collapse level
 
-4. **Win Condition**: Successfully deploy the build to production
-5. **Fail Condition**: Timer reaches 0 before deployment completes
+4. **Win Condition**: Deploy the release with enough health left to keep production stable
+5. **Fail Condition**: Timer reaches 0, release health collapses, or focus is completely drained
 
 ### In-Game Instructions
-- Top: "Late-night sprint. Fix nodes in order before QA wakes up."
-- Bottom: "Hold on glowing nodes to patch them in order, dodge glitches, avoid the memory leak pool, then deploy at the console."
-- Next bug tracker: "Next bug: [NodeName]"
+- Top: "Release night. Work the queue before production falls apart."
+- Bottom: "SPACE investigates, C codes, R reviews, Q clears pings, and E deploys."
+- HUD tracks release health, focus, and sprint progress in real time
 
 ---
 

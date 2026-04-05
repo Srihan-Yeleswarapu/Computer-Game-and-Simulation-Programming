@@ -154,10 +154,14 @@ class GameEngine:
             elif event.keysym == "F3":
                 self.debug_mode = not self.debug_mode
         elif self.state == "briefing" and event.keysym in {"space", "Return"}:
+            self.keys.clear()
+            if self.active_world:
+                self.active_world.clear_input_state()
             self.state = "world"
         elif self.state == "result" and event.keysym in {"space", "Return"}:
             self.return_to_menu()
         elif self.state == "victory" and event.keysym in {"space", "Return"}:
+            self.keys.clear()
             self.state = "menu"
 
         if event.keysym == "Escape":
@@ -167,10 +171,12 @@ class GameEngine:
                 self.active_world.message = "Mission Aborted."
                 self.state = "menu"
                 self.active_world = None
+                self.keys.clear()
                 self.message = "Mission aborted. Pick another profession when ready."
             elif self.state == "result":
                 self.return_to_menu()
             elif self.state == "help":
+                self.keys.clear()
                 self.state = "menu"
                 self.message = "Browse with arrow keys or hover cards, then press Enter."
 
@@ -223,6 +229,8 @@ class GameEngine:
         self.active_world = self.worlds[key]
         self.active_world.reset(self.player)
         self.active_world.high_contrast = self.high_contrast
+        self.keys.clear()
+        self.active_world.clear_input_state()
         self.state = "briefing"
         self.message = ""
 
@@ -236,6 +244,7 @@ class GameEngine:
 
         self.state = "menu"
         self.active_world = None
+        self.keys.clear()
         comp_count = self.save_system.get_completed_world_count()
         if comp_count >= len(self.world_order):
             all_b_or_higher = True
