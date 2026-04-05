@@ -29,7 +29,7 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.6
+        self.spawn_timer = 0.4
         self.plane_limit = 22
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
@@ -48,7 +48,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.6
+        self.spawn_timer = 0.4
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
