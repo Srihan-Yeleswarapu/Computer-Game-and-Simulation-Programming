@@ -213,8 +213,8 @@ class TycoonWorld(BaseWorld):
 
         monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
         
-        # User wants ~50% of deals to be positive. We force it for roughly half the spawns if it's not already.
-        is_hero_deal = random.random() < 0.55 
+        # User wants ~20% of deals to be negative. We force it for roughly 80% of spawns.
+        is_hero_deal = random.random() < 0.80 
         boost_attempts = 0
         max_boosts = 8 if is_hero_deal else 3
         while (monthly_cash_flow < 0.0 if is_hero_deal else False) and boost_attempts < max_boosts:
@@ -300,6 +300,7 @@ class TycoonWorld(BaseWorld):
             "quality": float(prop["quality"]),
             "risk": float(prop["risk"]),
             "cash_flow": annual_income - annual_expense - annual_debt_service,
+            "min_cash_flow": annual_income - annual_expense - annual_debt_service - 240.0,
             "profit": 0.0,
             "x": float(prop["x"]),
             "y": float(prop["y"]),
@@ -502,10 +503,17 @@ class TycoonWorld(BaseWorld):
             principal_payment = min(float(holding.get("loan_principal", 0.0)), float(holding.get("loan_principal", 0.0)) * year_fraction * 0.28)
             holding["loan_principal"] = max(0.0, float(holding.get("loan_principal", 0.0)) - principal_payment)
             self.loan_balance = max(0.0, self.loan_balance - principal_payment)
-            period_cash = (holding["annual_income"] - holding["annual_expense"] - annual_debt_service) * year_fraction
+            raw_cash_flow = holding["annual_income"] - holding["annual_expense"] - annual_debt_service
+            # Floor cash flow so it doesn't decay past the -20/mo user constraint
+            min_cash_flow = float(holding.get("min_cash_flow", -9999.0))
+            if raw_cash_flow < min_cash_flow:
+                holding["annual_expense"] = holding["annual_income"] - annual_debt_service - min_cash_flow
+                raw_cash_flow = min_cash_flow
+                
+            period_cash = raw_cash_flow * year_fraction
             self.cash += period_cash
-            cash_flow += holding["annual_income"] - holding["annual_expense"] - annual_debt_service
-            holding["cash_flow"] = holding["annual_income"] - holding["annual_expense"] - annual_debt_service
+            cash_flow += raw_cash_flow
+            holding["cash_flow"] = raw_cash_flow
             holding["profit"] = holding["market_value"] - holding["purchase_price"] + float(holding.get("down_payment", 0.0)) - float(holding.get("loan_principal", 0.0))
             total_value += holding["market_value"]
         self.net_worth = self.cash + total_value - self.loan_balance

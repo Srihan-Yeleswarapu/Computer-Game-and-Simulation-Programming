@@ -244,13 +244,16 @@ class SoftwareDeveloperWorld(BaseWorld):
         if self.deploy_progress >= 100.0:
             self.finished = True
             complete = self.completed_tickets >= len(self.tickets)
-            self.success = complete and self.focus >= 30.0
+            self.success = complete and self.focus >= 20.0
             if self.success:
                 self.message = "Release shipped smoothly. The sprint board is empty."
-                self.grade = self.calculate_grade()
+                if self.focus >= 80.0: self.grade = "S"
+                elif self.focus >= 60.0: self.grade = "A"
+                elif self.focus >= 40.0: self.grade = "B"
+                else: self.grade = "C"
             else:
-                self.grade = "C"
-                self.message = "The build shipped but focus or completion was lacking."
+                self.grade = "F"
+                self.message = "The build shipped but focus was too low to deploy properly."
 
     def evaluate_failure(self) -> None:
         if self.focus <= 0.0:
@@ -261,10 +264,16 @@ class SoftwareDeveloperWorld(BaseWorld):
         elif self.timer <= 0.0:
             self.finished = True
             reviewed = sum(1 for ticket in self.tickets if ticket["stage"] == "done")
-            self.success = reviewed == len(self.tickets) and self.focus >= 25.0
-            if self.success:
+            self.success = reviewed >= 2
+            if self.success and reviewed == len(self.tickets):
                 self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
-                self.grade = self.calculate_grade()
+                if self.focus >= 80.0: self.grade = "S"
+                elif self.focus >= 60.0: self.grade = "A"
+                elif self.focus >= 40.0: self.grade = "B"
+                else: self.grade = "C"
+            elif self.success:
+                self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
+                self.grade = "C" if reviewed >= 3 else "F"
             else:
                 self.grade = "F"
                 self.message = "The release train missed the window."

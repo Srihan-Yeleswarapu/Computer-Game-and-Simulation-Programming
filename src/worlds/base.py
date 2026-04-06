@@ -32,6 +32,8 @@ class BaseWorld:
         self.shake = 0.0
         self.keys: Set[str] = set()
         self._pressed: dict[str, bool] = {}
+        self.intro_timer = 10.0
+        self.afk_timer = 0.0
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -48,6 +50,10 @@ class BaseWorld:
 
     def tick_timer(self, dt: float) -> None:
         if self.finished:
+            return
+
+        if self.intro_timer > 0.0:
+            self.intro_timer -= dt
             return
 
         self.timer = max(0.0, self.timer - dt)
@@ -69,9 +75,22 @@ class BaseWorld:
         is_down = key in keys
         was_down = self._pressed.get(key, False)
         self._pressed[key] = is_down
+        
+        # Track AFK and intro cancellation
+        if is_down:
+            self.afk_timer = 0.0
+            if key in {"w", "a", "s", "d", "Up", "Down", "Left", "Right", "space"}:
+                self.intro_timer = 0.0
+                
         return is_down and not was_down
 
     def update_particles(self, dt: float) -> None:
+        if not self.keys:
+            self.afk_timer += dt
+        else:
+            self.afk_timer = 0.0
+            self.intro_timer = 0.0
+            
         for particle in self.particles:
             particle.update(dt)
         self.particles = [particle for particle in self.particles if not particle.is_dead()]
@@ -124,6 +143,14 @@ class BaseWorld:
             font=("Helvetica", 14, "bold"),
             text=f"Time: {self.timer:05.1f}s",
         )
+        
+        if self.intro_timer > 0.0 and not self.finished:
+            canvas.create_rectangle(WIDTH/2 - 250, HEIGHT/2 - 40, WIDTH/2 + 250, HEIGHT/2 + 40, fill="#1c2838", outline="#5fb6ff", width=2)
+            canvas.create_text(WIDTH/2, HEIGHT/2 - 15, text="Read the briefing. Game is PAUSED.", fill="#ffffff", font=("Helvetica", 14, "bold"))
+            canvas.create_text(WIDTH/2, HEIGHT/2 + 15, text="Move (WASD/Arrows) to start the timer.", fill="#50fa7b", font=("Helvetica", 16, "bold"))
+        elif self.afk_timer > 5.0 and not self.finished:
+            canvas.create_text(WIDTH/2, HEIGHT/2 - 60, text="AFK DETECTED. DO SOMETHING!", fill="#50fa7b", font=("Helvetica", 24, "bold"))
+            canvas.create_text(WIDTH/2, HEIGHT/2 - 30, text="Move with WASD or Arrows. Press SPACE to interact.", fill="#50fa7b", font=("Helvetica", 14, "bold"))
 
     def draw_particles(self, canvas: tk.Canvas) -> None:
         for particle in self.particles:

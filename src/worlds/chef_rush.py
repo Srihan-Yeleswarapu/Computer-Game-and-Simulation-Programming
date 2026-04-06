@@ -171,15 +171,14 @@ class ChefRushWorld(BaseWorld):
 
         if self.timer <= 0:
             self.finished = True
-            # New criteria: $150 is the floor for success (C grade)
-            self.success = self.money >= 150
+            self.success = self.money >= 80
             if self.success:
                 self.message = f"Shift over! Served {self.customers_served} meals. Earned total of ${self.money}!"
-                if self.money >= 300:
+                if self.money >= 125:
                     self.grade = "S"
-                elif self.money >= 250:
+                elif self.money >= 100:
                     self.grade = "A"
-                elif self.money >= 200:
+                elif self.money >= 90:
                     self.grade = "B"
                 else:
                     self.grade = "C"

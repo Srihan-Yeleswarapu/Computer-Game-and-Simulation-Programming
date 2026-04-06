@@ -152,14 +152,18 @@ class FireRescueWorld(BaseWorld):
             self.success = self.saved >= 2
             if self.success:
                 self.message = f"Shift Over! {self.saved}/5 survivors rescued from the fire."
-                self.grade = self.calculate_grade()
+                if self.saved == 5: self.grade = "S"
+                elif self.saved == 4: self.grade = "A"
+                elif self.saved == 3: self.grade = "B"
+                else: self.grade = "C"
             else:
                 self.message = f"Fire out of control! Only {self.saved}/5 survivors evacuated."
+                self.grade = "F"
             
         if self.saved >= 5:
             self.finished = True
             self.success = True
-            self.grade = self.calculate_grade()
+            self.grade = "S"
             self.message = "All survivors are safe! You cleared the building."
 
         self.draw(canvas, player)

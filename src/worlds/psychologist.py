@@ -272,16 +272,14 @@ class PsychologistWorld(BaseWorld):
             self.success = False
             self.message = "Clinic escalation: a client decompensated before the room could be stabilized."
             self.grade = "C"
-        elif self.completed_sessions >= 3:
+        elif self.completed_sessions >= 4:
             self.finished = True
             self.success = True
             avg_rapport = sum(float(p["rapport"]) for p in self.patients) / len(self.patients)
             avg_distress = sum(float(p["distress"]) for p in self.patients) / len(self.patients)
-            self.message = f"Shift complete. {self.completed_sessions} clients stabilized."
+            self.message = f"Shift complete. All 4 clients stabilized."
             
-            if self.completed_sessions < 4:
-                self.grade = "C"
-            elif avg_rapport >= 78 and avg_distress <= 20:
+            if avg_rapport >= 78 and avg_distress <= 20:
                 self.grade = "S"
             elif avg_rapport >= 66 and avg_distress <= 30:
                 self.grade = "A"
@@ -289,9 +287,16 @@ class PsychologistWorld(BaseWorld):
                 self.grade = "B"
         elif self.timer <= 0:
             self.finished = True
-            self.success = False
-            self.message = f"Shift failed! Only {self.completed_sessions}/4 clients stabilized (Need 3)."
-            self.grade = "F"
+            self.success = self.completed_sessions >= 2
+            if self.success:
+                self.message = f"Shift Over! {self.completed_sessions}/4 clients stabilized."
+                if self.completed_sessions == 3:
+                    self.grade = "B"
+                else:
+                    self.grade = "C"
+            else:
+                self.message = f"Shift failed! Only {self.completed_sessions}/4 clients stabilized (Need 2+)."
+                self.grade = "F"
 
         self.update_particles(dt)
         self.draw(canvas, player)
