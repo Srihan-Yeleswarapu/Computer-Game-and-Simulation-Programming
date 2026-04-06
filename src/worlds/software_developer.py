@@ -10,61 +10,74 @@ from src.worlds.base import BaseWorld
 
 class SoftwareDeveloperWorld(BaseWorld):
     INCIDENT_RADIUS = 56.0
-    STATION_RADIUS = 70.0
+    STATION_RADIUS = 68.0
+    PING_RADIUS = 40.0
 
     def __init__(self) -> None:
         super().__init__(
             name="Software Developer",
-            summary="Triage production incidents, implement fixes, and ship a stable release.",
-            duration=95.0,
+            summary="Balance incident triage, implementation, review, and interruptions to ship a stable release.",
+            duration=105.0,
         )
         self.briefing = [
-            "SHIP the release by completing the sprint board.",
-            "INVESTIGATE incidents (SPACE) then CODE fixes (C) at the desk.",
-            "DEPLOY the final release (E) when all tickets are done."
+            "Stabilize the release by moving tickets from incident to code to review to deploy.",
+            "Select a ticket with 1, 2, 3, or 4, then work the matching stage at the correct station.",
+            "Urgent incidents and ignored pings drain release health, so route your time deliberately.",
         ]
         self.hints = [
-            "Investigate at the service node with SPACE, then code at the desk with C.",
-            "Focus on high-priority tickets sequentially; avoid jumping around.",
-            "Aging tickets drain your focus.",
-            "After all tickets are implemented, deploy the release at the console with E.",
+            "Select tickets with 1-4. You are no longer forced down a single path.",
+            "SPACE investigates at a service node, C codes at the IDE desk, R reviews at the PR table.",
+            "Q clears live pings for a focus boost, but ignoring incidents hurts release health.",
+            "After every ticket is merged, hold E at Deploy to ship the release.",
         ]
-        self.bounds = (40.0, 64.0, WIDTH - 40.0, HEIGHT - 48.0)
-        self.service_positions = [
-            (120.0, 220.0), # Auth (Top Left)
-            (480.0, 210.0), # Billing (Top Center)
-            (840.0, 220.0), # Search (Top Right)
-        ]
-        self.tickets: list[dict[str, Any]] = []
-        self.workstations = {
-            "desk": {"x": 150.0, "y": 480.0, "label": "IDE DESK", "key": "c"},
-            "deploy": {"x": 810.0, "y": 480.0, "label": "DEPLOY", "key": "e"},
-        }
 
-        self.focus = 100.0
+        self.bounds = (298.0, 118.0, 748.0, HEIGHT - 72.0)
+        self.service_positions = [
+            (372.0, 176.0),
+            (548.0, 164.0),
+            (680.0, 248.0),
+            (430.0, 314.0),
+        ]
+        self.workstations = {
+            "desk": {"x": 388.0, "y": 438.0, "label": "IDE DESK", "key": "c"},
+            "review": {"x": 540.0, "y": 438.0, "label": "PR REVIEW", "key": "r"},
+            "deploy": {"x": 684.0, "y": 438.0, "label": "DEPLOY", "key": "e"},
+        }
+        self.pings = [
+            {"x": 328.0, "y": 254.0, "timer": 0.0},
+            {"x": 706.0, "y": 154.0, "timer": 0.0},
+            {"x": 710.0, "y": 344.0, "timer": 0.0},
+        ]
+
+        self.tickets: list[dict[str, Any]] = []
+        self.selected_ticket_index = 0
         self.completed_tickets = 0
-        self.current_ticket_index = 0
         self.deploy_progress = 0.0
+        self.focus = 100.0
+        self.release_health = 100.0
         self.message_timer = 0.0
+        self.ping_spawn_timer = 4.5
         self.context_switch_penalty = 0.0
         self.last_action = ""
 
     def build_ticket_queue(self) -> list[dict[str, Any]]:
         templates = [
-            {"name": "Auth token refresh", "service": "Auth API", "severity": "P1", "triage_time": 1.1, "code_time": 2.3},
-            {"name": "Billing retry loop", "service": "Billing Worker", "severity": "P1", "triage_time": 1.0, "code_time": 2.1},
-            {"name": "Search cache eviction", "service": "Search API", "severity": "P2", "triage_time": 1.2, "code_time": 2.0},
+            {"name": "Auth token refresh", "service": "Auth API", "severity": "P1", "triage_time": 1.1, "code_time": 2.2, "review_time": 1.2},
+            {"name": "Billing retry loop", "service": "Billing Worker", "severity": "P1", "triage_time": 1.0, "code_time": 2.0, "review_time": 1.1},
+            {"name": "Search cache eviction", "service": "Search API", "severity": "P2", "triage_time": 1.2, "code_time": 1.9, "review_time": 1.3},
+            {"name": "Analytics event dedupe", "service": "Analytics", "severity": "P3", "triage_time": 0.9, "code_time": 1.7, "review_time": 1.0},
         ]
-        queue: list[dict[str, Any]] = []
+        tickets: list[dict[str, Any]] = []
         for index, template in enumerate(templates):
             x, y = self.service_positions[index]
-            queue.append(
+            tickets.append(
                 {
                     "name": template["name"],
                     "service": template["service"],
                     "severity": template["severity"],
                     "triage_time": template["triage_time"],
                     "code_time": template["code_time"],
+                    "review_time": template["review_time"],
                     "x": x,
                     "y": y,
                     "stage": "incident",
@@ -72,151 +85,228 @@ class SoftwareDeveloperWorld(BaseWorld):
                     "age": 0.0,
                 }
             )
-        return queue
+        return tickets
 
     def reset(self, player: Player) -> None:
-        player.reset(110.0, 480.0)
+        player.reset(332.0, 486.0)
         self.timer = self.duration
         self.finished = False
         self.success = False
         self.grade = "-"
-        self.message = "Work the queue in order: investigate, code, then deploy."
+        self.message = "Choose a ticket, then balance incidents, coding, review, and pings."
         self.message_timer = 3.0
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
         self.focus = 100.0
+        self.release_health = 100.0
         self.completed_tickets = 0
-        self.current_ticket_index = 0
+        self.selected_ticket_index = 0
         self.deploy_progress = 0.0
+        self.ping_spawn_timer = 4.5
         self.context_switch_penalty = 0.0
         self.last_action = ""
         self.tickets = self.build_ticket_queue()
-
-    def active_ticket(self) -> dict[str, Any] | None:
-        if 0 <= self.current_ticket_index < len(self.tickets):
-            return self.tickets[self.current_ticket_index]
-        return None
+        for ping in self.pings:
+            ping["timer"] = 0.0
 
     def near(self, player: Player, x: float, y: float, radius: float) -> bool:
         return math.hypot(player.x - x, player.y - y) <= radius
 
-    def decay_focus_and_health(self, dt: float) -> None:
+    def selected_ticket(self) -> dict[str, Any] | None:
+        if 0 <= self.selected_ticket_index < len(self.tickets):
+            return self.tickets[self.selected_ticket_index]
+        return None
+
+    def choose_ticket(self, keys: set[str]) -> None:
+        for index in range(min(4, len(self.tickets))):
+            if str(index + 1) in keys:
+                if self.selected_ticket_index != index:
+                    self.selected_ticket_index = index
+                    ticket = self.tickets[index]
+                    self.message = f"Selected {ticket['service']}."
+                    self.message_timer = 0.9
+
+    def update_pressure(self, dt: float) -> None:
         open_incidents = 0
-        for index, ticket in enumerate(self.tickets):
+        blocked_reviews = 0
+        total_age_pressure = 0.0
+
+        for ticket in self.tickets:
             if ticket["stage"] != "done":
                 ticket["age"] += dt
+                total_age_pressure += max(0.0, float(ticket["age"]) - 4.0)
             if ticket["stage"] == "incident":
                 open_incidents += 1
-            if index < self.current_ticket_index and ticket["stage"] != "done":
-                self.focus = clamp(self.focus - dt * 5.0, 0.0, 100.0)
-                self.message = "Skipped priority work; focus is waning."
-                self.message_timer = 0.5
+            elif ticket["stage"] == "review":
+                blocked_reviews += 1
 
-        age_pressure = sum(max(0.0, ticket["age"] - 4.0) for ticket in self.tickets if ticket["stage"] != "done")
-        self.focus = clamp(self.focus - dt * (open_incidents * 0.45 + self.context_switch_penalty * 0.75 + age_pressure * 0.03), 0.0, 100.0)
+        severity_pressure = 0.0
+        for ticket in self.tickets:
+            if ticket["stage"] == "done":
+                continue
+            if ticket["severity"] == "P1":
+                severity_pressure += 1.0
+            elif ticket["severity"] == "P2":
+                severity_pressure += 0.5
+            else:
+                severity_pressure += 0.25
+
+        live_pings = sum(1 for ping in self.pings if ping["timer"] > 0.0)
+        self.release_health = clamp(
+            self.release_health - dt * (open_incidents * 0.55 + blocked_reviews * 0.28 + severity_pressure * 0.24 + total_age_pressure * 0.035 + live_pings * 0.95),
+            0.0,
+            100.0,
+        )
+        self.focus = clamp(
+            self.focus - dt * (blocked_reviews * 0.22 + self.context_switch_penalty * 0.8 + live_pings * 0.85),
+            0.0,
+            100.0,
+        )
         self.context_switch_penalty = max(0.0, self.context_switch_penalty - dt * 0.8)
 
-    def work_ticket(self, dt: float, player: Player, keys: set[str]) -> None:
-        ticket = self.active_ticket()
-        if not ticket:
+    def update_pings(self, dt: float, player: Player, keys: set[str]) -> None:
+        self.ping_spawn_timer -= dt
+        inactive = [ping for ping in self.pings if ping["timer"] <= 0.0]
+        if self.ping_spawn_timer <= 0.0 and inactive:
+            ping = random.choice(inactive)
+            ping["timer"] = random.uniform(5.0, 8.0)
+            self.ping_spawn_timer = random.uniform(4.0, 6.5)
+
+        for ping in self.pings:
+            if ping["timer"] <= 0.0:
+                continue
+            ping["timer"] = max(0.0, ping["timer"] - dt)
+            if self.near(player, float(ping["x"]), float(ping["y"]), self.PING_RADIUS) and "q" in keys:
+                ping["timer"] = 0.0
+                self.focus = clamp(self.focus + 10.0, 0.0, 100.0)
+                self.message = "Inbox cleared. Focus recovered."
+                self.message_timer = 1.2
+            elif ping["timer"] <= 0.0:
+                self.release_health = clamp(self.release_health - 5.0, 0.0, 100.0)
+                self.message = "A ping escalated into release noise."
+                self.message_timer = 1.2
+
+    def work_selected_ticket(self, dt: float, player: Player, keys: set[str]) -> None:
+        ticket = self.selected_ticket()
+        if ticket is None or ticket["stage"] == "done":
             return
 
+        action_name = ""
         target_key = ""
         target_x = 0.0
         target_y = 0.0
         target_radius = self.STATION_RADIUS
         required_time = 1.0
         next_stage = ""
-        action_name = ""
 
         if ticket["stage"] == "incident":
+            action_name = "triage"
             target_key = "space"
             target_x = float(ticket["x"])
             target_y = float(ticket["y"])
             target_radius = self.INCIDENT_RADIUS
             required_time = float(ticket["triage_time"])
             next_stage = "coding"
-            action_name = "triage"
         elif ticket["stage"] == "coding":
+            action_name = "code"
             target_key = "c"
             target_x = float(self.workstations["desk"]["x"])
             target_y = float(self.workstations["desk"]["y"])
             required_time = float(ticket["code_time"])
+            next_stage = "review"
+        elif ticket["stage"] == "review":
+            action_name = "review"
+            target_key = "r"
+            target_x = float(self.workstations["review"]["x"])
+            target_y = float(self.workstations["review"]["y"])
+            required_time = float(ticket["review_time"])
             next_stage = "done"
-            action_name = "code"
-        else:
-            return
 
         engaged = self.near(player, target_x, target_y, target_radius) and target_key in keys
-        if engaged:
-            if self.last_action and self.last_action != action_name:
-                self.context_switch_penalty = min(8.0, self.context_switch_penalty + 2.2)
-            self.last_action = action_name
-            speed_scale = 1.0 + max(0.0, self.focus - 50.0) / 120.0
-            ticket["progress"] = clamp(float(ticket["progress"]) + dt / required_time * 100.0 * speed_scale, 0.0, 100.0)
-            self.message = f"{action_name.title()} {ticket['service']}..."
-            self.message_timer = 0.5
-            if ticket["progress"] >= 100.0:
-                ticket["stage"] = next_stage
-                ticket["progress"] = 0.0
-                ticket["age"] = 0.0
-                self.focus = clamp(self.focus - 4.0, 0.0, 100.0)
-                if next_stage == "coding":
-                    self.message = f"Incident understood. Move to the desk and press C to implement {ticket['name']}."
-                else:
-                    self.completed_tickets += 1
-                    self.current_ticket_index += 1
-                    self.focus = clamp(self.focus + 3.0, 0.0, 100.0)
-                    self.message = f"{ticket['service']} is merged. Next ticket is up."
-                self.message_timer = 2.0
+        if not engaged:
+            ticket["progress"] = clamp(float(ticket["progress"]) - dt * 15.0, 0.0, 100.0)
+            return
+
+        if self.last_action and self.last_action != action_name:
+            self.context_switch_penalty = min(8.0, self.context_switch_penalty + 2.0)
+        self.last_action = action_name
+
+        speed_scale = 0.88 + max(0.0, self.focus) / 120.0
+        ticket["progress"] = clamp(float(ticket["progress"]) + dt / required_time * 100.0 * speed_scale, 0.0, 100.0)
+        self.message = f"{action_name.title()} {ticket['service']}..."
+        self.message_timer = 0.4
+
+        if ticket["progress"] < 100.0:
+            return
+
+        ticket["stage"] = next_stage
+        ticket["progress"] = 0.0
+        ticket["age"] = 0.0
+        self.focus = clamp(self.focus - 3.0, 0.0, 100.0)
+
+        if next_stage == "coding":
+            self.message = f"{ticket['service']} understood. Take it to the IDE desk."
+        elif next_stage == "review":
+            self.message = f"{ticket['service']} implemented. Move to PR review."
         else:
-            ticket["progress"] = clamp(float(ticket["progress"]) - dt * 18.0, 0.0, 100.0)
+            self.completed_tickets += 1
+            self.release_health = clamp(self.release_health + 7.0, 0.0, 100.0)
+            self.focus = clamp(self.focus + 4.0, 0.0, 100.0)
+            self.message = f"{ticket['service']} merged cleanly."
+        self.message_timer = 1.6
 
     def handle_deploy(self, dt: float, player: Player, keys: set[str]) -> None:
-        if self.current_ticket_index < len(self.tickets):
+        if self.completed_tickets < len(self.tickets):
             self.deploy_progress = 0.0
             return
-        deploy_station = self.workstations["deploy"]
-        can_deploy = self.near(player, float(deploy_station["x"]), float(deploy_station["y"]), self.STATION_RADIUS) and "e" in keys
+
+        station = self.workstations["deploy"]
+        can_deploy = self.near(player, float(station["x"]), float(station["y"]), self.STATION_RADIUS) and "e" in keys
         if not can_deploy:
-            self.deploy_progress = clamp(self.deploy_progress - dt * 25.0, 0.0, 100.0)
+            self.deploy_progress = clamp(self.deploy_progress - dt * 22.0, 0.0, 100.0)
             return
-        self.deploy_progress = clamp(self.deploy_progress + dt * 60.0, 0.0, 100.0)
-        self.message = "Running final checks and deploying release..."
+
+        self.deploy_progress = clamp(self.deploy_progress + dt * 56.0, 0.0, 100.0)
+        self.message = "Running checks and deploying release..."
         self.message_timer = 0.4
-        if self.deploy_progress >= 100.0:
-            self.finished = True
-            complete = self.completed_tickets >= len(self.tickets)
-            self.success = complete and self.focus >= 20.0
-            if self.success:
-                self.message = "Release shipped smoothly. The sprint board is empty."
-                if self.focus >= 80.0: self.grade = "S"
-                elif self.focus >= 60.0: self.grade = "A"
-                elif self.focus >= 40.0: self.grade = "B"
-                else: self.grade = "C"
+
+        if self.deploy_progress < 100.0:
+            return
+
+        self.finished = True
+        self.success = self.release_health >= 35.0 and self.focus >= 20.0
+        if self.success:
+            self.message = "Release shipped cleanly. The board is clear and stable."
+            if self.release_health >= 82.0 and self.focus >= 65.0 and self.timer >= 20.0:
+                self.grade = "S"
+            elif self.release_health >= 68.0 and self.focus >= 50.0:
+                self.grade = "A"
             else:
-                self.grade = "F"
-                self.message = "The build shipped but focus was too low to deploy properly."
+                self.grade = "B"
+        else:
+            self.grade = "C"
+            self.message = "The release shipped, but the system was already strained."
 
     def evaluate_failure(self) -> None:
-        if self.focus <= 0.0:
+        if self.release_health <= 0.0:
             self.finished = True
             self.success = False
             self.grade = "F"
-            self.message = "The production environment became overwhelming. Focus lost."
+            self.message = "Too many unresolved issues stacked up. Release health collapsed."
+        elif self.focus <= 0.0:
+            self.finished = True
+            self.success = False
+            self.grade = "F"
+            self.message = "The constant interruptions burned through your focus."
         elif self.timer <= 0.0:
             self.finished = True
-            reviewed = sum(1 for ticket in self.tickets if ticket["stage"] == "done")
-            self.success = reviewed >= len(self.tickets)
+            self.success = self.completed_tickets == len(self.tickets) and self.release_health >= 45.0
             if self.success:
-                self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
-                if self.focus >= 80.0: self.grade = "S"
-                elif self.focus >= 60.0: self.grade = "A"
-                elif self.focus >= 40.0: self.grade = "B"
-                else: self.grade = "C"
+                self.grade = "B"
+                self.message = "The release window closed, but you shipped just in time."
             else:
                 self.grade = "F"
-                self.message = "The release train missed the window."
+                self.message = "The release window closed before the board was stabilized."
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -225,90 +315,157 @@ class SoftwareDeveloperWorld(BaseWorld):
 
         self.tick_timer(dt)
         self.message_timer = max(0.0, self.message_timer - dt)
+        self.choose_ticket(keys)
         player.update(dt, keys, self.bounds)
-        self.decay_focus_and_health(dt)
-        self.work_ticket(dt, player, keys)
+        self.update_pressure(dt)
+        self.update_pings(dt, player, keys)
+        self.work_selected_ticket(dt, player, keys)
         self.handle_deploy(dt, player, keys)
         self.evaluate_failure()
         self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw_ticket_card(self, canvas: tk.Canvas, index: int, ticket: dict[str, Any]) -> None:
-        x = 32 + index * 180
-        y = 64
-        active = index == self.current_ticket_index
+        x = 28
+        y = 92 + index * 82
+        is_selected = index == self.selected_ticket_index
         done = ticket["stage"] == "done"
-        fill = "#102030"
+        fill = "#101b2a"
         if done:
-            fill = "#16372d"
-        elif active:
-            fill = "#20344d"
-        outline = "#f8f8f2" if active else "#35526c"
-        canvas.create_rectangle(x, y, x + 160, y + 92, fill=fill, outline=outline, width=2 if active else 1)
-        canvas.create_text(x + 10, y + 14, anchor="w", text=f"{ticket['severity']}  {ticket['service']}", fill="#8cd3ff", font=("Courier", 10, "bold"))
-        canvas.create_text(x + 10, y + 38, anchor="w", text=ticket["name"], fill="#ffffff", font=("Courier", 9), width=138)
+            fill = "#143126"
+        elif is_selected:
+            fill = "#1d3550"
+        outline = "#f8f8f2" if is_selected else "#35526c"
+        canvas.create_rectangle(x, y, x + 244, y + 70, fill=fill, outline=outline, width=2 if is_selected else 1)
+        canvas.create_text(x + 12, y + 14, anchor="w", text=f"[{index + 1}]  {ticket['severity']}  {ticket['service']}", fill="#8cd3ff", font=("Helvetica", 10, "bold"))
+        canvas.create_text(x + 12, y + 34, anchor="w", text=ticket["name"], fill="#ffffff", font=("Helvetica", 10, "bold"), width=194)
         stage_label = {
             "incident": "Investigate",
             "coding": "Implement",
+            "review": "Review",
             "done": "Merged",
         }[str(ticket["stage"])]
-        canvas.create_text(x + 10, y + 70, anchor="w", text=stage_label, fill="#ffd166" if not done else "#9df1b5", font=("Courier", 10, "bold"))
+        canvas.create_text(x + 12, y + 56, anchor="w", text=stage_label, fill="#ffd166" if not done else "#9df1b5", font=("Helvetica", 10, "bold"))
         if not done:
-            canvas.create_rectangle(x + 10, y + 78, x + 150, y + 86, fill="#0a111a", outline="")
-            canvas.create_rectangle(x + 10, y + 78, x + 10 + 140 * (float(ticket["progress"]) / 100.0), y + 86, fill="#5fb6ff", outline="")
+            canvas.create_rectangle(x + 112, y + 52, x + 228, y + 60, fill="#0a111a", outline="")
+            canvas.create_rectangle(x + 112, y + 52, x + 112 + 116 * (float(ticket["progress"]) / 100.0), y + 60, fill="#5fb6ff", outline="")
+        canvas.create_text(x + 228, y + 14, anchor="e", text=("Done" if done else f"Age {ticket['age']:0.0f}s"), fill="#9fc0da", font=("Helvetica", 9))
 
     def draw_station(self, canvas: tk.Canvas, station: dict[str, Any], active: bool) -> None:
         x = float(station["x"])
         y = float(station["y"])
         fill = "#28445e" if active else "#17293a"
         outline = "#ffffff" if active else "#3f627d"
-        canvas.create_rectangle(x - 64, y - 42, x + 64, y + 42, fill=fill, outline=outline, width=3 if active else 1)
-        canvas.create_text(x, y - 8, text=str(station["label"]), fill="#ffffff", font=("Courier", 12, "bold"))
-        canvas.create_text(x, y + 16, text=f"HOLD {str(station['key']).upper()}", fill="#a9d6ff", font=("Courier", 10))
+        canvas.create_rectangle(x - 56, y - 34, x + 56, y + 34, fill=fill, outline=outline, width=3 if active else 1)
+        canvas.create_text(x, y - 7, text=str(station["label"]), fill="#ffffff", font=("Helvetica", 11, "bold"))
+        canvas.create_text(x, y + 14, text=f"HOLD {str(station['key']).upper()}", fill="#a9d6ff", font=("Helvetica", 9, "bold"))
+
+    def draw_metric_bar(self, canvas: tk.Canvas, x: float, y: float, width: float, value: float, label: str, fill: str) -> None:
+        canvas.create_text(x, y - 10, anchor="w", text=f"{label}  {int(value)}%", fill="#e7f2fb", font=("Helvetica", 10, "bold"))
+        canvas.create_rectangle(x, y, x + width, y + 14, fill="#09111a", outline="#29445c")
+        canvas.create_rectangle(x + 2, y + 2, x + 2 + (width - 4) * (value / 100.0), y + 12, fill=fill, outline="")
+
+    def draw_side_panel(self, canvas: tk.Canvas, ticket: dict[str, Any] | None) -> None:
+        x1, y1, x2, y2 = 766, 92, 930, 438
+        canvas.create_rectangle(x1, y1, x2, y2, fill="#101b2a", outline="#29445c", width=2)
+        canvas.create_text(x1 + 14, y1 + 18, anchor="w", text="Release Board", fill="#8cd3ff", font=("Helvetica", 11, "bold"))
+
+        self.draw_metric_bar(canvas, x1 + 14, y1 + 46, x2 - x1 - 28, self.release_health, "Release", "#5fb6ff" if self.release_health > 35 else "#ff5d73")
+        self.draw_metric_bar(canvas, x1 + 14, y1 + 88, x2 - x1 - 28, self.focus, "Focus", "#8ce99a" if self.focus > 35 else "#ffb703")
+        canvas.create_text(x1 + 14, y1 + 132, anchor="w", text=f"Merged {self.completed_tickets}/{len(self.tickets)}", fill="#ffffff", font=("Helvetica", 11, "bold"))
+
+        canvas.create_text(x1 + 14, y1 + 166, anchor="w", text="Selected Ticket", fill="#8cd3ff", font=("Helvetica", 10, "bold"))
+        if ticket is not None:
+            stage_text = {
+                "incident": "Go to the service node and hold SPACE.",
+                "coding": "Go to the IDE desk and hold C.",
+                "review": "Go to PR review and hold R.",
+                "done": "This ticket is complete.",
+            }[str(ticket["stage"])]
+            canvas.create_text(x1 + 14, y1 + 192, anchor="nw", text=ticket["name"], fill="#ffffff", font=("Helvetica", 12, "bold"), width=x2 - x1 - 28)
+            canvas.create_text(
+                x1 + 14,
+                y1 + 236,
+                anchor="nw",
+                text=f"{ticket['severity']}  |  {ticket['service']}\n\n{stage_text}",
+                fill="#d8e9f7",
+                font=("Helvetica", 10),
+                width=x2 - x1 - 28,
+            )
+            canvas.create_text(x1 + 14, y1 + 304, anchor="w", text=f"Progress {int(ticket['progress'])}%", fill="#ffd166", font=("Helvetica", 10, "bold"))
+
+        canvas.create_text(x1 + 14, y1 + 334, anchor="w", text="Workflow", fill="#8cd3ff", font=("Helvetica", 10, "bold"))
+        canvas.create_text(
+            x1 + 14,
+            y1 + 356,
+            anchor="nw",
+            text="1-4 select ticket\nSPACE investigate\nC code\nR review\nQ clear ping\nE deploy",
+            fill="#d8e9f7",
+            font=("Helvetica", 9),
+            width=x2 - x1 - 28,
+        )
+
+        if self.completed_tickets == len(self.tickets):
+            canvas.create_rectangle(x1 + 14, y2 - 28, x2 - 14, y2 - 14, fill="#09111a", outline="#29445c")
+            canvas.create_rectangle(x1 + 16, y2 - 26, x1 + 16 + (x2 - x1 - 32) * (self.deploy_progress / 100.0), y2 - 16, fill="#4bd18b", outline="")
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
 
-        canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill="#0a0f18", outline="")
-        canvas.create_rectangle(18, 52, WIDTH - 18, HEIGHT - 18, fill="#0f1622", outline="#20384d", width=2)
-        for x in range(30, WIDTH, 48):
-            canvas.create_line(x, 52, x, HEIGHT - 18, fill="#121f2c")
-        for y in range(52, HEIGHT, 36):
-            canvas.create_line(18, y, WIDTH - 18, y, fill="#101b27")
+        for i in range(7):
+            blend = i / 6
+            red = int(8 + 10 * blend)
+            green = int(14 + 18 * blend)
+            blue = int(24 + 30 * blend)
+            canvas.create_rectangle(0, i * HEIGHT / 7, WIDTH, (i + 1) * HEIGHT / 7, fill=f"#{red:02x}{green:02x}{blue:02x}", outline="")
 
-        active_t = self.active_ticket()
+        canvas.create_rectangle(18, 52, WIDTH - 18, HEIGHT - 18, fill="#0f1622", outline="#20384d", width=2)
+        canvas.create_rectangle(22, 84, 278, HEIGHT - 44, fill="#0e1825", outline="#29445c", width=2)
+        canvas.create_rectangle(292, 84, 752, HEIGHT - 44, fill="#0d1520", outline="#29445c", width=2)
+        canvas.create_rectangle(766, 84, 934, HEIGHT - 44, fill="#0e1825", outline="#29445c", width=2)
+
+        for x in range(312, 734, 46):
+            canvas.create_line(x, 104, x, HEIGHT - 64, fill="#132130")
+        for y in range(104, HEIGHT - 62, 34):
+            canvas.create_line(312, y, 732, y, fill="#12202d")
+
+        canvas.create_text(38, 68, anchor="w", text="Sprint Queue", fill="#d2e9ff", font=("Helvetica", 13, "bold"))
+        canvas.create_text(312, 68, anchor="w", text="Incident Floor", fill="#d2e9ff", font=("Helvetica", 13, "bold"))
+
+        selected = self.selected_ticket()
         for index, ticket in enumerate(self.tickets):
             self.draw_ticket_card(canvas, index, ticket)
-            tx, ty = float(ticket["x"]), float(ticket["y"])
-            color = "#ff5d73" if ticket["stage"] == "incident" else "#f6c85f" if ticket["stage"] == "coding" else "#4bd18b"
-            radius = 34 if index == self.current_ticket_index else 28
-            outline = "#ffffff" if index == self.current_ticket_index else "#1f2b36"
-            canvas.create_oval(tx - radius, ty - radius, tx + radius, ty + radius, fill=color, outline=outline, width=3 if index == self.current_ticket_index else 1)
-            canvas.create_text(tx, ty - 4, text=str(ticket["service"]), fill="#ffffff", font=("Courier", 9, "bold"))
-            canvas.create_text(tx, ty + 14, text=str(ticket["severity"]), fill="#08111b", font=("Courier", 11, "bold"))
+            tx = float(ticket["x"])
+            ty = float(ticket["y"])
+            color = "#ff5d73" if ticket["stage"] == "incident" else "#f6c85f" if ticket["stage"] == "coding" else "#6bc5ff" if ticket["stage"] == "review" else "#4bd18b"
+            radius = 32 if index == self.selected_ticket_index else 26
+            outline = "#ffffff" if index == self.selected_ticket_index else "#1f2b36"
+            canvas.create_oval(tx - radius, ty - radius, tx + radius, ty + radius, fill=color, outline=outline, width=3 if index == self.selected_ticket_index else 1)
+            canvas.create_text(tx, ty - 3, text=str(ticket["severity"]), fill="#08111b", font=("Helvetica", 11, "bold"))
+            canvas.create_text(tx, ty + 40, text=str(ticket["service"]), fill="#dbeeff", font=("Helvetica", 9, "bold"), width=112)
             if ticket["stage"] != "done":
-                canvas.create_rectangle(tx - 28, ty + 40, tx + 28, ty + 48, fill="#0b121a", outline="")
-                canvas.create_rectangle(tx - 28, ty + 40, tx - 28 + 56 * (float(ticket["progress"]) / 100.0), ty + 48, fill="#ffffff", outline="")
+                canvas.create_rectangle(tx - 28, ty + 52, tx + 28, ty + 60, fill="#0b121a", outline="")
+                canvas.create_rectangle(tx - 28, ty + 52, tx - 28 + 56 * (float(ticket["progress"]) / 100.0), ty + 60, fill="#ffffff", outline="")
 
-        desk_active = active_t is not None and active_t["stage"] == "coding"
-        deploy_active = active_t is None
-        self.draw_station(canvas, self.workstations["desk"], desk_active)
-        self.draw_station(canvas, self.workstations["deploy"], deploy_active)
+        self.draw_station(canvas, self.workstations["desk"], selected is not None and selected["stage"] == "coding")
+        self.draw_station(canvas, self.workstations["review"], selected is not None and selected["stage"] == "review")
+        self.draw_station(canvas, self.workstations["deploy"], self.completed_tickets == len(self.tickets))
 
-        if active_t is None:
-            bx, by = 380, 500
-            canvas.create_rectangle(bx, by, bx + 200, by + 10, fill="#09111b", outline="#20384d")
-            canvas.create_rectangle(bx, by, bx + 200 * (self.deploy_progress / 100.0), by + 10, fill="#4bd18b", outline="")
+        for ping in self.pings:
+            if ping["timer"] <= 0.0:
+                continue
+            pulse = 4.0 * math.sin(float(ping["timer"]) * 7.0)
+            px = float(ping["x"])
+            py = float(ping["y"])
+            canvas.create_oval(px - 20 - pulse, py - 20 - pulse, px + 20 + pulse, py + 20 + pulse, fill="#ff8c42", outline="#fff2d8", width=2)
+            canvas.create_text(px, py - 4, text="PING", fill="#08111b", font=("Helvetica", 9, "bold"))
+            canvas.create_text(px, py + 11, text="Q", fill="#08111b", font=("Helvetica", 11, "bold"))
 
-        canvas.create_rectangle(32, 520, 292, 540, fill="#0a111a", outline="")
-        canvas.create_rectangle(34, 522, 34 + 256 * (self.focus / 100.0), 538, fill="#8ce99a" if self.focus > 35 else "#ffb703", outline="")
-        canvas.create_text(162, 506, text=f"FOCUS {int(self.focus)}%", fill="#ffffff", font=("Courier", 12, "bold"))
-
-        canvas.create_text(770, 36, text=f"Tickets merged: {self.completed_tickets}/{len(self.tickets)}", fill="#d2e9ff", font=("Courier", 12, "bold"))
+        self.draw_side_panel(canvas, selected)
 
         if self.message_timer > 0.0 and self.message:
-            canvas.create_rectangle(206, HEIGHT - 78, WIDTH - 206, HEIGHT - 48, fill="#132234", outline="#2f5675")
-            canvas.create_text(WIDTH / 2, HEIGHT - 63, text=self.message, fill="#ffffff", font=("Courier", 10, "bold"), width=520)
+            canvas.create_rectangle(308, HEIGHT - 74, 744, HEIGHT - 46, fill="#132234", outline="#2f5675")
+            canvas.create_text(WIDTH / 2, HEIGHT - 60, text=self.message, fill="#ffffff", font=("Helvetica", 10, "bold"), width=392)
 
         player.draw(canvas)
 
