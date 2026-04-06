@@ -14,11 +14,10 @@ class DataScientistWorld(BaseWorld):
             duration=72.0,
         )
         self.briefing = [
-             "DATA ALERT: Massive dataset incoming!",
-             "As the Data Scientist, you must analyze data",
-             "and generate accurate predictions.",
-             "Catch valid data and avoid corrupt anomalies.",
-             "Warning: Poor predictions will cause mission failure!"
+            "TRAIN your AI model to 99.9% accuracy.",
+            "CATCH valid data (Green) and bonus patterns (Yellow).",
+            "AVOID red anomalies that corrupt your dataset.",
+            "MOVE quickly to intercept data before it drops."
         ]
         self.hints = [
              "Tip: Catch Green data points for clean data.",
@@ -128,4 +127,3 @@ class DataScientistWorld(BaseWorld):
         
         if self.finished:
             self.draw_result(canvas)
-        self.draw_hud(canvas)

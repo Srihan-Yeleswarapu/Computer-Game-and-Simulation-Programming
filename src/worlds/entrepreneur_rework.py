@@ -25,12 +25,10 @@ class TycoonWorld(BaseWorld):
             duration=240.0,
         )
         self.briefing = [
-            "Start with $80,000 and build a balanced business empire.",
-            "Every opportunity has tradeoffs: yield, maintenance, volatility, and market trend.",
-            "Real estate pays slower but steadier cash flow. Funds and crypto move faster but swing harder.",
-            "Buy from the board, review holdings in the portfolio, and sell weak positions before they drain you.",
-            "Reach $180,000 net worth with positive cash flow before time expires.",
-            "Research deals, negotiate discounts, and service operating issues to protect returns.",
+            "BUILD a $180,000 empire with positive cash flow.",
+            "BUY deals on the board; stand near them to inspect.",
+            "RESOLVE orange service calls (!) to protect your returns.",
+            "MONITOR the market (M) and portfolio (P) to stay profitable."
         ]
         self.hints = [
             "Move with WASD or arrows. Stand near a deal and press SPACE to inspect it.",

@@ -15,12 +15,10 @@ class AIEngineerWorld(BaseWorld):
             duration=120.0,
         )
         self.briefing = [
-            "AI MODEL TRAINING: You have 20 datasets to review.",
-            "Inspect each 'data file' for its attributes: Credibility, Peer Review, Size, and Bias.",
-            "Press [D] or [Right] to ADD the dataset to your training bucket.",
-            "Press [A] or [Left] to DISCARD the dataset.",
-            "After reviewing all 20, press [SPACE] to train the model.",
-            "Your model's final accuracy depends on the overall quality and size of your selected data."
+            "REVIEW 20 datasets to train your AI model.",
+            "ADD (D or Right) datasets with High Credibility and Low Bias.",
+            "DISCARD (A or Left) low-quality or highly biased data.",
+            "TRAIN (SPACE) once all files are reviewed."
         ]
         self.hints = [
             "Tip: Bias heavily hurts your model. Avoid highly biased datasets.",
@@ -164,6 +162,7 @@ class AIEngineerWorld(BaseWorld):
             self.message = "Deadline missed! Model was not trained in time."
             self.grade = "F"
 
+        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw_bar(self, canvas: tk.Canvas, x: float, y: float, w: float, h: float, val: int, color: str, label: str) -> None:
@@ -231,6 +230,3 @@ class AIEngineerWorld(BaseWorld):
             
         if self.finished:
             self.draw_result(canvas)
-            
-        # HUD for Selected Count
-        canvas.create_text(20, HEIGHT - 20, anchor="w", text=f"Selected Datasets: {len(self.selected_cards)}", fill="#8be9fd", font=("Helvetica", 12, "bold"))

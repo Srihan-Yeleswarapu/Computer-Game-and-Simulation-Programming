@@ -25,10 +25,10 @@ class ElectricianWorld(BaseWorld):
             duration=105.0,
         )
         self.briefing = [
-            "BUILDING FAULT: Multiple circuits are unstable and the service panel is under load.",
-            "Inspect each fault station, identify the correct breaker group, and isolate the circuit before repair.",
-            "Repairing a live line causes dangerous overload spikes and damages system health.",
-            "Reset repaired circuits at the main panel to bring the building back online section by section.",
+            "RESTORE power by repairing all circuit faults.",
+            "ISOLATE circuits at the breaker panel (1-3) before repairing.",
+            "HOLD R near a fault to repair it safely.",
+            "ENERGIZE (E) at the main panel to restore the building."
         ]
         self.hints = [
             "Move with WASD or arrows. Stand near a fault and press SPACE to inspect it.",
@@ -50,7 +50,7 @@ class ElectricianWorld(BaseWorld):
             {"name": "Air handler relay chatter", "group": "hvac", "symptom": "Control relay is cycling rapidly under demand.", "severity": 19.0, "repair_time": 3.5},
         ]
         self.breaker_panel = {"x": self.BOARD_LEFT + 78.0, "y": self.BOARD_BOTTOM - 66.0}
-        self.main_panel = {"x": self.BOARD_RIGHT - 60.0, "y": self.BOARD_TOP + 280.0}
+        self.main_panel = {"x": self.BOARD_RIGHT - 70.0, "y": self.BOARD_BOTTOM - 66.0}
         self.fault_positions = [
             (self.BOARD_LEFT + 180.0, self.BOARD_TOP + 72.0),
             (self.BOARD_LEFT + 390.0, self.BOARD_TOP + 54.0),

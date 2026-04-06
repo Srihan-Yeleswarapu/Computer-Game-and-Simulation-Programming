@@ -15,12 +15,10 @@ class ChefRushWorld(BaseWorld):
             duration=75.0,
         )
         self.briefing = [
-            "KITCHEN RUSH: Manage 3 simultaneous customers!",
-            "1. Walk up to the COUNTER to see a customer's order.",
-            "2. Stand by the RECIPE BOOK to memorize the steps.",
-            "3. Visit the required stations (PANTRY, PREP, STOVE) in order.",
-            "4. Deliver back to the COUNTER before their patience runs out!",
-            "Faster delivery = Higher tip = Better Grade!"
+            "SERVE 3 customers to complete the rush.",
+            "VISIT the Recipe Book (purple) to see your route.",
+            "VISIT the stations (Pantry, Counter, Stove) in order.",
+            "DELIVER finished meals back to the customer for tips."
         ]
         self.hints = [
             "Tip: Settle in at a station to complete the current step.",
@@ -186,6 +184,7 @@ class ChefRushWorld(BaseWorld):
                 self.message = f"Revenue too low! Only earned ${self.money}. Restaurant closed."
                 self.grade = "F"
 
+        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
@@ -193,7 +192,7 @@ class ChefRushWorld(BaseWorld):
         sx = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
         sy = random.uniform(-self.shake, self.shake) if self.shake > 0 else 0.0
         
-        bg = "#f3f3f3" if not self.high_contrast else "#000000"
+        bg = "#f3f3f3"
         canvas.create_rectangle(0+sx, 0+sy, WIDTH+sx, HEIGHT+sy, fill=bg)
 
         # Counter Floor
@@ -287,4 +286,3 @@ class ChefRushWorld(BaseWorld):
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)
-

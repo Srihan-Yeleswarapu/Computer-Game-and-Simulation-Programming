@@ -15,10 +15,10 @@ class ArchitectWorld(BaseWorld):
         )
         self.auto_finish_on_timer = False
         self.briefing = [
-            "CITY BRIEF: Deliver a realistic concept plan for a new public eco-library.",
-            "As lead architect, place the required spaces, keep within budget, and build a coherent plan.",
-            "Good plans connect the lobby to the core, keep archives protected, and place the roof garden at the top.",
-            "Press ENTER to run the design review once your layout is ready.",
+            "DESIGN an eco-library concept within the $3,400 budget.",
+            "PLACE spaces (1-5 + SPACE) ensuring logical adjacencies.",
+            "CONNECT the Lobby to the Core and keep Archives isolated.",
+            "SUBMIT (ENTER) once your layout satisfies the brief."
         ]
         self.hints = [
             "Tip: Move over a grid cell and press SPACE to place the selected space.",
@@ -285,6 +285,7 @@ class ArchitectWorld(BaseWorld):
                 else:
                     self.message = f"Design rejected. Review score: {int(self.review_score)}."
 
+        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw_workspace(self, canvas: tk.Canvas) -> None:
@@ -394,4 +395,3 @@ class ArchitectWorld(BaseWorld):
 
         if self.finished:
             self.draw_result(canvas)
-        self.draw_hud(canvas)

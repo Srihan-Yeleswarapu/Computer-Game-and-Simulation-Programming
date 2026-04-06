@@ -278,6 +278,7 @@ class GameEngine:
         elif self.state == "briefing" and self.active_world:
             self.active_world.draw_briefing(self.canvas)
         elif self.state == "world" and self.active_world:
+            self.active_world.keys = self.keys
             self.active_world.tick_timer(dt)
             try:
                 self.active_world.update(

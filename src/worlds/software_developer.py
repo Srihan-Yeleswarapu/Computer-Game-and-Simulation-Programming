@@ -19,11 +19,10 @@ class SoftwareDeveloperWorld(BaseWorld):
             duration=95.0,
         )
         self.briefing = [
-            "RELEASE NIGHT: Production services are unstable and the sprint board is stacked with urgent tickets.",
-            "Each ticket must move through a workflow: investigate the incident, then implement the fix.",
-            "Stand at the highlighted location and hold the matching key to complete the current step.",
-            "Open incidents and random pings drain focus quickly if you ignore them.",
-            "Clear the sprint board, then deploy from the console before the shift ends.",
+            "SHIP the release by completing the sprint board.",
+            "INVESTIGATE incidents (SPACE) then CODE fixes (C) at the desk.",
+            "CLEAR PINGS (Q) to maintain high focus levels.",
+            "DEPLOY the final release (E) when all tickets are done."
         ]
         self.hints = [
             "Investigate at the service node with SPACE, then code at the desk with C.",

@@ -14,11 +14,10 @@ class MarineWorld(BaseWorld):
             duration=62.0,
         )
         self.briefing = [
-             "RESEARCH MISSION: Deep-sea specimens are needed for a critical study.",
-             "Scan rare fish and collect bioluminescent samples.",
-             "Watch your Oxygen! Drains faster as you go deeper.",
-             "BEWARE: Great White Sharks roam these waters!",
-             "Look for hidden discoveries on the ocean floor."
+            "COLLECT 3 bioluminescent samples from the ocean floor.",
+            "SCAN 3 rare fish by holding SPACE while nearby.",
+            "MONITOR your oxygen; it drains faster as you dive deeper.",
+            "AVOID sharks that roam the lower depths."
         ]
         self.hints = [
              "Tip: Hold SPACE near a fish to scan it.",
@@ -35,12 +34,12 @@ class MarineWorld(BaseWorld):
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
-        self.tutorial_timer = 4.0
         
         self.scan_target: dict | None = None
         self.scan_timer = 0.0
         self.discovery_msg = ""
         self.msg_timer = 0.0
+        self.shake = 0.0
 
     def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, 80)
@@ -51,7 +50,6 @@ class MarineWorld(BaseWorld):
         self.oxygen = 100.0
         self.scanned_count = 0
         self.collected_count = 0
-        self.tutorial_timer = 4.0
         self.scan_timer = 0.0
         self.discovery_msg = ""
         self.msg_timer = 0.0
@@ -90,10 +88,7 @@ class MarineWorld(BaseWorld):
             self.draw(canvas, player)
             return
 
-        # tick_timer handled by engine
-        if self.tutorial_timer > 0:
-            self.tutorial_timer = max(0.0, self.tutorial_timer - dt)
-
+        self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
 
         # Buoyancy: Player.update overwrites velocity each frame, so apply a simple positional lift.
@@ -183,6 +178,7 @@ class MarineWorld(BaseWorld):
              else:
                  self.message = "Expedition failure! Too little data collected before blackout."
 
+        self.update_particles(dt)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
@@ -234,10 +230,4 @@ class MarineWorld(BaseWorld):
         canvas.create_text(WIDTH-100, 80, text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Arial", 12, "bold"))
         canvas.create_text(WIDTH-100, 105, text=f"Samples: {self.collected_count}/3", fill="#fff", font=("Arial", 12, "bold"))
 
-        if self.tutorial_timer > 0.0 and not self.finished:
-             canvas.create_rectangle(150, 120, WIDTH - 150, 210, fill="#07182a", outline="#ffffff", width=2)
-             canvas.create_text(WIDTH / 2, 145, text="Dive Mission", fill="#ffffff", font=("Arial", 16, "bold"))
-             canvas.create_text(WIDTH / 2, 178, text="Move with WASD/arrows. Hold SPACE near a fish to scan.", fill="#dcecff", font=("Arial", 10, "bold"))
-
         if self.finished: self.draw_result(canvas)
-        self.draw_hud(canvas)

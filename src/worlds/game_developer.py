@@ -613,11 +613,10 @@ class GameDeveloperWorld(BaseWorld):
         self.support_pos = (740.0, 420.0)
 
         self.briefing = [
-            "Stand at the Dev Desk and hold SPACE to build progress. You do not code effectively in the middle of the room.",
-            "Run through red bugs to squash them before they attach to the desk and drain stability.",
-            "Run through orange complaint cards to clear community backlash before motivation tanks.",
-            "Use abilities on key press: Shift dash, C coffee, E emergency patch, X craft patch kits, F debug burst later.",
-            "Ship each feature unlock, then hold the launch together when the final window opens.",
+            "SHIP the game by building features at the DEV DESK (SPACE).",
+            "SQUASH bugs (Red) and CLEAR complaints (Orange) by moving over them.",
+            "USE abilities: Shift (Dash), C (Coffee), E (Patch), X (Craft).",
+            "MAINTAIN high stability and motivation to reach the launch window."
         ]
         self.warning = "If Stability hits 0: crash. If Motivation hits 0: burnout."
         self.hints = [

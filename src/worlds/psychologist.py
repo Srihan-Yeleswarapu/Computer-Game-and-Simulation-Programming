@@ -16,10 +16,10 @@ class PsychologistWorld(BaseWorld):
             duration=90.0,
         )
         self.briefing = [
-            "CLINIC OVERLOAD: Four clients arrive with different emotional needs.",
-            "Move between rooms, read each client's presentation, and choose the right support approach.",
-            "Use grounding for panic, breathing for acute physiological arousal, reflection for grief or overwhelm,",
-            "and reframing for distorted self-talk. Wrong interventions damage trust and raise distress.",
+            "STABILIZE 4 clients in the intake wing.",
+            "MATCH the intervention key (1-4) to each client's specific needs.",
+            "HOLD SPACE while near a client to provide therapy.",
+            "PREVENT distress from reaching 100% or the session fails."
         ]
         self.hints = [
             "Tip: Match the intervention to the client's cue words, not just the distress meter.",
@@ -118,7 +118,7 @@ class PsychologistWorld(BaseWorld):
 
         templates = random.sample(self.client_templates, 4)
         base_distress = [34.0, 48.0, 56.0, 42.0]
-        base_rates = [1.15, 2, 2.1, 1.7]
+        base_rates = [0.95, 1.6, 1.7, 1.4]
         self.patients = []
         for index, template in enumerate(templates):
             x, y = self.room_positions[index]
@@ -271,7 +271,7 @@ class PsychologistWorld(BaseWorld):
             self.finished = True
             self.success = False
             self.message = "Clinic escalation: a client decompensated before the room could be stabilized."
-            self.grade = "C"
+            self.grade = "F"
         elif self.completed_sessions >= 4:
             self.finished = True
             self.success = True

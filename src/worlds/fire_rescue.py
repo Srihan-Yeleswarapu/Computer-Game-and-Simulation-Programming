@@ -14,11 +14,9 @@ class FireRescueWorld(BaseWorld):
             duration=55.0,
         )
         self.briefing = [
-             "EMERGENCY CALL: A high-rise building is currently ablaze downtown.",
-             "As a senior firefighter, your mission is to locate 3 survivors",
-             "trapped in the smoke-filled upper floors.",
-             "Avoid the rapidly spreading flames and guide them back to the fire exit.",
-             "Warning: Smoke inhalation and heat exhaustion will limit your time!"
+             "RESCUE 5 survivors and bring them to the CREW DOOR.",
+             "STAND NEAR survivors to free them, then carry them.",
+             "WATCH OUT for flames—they drain your time on contact!"
         ]
         self.hints = [
              "Tip: Stay low! Use WASD to navigate the floor plan.",
@@ -79,6 +77,7 @@ class FireRescueWorld(BaseWorld):
         ]
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.update_particles(dt)
         if self.finished:
             self.draw(canvas, player)
             return

@@ -52,9 +52,9 @@ class BaseWorld:
         if self.finished:
             return
 
-        if self.intro_timer > 0.0:
-            self.intro_timer -= dt
-            return
+        # if self.intro_timer > 0.0:
+        #     self.intro_timer -= dt
+        #     return
 
         self.timer = max(0.0, self.timer - dt)
         if self.timer <= 0.0 and self.auto_finish_on_timer:
@@ -144,13 +144,23 @@ class BaseWorld:
             text=f"Time: {self.timer:05.1f}s",
         )
         
-        if self.intro_timer > 0.0 and not self.finished:
-            canvas.create_rectangle(WIDTH/2 - 250, HEIGHT/2 - 40, WIDTH/2 + 250, HEIGHT/2 + 40, fill="#1c2838", outline="#5fb6ff", width=2)
-            canvas.create_text(WIDTH/2, HEIGHT/2 - 15, text="Read the briefing. Game is PAUSED.", fill="#ffffff", font=("Helvetica", 14, "bold"))
-            canvas.create_text(WIDTH/2, HEIGHT/2 + 15, text="Move (WASD/Arrows) to start the timer.", fill="#50fa7b", font=("Helvetica", 16, "bold"))
-        elif self.afk_timer > 5.0 and not self.finished:
-            canvas.create_text(WIDTH/2, HEIGHT/2 - 60, text="AFK DETECTED. DO SOMETHING!", fill="#50fa7b", font=("Helvetica", 24, "bold"))
-            canvas.create_text(WIDTH/2, HEIGHT/2 - 30, text="Move with WASD or Arrows. Press SPACE to interact.", fill="#50fa7b", font=("Helvetica", 14, "bold"))
+        # if self.intro_timer > 0.0 and not self.finished:
+        #     # Box for simplified instructions
+        #     panel_w, panel_h = 500, 160
+        #     canvas.create_rectangle(WIDTH/2 - panel_w/2, HEIGHT/2 - panel_h/2, WIDTH/2 + panel_w/2, HEIGHT/2 + panel_h/2, fill="#1c2838", outline="#5fb6ff", width=2)
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 - panel_h/2 + 25, text="MISSION BRIEFING", fill="#5fb6ff", font=("Helvetica", 12, "bold"))
+        #     
+        #     # Show first 2-3 lines of briefing as 'simple instructions'
+        #     main_brief = "\n".join(self.briefing[:3]) if self.briefing else "Task starting..."
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 - 5, text=main_brief, fill="#ffffff", font=("Helvetica", 11, "bold"), width=panel_w - 40, justify="center")
+        #     
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 + panel_h/2 - 25, text="MOVE (WASD) TO BEGIN", fill="#50fa7b", font=("Helvetica", 14, "bold"))
+        #     
+        # elif self.afk_timer > 5.0 and not self.finished:
+        #     canvas.create_rectangle(WIDTH/2 - 200, HEIGHT/2 - 60, WIDTH/2 + 200, HEIGHT/2 + 20, fill="#1c2838", outline="#50fa7b", width=2)
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 - 35, text="AFK DETECTED", fill="#50fa7b", font=("Helvetica", 18, "bold"))
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 - 5, text="Move to continue current task", fill="#ffffff", font=("Helvetica", 11))
+        #     canvas.create_text(WIDTH/2, HEIGHT/2 + 10, text="Use WASD / Arrows / Space", fill="#ffffff", font=("Helvetica", 10))
 
     def draw_particles(self, canvas: tk.Canvas) -> None:
         for particle in self.particles:
