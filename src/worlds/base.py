@@ -1,3 +1,4 @@
+import math
 import tkinter as tk
 from typing import Set
 
@@ -34,6 +35,14 @@ class BaseWorld:
         self._pressed: dict[str, bool] = {}
         self.intro_timer = 10.0
         self.afk_timer = 0.0
+        self.adaptive_hint_text = ""
+        self.adaptive_hint_target: tuple[float, float] | None = None
+        self.adaptive_hint_timer = 0.0
+        self.adaptive_hint_ready = True
+        self.adaptive_hint_threshold = 5.0
+        self.adaptive_hint_duration = 2.2
+        self._last_player_position: tuple[float, float] | None = None
+        self._hud_player: Player | None = None
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -71,6 +80,17 @@ class BaseWorld:
         self.keys.clear()
         self._pressed = {}
 
+    def start_session(self, player: Player) -> None:
+        self.clear_input_state()
+        self.afk_timer = 0.0
+        self.intro_timer = 0.0
+        self.adaptive_hint_text = ""
+        self.adaptive_hint_target = None
+        self.adaptive_hint_timer = 0.0
+        self.adaptive_hint_ready = True
+        self._last_player_position = (player.x, player.y)
+        self._hud_player = player
+
     def just_pressed(self, keys: set[str], key: str) -> bool:
         is_down = key in keys
         was_down = self._pressed.get(key, False)
@@ -85,17 +105,156 @@ class BaseWorld:
         return is_down and not was_down
 
     def update_particles(self, dt: float) -> None:
-        if not self.keys:
-            self.afk_timer += dt
-        else:
-            self.afk_timer = 0.0
-            self.intro_timer = 0.0
-            
         for particle in self.particles:
             particle.update(dt)
         self.particles = [particle for particle in self.particles if not particle.is_dead()]
         if self.shake > 0:
             self.shake = max(0.0, self.shake - dt * 20)
+
+    def update_adaptive_guidance(self, dt: float, player: Player, keys: set[str]) -> None:
+        self._hud_player = player
+        moved = False
+        if self._last_player_position is not None:
+            last_x, last_y = self._last_player_position
+            moved = math.hypot(player.x - last_x, player.y - last_y) > 1.5
+
+        if moved or bool(keys):
+            self.afk_timer = 0.0
+            self.adaptive_hint_ready = True
+        else:
+            self.afk_timer += dt
+            if self.afk_timer >= self.adaptive_hint_threshold and self.adaptive_hint_ready and not self.finished:
+                self.show_adaptive_hint(player)
+                self.adaptive_hint_ready = False
+
+        self.adaptive_hint_timer = max(0.0, self.adaptive_hint_timer - dt)
+        self._last_player_position = (player.x, player.y)
+
+    def show_adaptive_hint(self, player: Player) -> None:
+        hint_text, hint_target = self.get_adaptive_hint(player)
+        self.adaptive_hint_text = hint_text
+        self.adaptive_hint_target = hint_target
+        self.adaptive_hint_timer = self.adaptive_hint_duration if hint_text else 0.0
+
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        # Fire rescue style carry objective.
+        if hasattr(self, "carrying") and hasattr(self, "DOOR_ZONE") and hasattr(self, "survivors"):
+            carrying = getattr(self, "carrying", None)
+            door = getattr(self, "DOOR_ZONE", None)
+            if carrying and door:
+                x1, y1, x2, y2 = door
+                return ("Carry the survivor to the crew door.", ((x1 + x2) / 2, (y1 + y2) / 2))
+
+            survivors = [s for s in getattr(self, "survivors", []) if s.get("state") != "saved"]
+            if survivors:
+                target = min(survivors, key=lambda s: math.hypot(player.x - float(s["x"]), player.y - float(s["y"])))
+                state = str(target.get("state", "trapped"))
+                if state == "trapped":
+                    return ("Move onto a survivor to start freeing them.", (float(target["x"]), float(target["y"])))
+                if state == "freeing":
+                    return ("Stay close until the trapped survivor is freed.", (float(target["x"]), float(target["y"])))
+                return ("Touch the freed survivor, then evacuate them.", (float(target["x"]), float(target["y"])))
+
+        # Doctor-style station -> patient workflow.
+        if hasattr(self, "patients") and hasattr(self, "tool_catalog"):
+            patients = [p for p in getattr(self, "patients", []) if p.get("status") == "waiting"]
+            if patients:
+                patient = min(patients, key=lambda p: float(p.get("stability", 100.0)))
+                patient_target = (float(patient["x"]), float(patient["y"]))
+                held_item = getattr(self, "held_item", "")
+                if not held_item:
+                    tool = next((t for t in getattr(self, "tool_catalog", []) if t.get("type") == patient.get("tool")), None)
+                    if tool:
+                        return (f"Grab {patient['tool_name']} for the weakest patient.", (float(tool["x"]), float(tool["y"])))
+                    return (f"Read the chart and prepare {patient['tool_name']}.", patient_target)
+                if held_item != patient.get("tool"):
+                    tool = next((t for t in getattr(self, "tool_catalog", []) if t.get("type") == patient.get("tool")), None)
+                    if tool:
+                        return (f"Swap to {patient['tool_name']} for {patient['condition']}.", (float(tool["x"]), float(tool["y"])))
+                return (f"Hold SPACE at {patient['condition']} to stabilize them.", patient_target)
+
+        # Ordered node / deploy objective.
+        if hasattr(self, "nodes") and hasattr(self, "index"):
+            nodes = getattr(self, "nodes", [])
+            index = int(getattr(self, "index", 0))
+            if 0 <= index < len(nodes):
+                node = nodes[index]
+                return (f"Move to {node['name']} and stay inside the glowing node.", (float(node["x"]), float(node["y"])))
+            deploy = getattr(self, "deploy_point", None)
+            if deploy:
+                return ("Head to DEPLOY and hold position to ship the fix.", (float(deploy["x"]), float(deploy["y"])))
+
+        # Studio chaos world.
+        if hasattr(self, "desk_pos") and hasattr(self, "systems") and hasattr(self, "bugs") and hasattr(self, "complaints"):
+            desk_x, desk_y = getattr(self, "desk_pos")
+            if getattr(self, "in_launch_window", False):
+                if getattr(self.bugs, "count")() > 0:
+                    nearest_bug = min(self.bugs.bugs, key=lambda bug: math.hypot(player.x - bug.x, player.y - bug.y))
+                    return ("Squash nearby bugs and survive until launch finishes.", (nearest_bug.x, nearest_bug.y))
+                return ("Stay mobile and protect the build until launch ends.", (desk_x, desk_y))
+            if self.bugs.count() >= 6:
+                nearest_bug = min(self.bugs.bugs, key=lambda bug: math.hypot(player.x - bug.x, player.y - bug.y))
+                return ("Dash through the bug swarm before stability collapses.", (nearest_bug.x, nearest_bug.y))
+            if self.complaints.count() >= 4 and self.complaints.popups:
+                nearest_popup = min(self.complaints.popups, key=lambda popup: math.hypot(player.x - popup.x, player.y - popup.y))
+                return ("Run through orange complaint cards to calm the feed.", (nearest_popup.x, nearest_popup.y))
+            if self.systems.progress >= 100.0:
+                return ("The feature is ready. Ship it from the Dev Desk.", (desk_x, desk_y))
+            if math.hypot(player.x - desk_x, player.y - desk_y) > 96.0:
+                return ("Move back to the Dev Desk and hold SPACE to build.", (desk_x, desk_y))
+            return ("Hold SPACE at the Dev Desk to keep progress climbing.", (desk_x, desk_y))
+
+        status = self.message.strip() if self.message else ""
+        if status:
+            return (status, None)
+        return ("Keep moving toward the current objective. Press H again anytime.", None)
+
+    def draw_adaptive_hint(self, canvas: tk.Canvas, player: Player | None) -> None:
+        if self.adaptive_hint_timer <= 0.0 or not self.adaptive_hint_text or self.finished or player is None:
+            return
+
+        panel_w = min(620, WIDTH - 120)
+        panel_h = 82
+        x1 = WIDTH / 2 - panel_w / 2
+        y1 = HEIGHT - 134
+        x2 = WIDTH / 2 + panel_w / 2
+        y2 = y1 + panel_h
+        canvas.create_rectangle(x1, y1, x2, y2, fill="#0d2417", outline="#50fa7b", width=4)
+        canvas.create_text(
+            WIDTH / 2,
+            y1 + 24,
+            text="ADAPTIVE HINT",
+            fill="#8dffae",
+            font=("Helvetica", 14, "bold"),
+        )
+        canvas.create_text(
+            WIDTH / 2,
+            y1 + 53,
+            text=self.adaptive_hint_text,
+            fill="#d9ffe5",
+            font=("Helvetica", 18, "bold"),
+            width=panel_w - 36,
+            justify="center",
+        )
+
+        if self.adaptive_hint_target is None:
+            return
+
+        tx, ty = self.adaptive_hint_target
+        dx = tx - player.x
+        dy = ty - player.y
+        dist = math.hypot(dx, dy)
+        if dist < 1.0:
+            return
+
+        ux = dx / dist
+        uy = dy / dist
+        start_x = player.x + ux * max(player.size + 16, 34)
+        start_y = player.y + uy * max(player.size + 16, 34)
+        end_x = start_x + ux * min(150.0, max(70.0, dist * 0.35))
+        end_y = start_y + uy * min(150.0, max(70.0, dist * 0.35))
+        canvas.create_line(start_x, start_y, end_x, end_y, fill="#50fa7b", width=6, arrow="last", arrowshape=(18, 22, 8))
+        canvas.create_oval(tx - 16, ty - 16, tx + 16, ty + 16, outline="#50fa7b", width=3)
 
     def calculate_grade(self) -> str:
         if self.grade != "-":
@@ -143,6 +302,15 @@ class BaseWorld:
             font=("Helvetica", 14, "bold"),
             text=f"Time: {self.timer:05.1f}s",
         )
+        canvas.create_text(
+            WIDTH - 15,
+            HEIGHT - 42,
+            anchor="e",
+            fill="#8dffae" if not self.high_contrast else "#ffff00",
+            font=("Helvetica", 10, "bold"),
+            text="Press H for help",
+        )
+        self.draw_adaptive_hint(canvas, self._hud_player)
         
         # if self.intro_timer > 0.0 and not self.finished:
         #     # Box for simplified instructions

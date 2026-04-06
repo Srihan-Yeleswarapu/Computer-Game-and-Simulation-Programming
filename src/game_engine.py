@@ -116,6 +116,12 @@ class GameEngine:
             self.selected_world_index = self.world_order.index(hovered)
 
     def on_key_press(self, event: tk.Event) -> None:
+        lower_key = event.keysym.lower()
+        if self.state == "world" and lower_key == "h" and self.active_world:
+            self.active_world.show_adaptive_hint(self.player)
+            self.keys.discard(event.keysym)
+            return
+
         if event.keysym in self.held_keys_to_ignore:
             return
         self.keys.add(event.keysym)
@@ -134,7 +140,6 @@ class GameEngine:
         except (ValueError, TypeError):
             pass
 
-        lower_key = event.keysym.lower()
         if self.state == "title" and event.keysym in {"space", "Return"}:
             self.state = "menu"
             self.message = "Browse with arrow keys or hover cards, then press Enter."
@@ -234,6 +239,7 @@ class GameEngine:
     def start_world(self, key: str) -> None:
         self.active_world = self.worlds[key]
         self.active_world.reset(self.player)
+        self.active_world.start_session(self.player)
         self.active_world.high_contrast = self.high_contrast
         self.keys.clear()
         self.active_world.clear_input_state()
@@ -294,6 +300,7 @@ class GameEngine:
                 print(f"CRASH in {self.active_world.name}: {error}")
                 self.return_to_menu()
                 return
+            self.active_world.update_adaptive_guidance(dt, self.player, self.keys)
 
             if self.active_world.finished:
                 self.active_world.grade = self.active_world.calculate_grade()
