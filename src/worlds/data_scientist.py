@@ -11,7 +11,7 @@ class DataScientistWorld(BaseWorld):
         super().__init__(
             name="Data Scientist",
             summary="Analyze data to predict system outcomes",
-            duration=90.0,
+            duration=72.0,
         )
         self.briefing = [
              "DATA ALERT: Massive dataset incoming!",
@@ -31,7 +31,7 @@ class DataScientistWorld(BaseWorld):
 
     def reset(self, player: Player) -> None:
         player.reset(WIDTH / 2, HEIGHT - 50)
-        self.timer = self.duration
+        self.timer = 72.0
         self.finished = False
         self.success = False
         self.message = ""
@@ -51,8 +51,8 @@ class DataScientistWorld(BaseWorld):
         # Drain accuracy slowly over time
         self.model_accuracy = max(0.0, self.model_accuracy - dt * 2.5)
         
-        # Spawn data
-        if random.random() < 1.0 * dt:
+        # Spawn data - 30% increase
+        if random.random() < 1.3 * dt:
             typ = random.choice(["valid", "anomaly", "bonus"])
             if typ == "valid": color, speed = "#2ed573", 100
             elif typ == "anomaly": color, speed = "#ff4757", 150

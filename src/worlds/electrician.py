@@ -50,7 +50,7 @@ class ElectricianWorld(BaseWorld):
             {"name": "Air handler relay chatter", "group": "hvac", "symptom": "Control relay is cycling rapidly under demand.", "severity": 19.0, "repair_time": 3.5},
         ]
         self.breaker_panel = {"x": self.BOARD_LEFT + 78.0, "y": self.BOARD_BOTTOM - 66.0}
-        self.main_panel = {"x": self.BOARD_RIGHT - 88.0, "y": self.BOARD_TOP + 90.0}
+        self.main_panel = {"x": self.BOARD_RIGHT - 60.0, "y": self.BOARD_TOP + 280.0}
         self.fault_positions = [
             (self.BOARD_LEFT + 180.0, self.BOARD_TOP + 72.0),
             (self.BOARD_LEFT + 390.0, self.BOARD_TOP + 54.0),

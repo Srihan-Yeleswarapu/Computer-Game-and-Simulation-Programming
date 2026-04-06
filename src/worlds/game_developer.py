@@ -650,6 +650,7 @@ class GameDeveloperWorld(BaseWorld):
         self.slack_pings: list[dict[str, Any]] = []
         self.ping_timer = 5.0
         self.status_text = ""
+        self.in_launch_window = False
 
     def _load_meta(self) -> dict[str, int | float]:
         default: dict[str, int | float] = {"best_features": 0, "clears": 0}
@@ -702,6 +703,7 @@ class GameDeveloperWorld(BaseWorld):
         self.automation_on = False
         self.slack_pings = []
         self.ping_timer = 4.0
+        self.in_launch_window = False
 
         self.shake = 0.0
         self.particles = []

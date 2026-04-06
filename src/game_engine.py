@@ -81,6 +81,7 @@ class GameEngine:
         self.mouse_x = 0
         self.mouse_y = 0
         self.music_on = bool(self.save_system.get_setting("music_on", True))
+        self.held_keys_to_ignore: set[str] = set()
 
         self.logo_img: tk.PhotoImage | None = None
         self.logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "logo.png"))
@@ -115,6 +116,8 @@ class GameEngine:
             self.selected_world_index = self.world_order.index(hovered)
 
     def on_key_press(self, event: tk.Event) -> None:
+        if event.keysym in self.held_keys_to_ignore:
+            return
         self.keys.add(event.keysym)
 
         try:
@@ -182,6 +185,7 @@ class GameEngine:
 
     def on_key_release(self, event: tk.Event) -> None:
         self.keys.discard(event.keysym)
+        self.held_keys_to_ignore.discard(event.keysym)
 
     def on_click(self, event: tk.Event) -> None:
         if self.state != "menu":
@@ -233,6 +237,7 @@ class GameEngine:
         self.active_world.clear_input_state()
         self.state = "briefing"
         self.message = ""
+        self.held_keys_to_ignore.update(self.keys)
 
     def return_to_menu(self) -> None:
         if self.active_world and self.state == "result" and self.active_world.success:
@@ -244,6 +249,7 @@ class GameEngine:
 
         self.state = "menu"
         self.active_world = None
+        self.held_keys_to_ignore.update(self.keys)
         self.keys.clear()
         comp_count = self.save_system.get_completed_world_count()
         if comp_count >= len(self.world_order):
@@ -289,6 +295,7 @@ class GameEngine:
             if self.active_world.finished:
                 self.active_world.grade = self.active_world.calculate_grade()
                 self.state = "result"
+                self.held_keys_to_ignore.update(self.keys)
         elif self.state == "result" and self.active_world:
             self.active_world.draw(self.canvas, self.player)
         elif self.state == "help":
