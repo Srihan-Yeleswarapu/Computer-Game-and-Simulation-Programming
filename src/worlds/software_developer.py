@@ -15,7 +15,7 @@ class SoftwareDeveloperWorld(BaseWorld):
     def __init__(self) -> None:
         super().__init__(
             name="Software Developer",
-        summary="Triage production incidents, implement fixes, and ship a stable release.",
+            summary="Triage production incidents, implement fixes, and ship a stable release.",
             duration=95.0,
         )
         self.briefing = [
@@ -33,20 +33,40 @@ class SoftwareDeveloperWorld(BaseWorld):
         ]
         self.bounds = (40.0, 64.0, WIDTH - 40.0, HEIGHT - 48.0)
         self.service_positions = [
-            (200.0, 170.0),
-            (470.0, 155.0),
-            (740.0, 170.0),
+            (120.0, 220.0), # Auth (Top Left)
+            (480.0, 210.0), # Billing (Top Center)
+            (840.0, 220.0), # Search (Top Right)
         ]
         self.tickets: list[dict[str, Any]] = []
         self.workstations = {
-            "desk": {"x": 320.0, "y": 410.0, "label": "IDE DESK", "key": "c"},
-            "deploy": {"x": 810.0, "y": 500.0, "label": "DEPLOY", "key": "e"},
+            "desk": {"x": 150.0, "y": 480.0, "label": "IDE DESK", "key": "c"},
+            "deploy": {"x": 810.0, "y": 480.0, "label": "DEPLOY", "key": "e"},
         }
         self.pings = [
-            {"x": 185.0, "y": 500.0, "timer": 0.0},
-            {"x": 130.0, "y": 350.0, "timer": 0.0},
-            {"x": 840.0, "y": 355.0, "timer": 0.0},
+            {"x": 100.0, "y": 280.0, "timer": 0.0},
+            {"x": 300.0, "y": 240.0, "timer": 0.0},
+            {"x": 500.0, "y": 260.0, "timer": 0.0},
+            {"x": 700.0, "y": 240.0, "timer": 0.0},
+            {"x": 860.0, "y": 280.0, "timer": 0.0},
+            {"x": 480.0, "y": 400.0, "timer": 0.0},
+            {"x": 300.0, "y": 520.0, "timer": 0.0},
+            {"x": 660.0, "y": 520.0, "timer": 0.0},
+            {"x": 480.0, "y": 560.0, "timer": 0.0},
+            {"x": 300.0, "y": 180.0, "timer": 0.0},
+            {"x": 660.0, "y": 180.0, "timer": 0.0},
+            {"x": 100.0, "y": 180.0, "timer": 0.0}, # Top Left Corner
+            {"x": 860.0, "y": 180.0, "timer": 0.0}, # Top Right Corner
+            {"x": 100.0, "y": 560.0, "timer": 0.0}, # Bottom Left Corner
+            {"x": 860.0, "y": 560.0, "timer": 0.0}, # Bottom Right Corner
+            {"x": 480.0, "y": 180.0, "timer": 0.0}, # Center Top
+            {"x": 200.0, "y": 380.0, "timer": 0.0}, # Left Mid
+            {"x": 760.0, "y": 380.0, "timer": 0.0}, # Right Mid
+            {"x": 50.0, "y": 320.0, "timer": 0.0},  # Edges
+            {"x": 910.0, "y": 320.0, "timer": 0.0}, # Edges
+            {"x": 400.0, "y": 480.0, "timer": 0.0}, # Filling gaps
+            {"x": 560.0, "y": 480.0, "timer": 0.0}, # Filling gaps
         ]
+
         self.focus = 100.0
         self.completed_tickets = 0
         self.current_ticket_index = 0
@@ -134,25 +154,28 @@ class SoftwareDeveloperWorld(BaseWorld):
         inactive = [ping for ping in self.pings if ping["timer"] <= 0.0]
         if self.ping_spawn_timer <= 0.0 and inactive:
             ping = random.choice(inactive)
-            ping["timer"] = random.uniform(5.0, 8.0)
-            self.ping_spawn_timer = random.uniform(4.0, 6.5)
+            ping["timer"] = random.uniform(6.0, 9.0)
+            self.ping_spawn_timer = random.uniform(1.8, 3.2)
 
+        q_pressed = "q" in keys or "Q" in keys
         for ping in self.pings:
             if ping["timer"] <= 0.0:
                 continue
             ping["timer"] = max(0.0, ping["timer"] - dt)
-            if self.near(player, float(ping["x"]), float(ping["y"]), 46.0) and "q" in keys:
+            if self.near(player, float(ping["x"]), float(ping["y"]), 52.0) and q_pressed:
                 ping["timer"] = 0.0
-                self.focus = clamp(self.focus + 10.0, 0.0, 100.0)
-                self.message = "Inbox cleared. You bought yourself some focus."
+                self.focus = clamp(self.focus + 12.0, 0.0, 100.0)
+                self.message = "Q key: Inbox cleared! Focus restored."
                 self.message_timer = 1.4
+                self.shake = 1.5
             elif ping["timer"] <= 0.0:
-                self.message = "A ping escalated because nobody answered it."
+                self.focus = clamp(self.focus - 8.0, 0.0, 100.0)
+                self.message = "A ping escalated! Focus lost."
                 self.message_timer = 1.5
 
     def work_ticket(self, dt: float, player: Player, keys: set[str]) -> None:
         ticket = self.active_ticket()
-        if ticket is None:
+        if not ticket:
             return
 
         target_key = ""
@@ -224,12 +247,7 @@ class SoftwareDeveloperWorld(BaseWorld):
             self.success = complete and self.focus >= 30.0
             if self.success:
                 self.message = "Release shipped smoothly. The sprint board is empty."
-                if self.focus >= 70.0 and self.timer >= 25.0:
-                    self.grade = "S"
-                elif self.focus >= 50.0 and self.timer >= 12.0:
-                    self.grade = "A"
-                else:
-                    self.grade = "B"
+                self.grade = self.calculate_grade()
             else:
                 self.grade = "C"
                 self.message = "The build shipped but focus or completion was lacking."
@@ -246,13 +264,12 @@ class SoftwareDeveloperWorld(BaseWorld):
             self.success = reviewed == len(self.tickets) and self.focus >= 25.0
             if self.success:
                 self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
-                self.grade = "B"
+                self.grade = self.calculate_grade()
             else:
                 self.grade = "F"
                 self.message = "The release train missed the window."
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
-        self.keys = keys
         if self.finished:
             self.draw(canvas, player)
             return
@@ -311,35 +328,38 @@ class SoftwareDeveloperWorld(BaseWorld):
         for y in range(52, HEIGHT, 36):
             canvas.create_line(18, y, WIDTH - 18, y, fill="#101b27")
 
-        active_ticket = self.active_ticket()
+        active_t = self.active_ticket()
         for index, ticket in enumerate(self.tickets):
             self.draw_ticket_card(canvas, index, ticket)
+            tx, ty = float(ticket["x"]), float(ticket["y"])
             color = "#ff5d73" if ticket["stage"] == "incident" else "#f6c85f" if ticket["stage"] == "coding" else "#4bd18b"
             radius = 34 if index == self.current_ticket_index else 28
             outline = "#ffffff" if index == self.current_ticket_index else "#1f2b36"
-            canvas.create_oval(float(ticket["x"]) - radius, float(ticket["y"]) - radius, float(ticket["x"]) + radius, float(ticket["y"]) + radius, fill=color, outline=outline, width=3 if index == self.current_ticket_index else 1)
-            canvas.create_text(float(ticket["x"]), float(ticket["y"]) - 4, text=str(ticket["service"]), fill="#ffffff", font=("Courier", 9, "bold"))
-            canvas.create_text(float(ticket["x"]), float(ticket["y"]) + 14, text=str(ticket["severity"]), fill="#08111b", font=("Courier", 11, "bold"))
+            canvas.create_oval(tx - radius, ty - radius, tx + radius, ty + radius, fill=color, outline=outline, width=3 if index == self.current_ticket_index else 1)
+            canvas.create_text(tx, ty - 4, text=str(ticket["service"]), fill="#ffffff", font=("Courier", 9, "bold"))
+            canvas.create_text(tx, ty + 14, text=str(ticket["severity"]), fill="#08111b", font=("Courier", 11, "bold"))
             if ticket["stage"] != "done":
-                canvas.create_rectangle(float(ticket["x"]) - 28, float(ticket["y"]) + 40, float(ticket["x"]) + 28, float(ticket["y"]) + 48, fill="#0b121a", outline="")
-                canvas.create_rectangle(float(ticket["x"]) - 28, float(ticket["y"]) + 40, float(ticket["x"]) - 28 + 56 * (float(ticket["progress"]) / 100.0), float(ticket["y"]) + 48, fill="#ffffff", outline="")
+                canvas.create_rectangle(tx - 28, ty + 40, tx + 28, ty + 48, fill="#0b121a", outline="")
+                canvas.create_rectangle(tx - 28, ty + 40, tx - 28 + 56 * (float(ticket["progress"]) / 100.0), ty + 48, fill="#ffffff", outline="")
 
-        desk_active = active_ticket is not None and active_ticket["stage"] == "coding"
-        deploy_active = active_ticket is None
+        desk_active = active_t is not None and active_t["stage"] == "coding"
+        deploy_active = active_t is None
         self.draw_station(canvas, self.workstations["desk"], desk_active)
         self.draw_station(canvas, self.workstations["deploy"], deploy_active)
 
-        if active_ticket is None:
-            canvas.create_rectangle(730, 548, 890, 558, fill="#09111b", outline="")
-            canvas.create_rectangle(730, 548, 730 + 160 * (self.deploy_progress / 100.0), 558, fill="#4bd18b", outline="")
+        if active_t is None:
+            bx, by = 380, 500
+            canvas.create_rectangle(bx, by, bx + 200, by + 10, fill="#09111b", outline="#20384d")
+            canvas.create_rectangle(bx, by, bx + 200 * (self.deploy_progress / 100.0), by + 10, fill="#4bd18b", outline="")
 
         for ping in self.pings:
             if ping["timer"] <= 0.0:
                 continue
+            px, py = float(ping["x"]), float(ping["y"])
             pulse = 6.0 * math.sin(ping["timer"] * 7.0)
-            canvas.create_oval(float(ping["x"]) - 22 - pulse, float(ping["y"]) - 22 - pulse, float(ping["x"]) + 22 + pulse, float(ping["y"]) + 22 + pulse, fill="#ff8c42", outline="#fff2d8", width=2)
-            canvas.create_text(float(ping["x"]), float(ping["y"]) - 4, text="PING", fill="#08111b", font=("Courier", 10, "bold"))
-            canvas.create_text(float(ping["x"]), float(ping["y"]) + 12, text="Q", fill="#08111b", font=("Courier", 12, "bold"))
+            canvas.create_oval(px - 22 - pulse, py - 22 - pulse, px + 22 + pulse, py + 22 + pulse, fill="#ff8c42", outline="#fff2d8", width=2)
+            canvas.create_text(px, py - 4, text="PING", fill="#08111b", font=("Courier", 10, "bold"))
+            canvas.create_text(px, py + 12, text="Q", fill="#08111b", font=("Courier", 12, "bold"))
 
         canvas.create_rectangle(32, 520, 292, 540, fill="#0a111a", outline="")
         canvas.create_rectangle(34, 522, 34 + 256 * (self.focus / 100.0), 538, fill="#8ce99a" if self.focus > 35 else "#ffb703", outline="")

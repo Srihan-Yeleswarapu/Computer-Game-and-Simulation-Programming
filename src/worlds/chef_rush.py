@@ -133,8 +133,8 @@ class ChefRushWorld(BaseWorld):
                 break
 
             if self.active_order == customer["id"] and len(self.current_steps) == 0 and self.step_progress == -1:
-                tip = int((customer["patience"] / customer["max_patience"]) * 50)
-                self.money += 100 + tip
+                earned = int(customer["patience"])
+                self.money += earned
                 self.customers_served += 1
                 customer["order"] = random.choice(list(self.recipes.keys()))
                 customer["patience"] = customer["max_patience"]
@@ -142,6 +142,7 @@ class ChefRushWorld(BaseWorld):
                 self.repeat_customer = customer
                 self.step_progress = 0.0
                 self.recipe_book_open = False
+                self.message = f"Served {customer['order']}! Earned ${earned} tip."
                 break
 
         # Route logic: go to recipe book once, then visit stations in order.
@@ -170,18 +171,21 @@ class ChefRushWorld(BaseWorld):
 
         if self.timer <= 0:
             self.finished = True
-            self.success = self.customers_served >= 3
+            # New criteria: $150 is the floor for success (C grade)
+            self.success = self.money >= 150
             if self.success:
-                self.message = f"Shift over! Served {self.customers_served} meals. Earned ${self.money}!"
-                if self.customers_served >= 7:
+                self.message = f"Shift over! Served {self.customers_served} meals. Earned total of ${self.money}!"
+                if self.money >= 300:
                     self.grade = "S"
-                elif self.customers_served >= 5:
+                elif self.money >= 250:
                     self.grade = "A"
-                elif self.customers_served >= 3:
+                elif self.money >= 200:
                     self.grade = "B"
+                else:
+                    self.grade = "C"
             else:
-                self.message = f"Restaurant failed! Only served {self.customers_served} meals."
-                self.grade = "C"
+                self.message = f"Revenue too low! Only earned ${self.money}. Restaurant closed."
+                self.grade = "F"
 
         self.draw(canvas, player)
 

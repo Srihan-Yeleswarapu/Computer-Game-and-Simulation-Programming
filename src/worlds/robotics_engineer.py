@@ -47,7 +47,7 @@ class RoboticsEngineerWorld(BaseWorld):
         self.current_req = random.choice(self.parts)
         self.robots_built = 0
         self.robot_stability = 100.0
-        player.speed = 400.0
+        player.speed = 450.0
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -100,10 +100,7 @@ class RoboticsEngineerWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Assembly complete! 2 functional prototypes built."
-            if self.timer > 40: self.grade = "S"
-            elif self.timer > 20: self.grade = "A"
-            elif self.timer > 0: self.grade = "B"
-            else: self.grade = "C"
+            self.grade = self.calculate_grade()
             
         if self.timer <= 0:
             self.finished = True

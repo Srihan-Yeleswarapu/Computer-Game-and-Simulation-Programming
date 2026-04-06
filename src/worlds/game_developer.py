@@ -608,9 +608,9 @@ class GameDeveloperWorld(BaseWorld):
         )
         self.auto_finish_on_timer = False
 
-        self.office_bounds = (88.0, 88.0, 872.0, 548.0)
-        self.desk_pos = (250.0, 310.0)
-        self.support_pos = (650.0, 310.0)
+        self.office_bounds = (80.0, 80.0, 880.0, 520.0)
+        self.desk_pos = (220.0, 180.0)
+        self.support_pos = (740.0, 420.0)
 
         self.briefing = [
             "Stand at the Dev Desk and hold SPACE to build progress. You do not code effectively in the middle of the room.",
@@ -646,9 +646,9 @@ class GameDeveloperWorld(BaseWorld):
         self.flicker_strength = 0.0
         self.action_lock = 0.0
 
-        self.in_launch_window = False
-        self.launch_timer = 0.0
         self.automation_on = False
+        self.slack_pings: list[dict[str, Any]] = []
+        self.ping_timer = 5.0
         self.status_text = ""
 
     def _load_meta(self) -> dict[str, int | float]:
@@ -699,9 +699,9 @@ class GameDeveloperWorld(BaseWorld):
         self.action_lock = 0.0
         self.status_text = "Code at the Dev Desk. Stomp bugs. Clear complaints."
 
-        self.in_launch_window = False
-        self.launch_timer = 0.0
         self.automation_on = False
+        self.slack_pings = []
+        self.ping_timer = 4.0
 
         self.shake = 0.0
         self.particles = []
@@ -745,6 +745,7 @@ class GameDeveloperWorld(BaseWorld):
         patch_pressed = self.just_pressed(keys, "e")
         craft_pressed = self.just_pressed(keys, "x")
         debug_pressed = self.just_pressed(keys, "f")
+        ping_pressed = self.just_pressed(keys, "q")
 
         # Baseline drains (the "job"), scaled up by shipped features.
         self.systems.add_motivation(-(0.08 + 0.025 * self.difficulty.level) * dt)
@@ -809,6 +810,18 @@ class GameDeveloperWorld(BaseWorld):
                 self._spawn_particles(player.x, player.y, "#ffb86c", 22, 260)
                 self.action_lock = 0.14
 
+            # Slack Pings (Q)
+            if ping_pressed:
+                for ping in list(self.slack_pings):
+                    if math.hypot(player.x - ping["x"], player.y - ping["y"]) < 60:
+                        self.slack_pings.remove(ping)
+                        self.systems.add_motivation(8.0)
+                        self.systems.add_stability(2.0)
+                        self.toast_text = "Ping cleared: Technical debt addressed."
+                        self.toast_timer = 1.2
+                        self.shake = 0.5
+                        break
+
         # Movement (with bug-glitch interference).
         effective_keys = set(keys)
         if bug_mod.input_glitch > 0.0 and random.random() < bug_mod.input_glitch:
@@ -826,7 +839,7 @@ class GameDeveloperWorld(BaseWorld):
 
         original_speed = player.speed
         original_accel = player.accel
-        speed = 245.0
+        speed = 380.0
         speed *= 0.72 + 0.55 * (self.systems.motivation / 100.0)
         speed *= self.abilities.dash_multiplier()
         speed *= 1.0 + (0.18 if self.abilities.coffee_boost.active > 0.0 else 0.0)
@@ -868,6 +881,24 @@ class GameDeveloperWorld(BaseWorld):
             complaint_mult *= 1.12
         self.complaints.update_spawning(dt, spawn_mult=complaint_mult)
         self.complaints.update(dt, player=player, systems=self.systems)
+
+        # Update Pings spawning
+        self.ping_timer -= dt
+        if self.ping_timer <= 0 and len(self.slack_pings) < 13:
+            px = random.uniform(self.office_bounds[0] + 50, self.office_bounds[2] - 50)
+            py = random.uniform(self.office_bounds[1] + 50, self.office_bounds[3] - 50)
+            # Avoid stations
+            if math.hypot(px - self.desk_pos[0], py - self.desk_pos[1]) > 100 and \
+               math.hypot(px - self.support_pos[0], py - self.support_pos[1]) > 100:
+                self.slack_pings.append({"x": px, "y": py, "life": random.uniform(7.0, 10.0)})
+                self.ping_timer = random.uniform(1.5, 3.5)
+
+        for ping in list(self.slack_pings):
+            ping["life"] -= dt
+            if ping["life"] <= 0:
+                self.slack_pings.remove(ping)
+                self.systems.add_motivation(-5.0)
+                self.shake = 1.0
 
         # Crash risk spikes (13+ bugs and/or System Failure).
         crash_per_sec = bug_mod.crash_risk_per_sec + chaos_fx.crash_risk_bonus
@@ -1024,6 +1055,14 @@ class GameDeveloperWorld(BaseWorld):
             py = popup.y + oy
             canvas.create_rectangle(px - 72, py - 18, px + 72, py + 18, fill="#0e1826", outline="#ffb86c", width=2)
             canvas.create_text(px, py, text=popup.text, fill="#ffe6c7", font=("Helvetica", 9, "bold"), width=140)
+
+        # Draw Pings
+        for ping in self.slack_pings:
+            px, py = ping["x"] + ox, ping["y"] + oy
+            pulse = 4 * math.sin(time.time() * 10)
+            canvas.create_oval(px - 20 - pulse, py - 20 - pulse, px + 20 + pulse, py + 20 + pulse, fill="#65d6ff", outline="#fff", width=2)
+            canvas.create_text(px, py, text="PING", fill="#000", font=("Helvetica", 10, "bold"))
+            canvas.create_text(px, py + 14, text="Q", fill="#000", font=("Helvetica", 8, "bold"))
 
         # Player (shake-aware draw).
         self._draw_player(canvas, x=player.x + ox, y=player.y + oy, size=player.size)

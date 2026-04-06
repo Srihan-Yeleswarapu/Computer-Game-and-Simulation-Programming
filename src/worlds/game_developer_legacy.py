@@ -265,7 +265,7 @@ class GameDeveloperWorld(BaseWorld):
             player.accel = 6.0
         if "enemy ai" in self.broken_systems:
             speed_scalar *= 0.92
-        player.speed = 215.0 * speed_scalar
+        player.speed = 360.0 * speed_scalar
         player.update(dt, effective_keys, self.office_bounds)
         player.speed = original_speed
         player.accel = original_accel

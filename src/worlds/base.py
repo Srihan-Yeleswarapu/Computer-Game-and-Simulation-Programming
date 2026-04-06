@@ -85,11 +85,11 @@ class BaseWorld:
             return "-"
 
         ratio = self.timer / self.duration
-        if ratio > 0.6:
+        if ratio > 0.5:
             return "S"
-        if ratio > 0.4:
+        if ratio > 0.3:
             return "A"
-        if ratio > 0.2:
+        if ratio > 0.15:
             return "B"
         return "C"
 

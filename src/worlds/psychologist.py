@@ -272,25 +272,26 @@ class PsychologistWorld(BaseWorld):
             self.success = False
             self.message = "Clinic escalation: a client decompensated before the room could be stabilized."
             self.grade = "C"
-        elif self.completed_sessions >= self.session_goal:
+        elif self.completed_sessions >= 3:
             self.finished = True
             self.success = True
             avg_rapport = sum(float(p["rapport"]) for p in self.patients) / len(self.patients)
             avg_distress = sum(float(p["distress"]) for p in self.patients) / len(self.patients)
-            self.message = "Shift complete. The clinic is calm and each client left with a targeted plan."
-            if avg_rapport >= 78 and avg_distress <= 20:
+            self.message = f"Shift complete. {self.completed_sessions} clients stabilized."
+            
+            if self.completed_sessions < 4:
+                self.grade = "C"
+            elif avg_rapport >= 78 and avg_distress <= 20:
                 self.grade = "S"
             elif avg_rapport >= 66 and avg_distress <= 30:
                 self.grade = "A"
-            elif avg_rapport >= 52 and avg_distress <= 42:
-                self.grade = "B"
             else:
-                self.grade = "C"
+                self.grade = "B"
         elif self.timer <= 0:
             self.finished = True
             self.success = False
-            self.message = f"Shift ended with {self.completed_sessions}/{self.session_goal} clients stabilized."
-            self.grade = "C"
+            self.message = f"Shift failed! Only {self.completed_sessions}/4 clients stabilized (Need 3)."
+            self.grade = "F"
 
         self.update_particles(dt)
         self.draw(canvas, player)
@@ -321,12 +322,12 @@ class PsychologistWorld(BaseWorld):
             canvas.create_text((x1 + x2) / 2, panel_y + 43, text=f"Best for {intervention['focus'].replace('_', ' ')}", fill=text_fill, font=("Helvetica", 8))
 
     def draw_patient_room(self, canvas: tk.Canvas, patient: dict[str, Any], index: int, is_active: bool, player: Player) -> None:
-        room_w = WIDTH / 2 - 72
-        room_h = 166
+        room_w = WIDTH / 2 - 40
+        room_h = 180
         room_col = index % 2
         room_row = index // 2
-        x1 = 38 + room_col * (room_w + 28)
-        y1 = 100 + room_row * (room_h + 18)
+        x1 = 20 + room_col * (room_w + 40)
+        y1 = 100 + room_row * (room_h + 20)
         x2 = x1 + room_w
         y2 = y1 + room_h
 
@@ -337,52 +338,36 @@ class PsychologistWorld(BaseWorld):
         if patient["resolved"]:
             border = "#52b788"
 
-        canvas.create_rectangle(x1, y1, x2, y2, fill=room_fill, outline=border, width=3 if is_active else 2)
-        canvas.create_text(x1 + 14, y1 + 14, anchor="nw", text=patient["name"], fill="#1d3557", font=("Helvetica", 14, "bold"))
-        canvas.create_text(x1 + 14, y1 + 35, anchor="nw", text=patient["issue"], fill="#4a657d", font=("Helvetica", 9, "bold"), width=room_w - 108)
+        canvas.create_rectangle(x1, y1, x2, y2, fill=room_fill, outline=border, width=4 if is_active else 2)
+        
+        # Name and Distress State
+        canvas.create_text(x1 + 20, y1 + 30, anchor="nw", text=patient["name"], fill="#1d3557", font=("Helvetica", 24, "bold"))
+        
+        # Distress color thing (The "Icon")
+        icon_x, icon_y = x1 + room_w - 80, y1 + 60
+        canvas.create_rectangle(icon_x - 30, icon_y - 30, icon_x + 30, icon_y + 30, fill=color, outline="#2f3e46", width=3)
+        canvas.create_text(icon_x, icon_y, text=f"{int(distress)}", fill="#fff", font=("Helvetica", 14, "bold"))
+        canvas.create_text(icon_x, icon_y + 40, text="DISTRESS", fill="#1d3557", font=("Helvetica", 10, "bold"))
 
-        bubble_fill = "#edf6ff" if not self.high_contrast else "#111111"
-        canvas.create_rectangle(x1 + 14, y1 + 60, x2 - 14, y1 + 98, fill=bubble_fill, outline="#c7d8e8")
-        canvas.create_text(x1 + 22, y1 + 70, anchor="nw", text=patient["speaking"], fill="#1f2d3d", font=("Helvetica", 8, "bold"), width=room_w - 46)
+        # The Fix: Show exactly which number to press
+        correct_key = "?"
+        for inter in self.interventions:
+            if inter["focus"] == patient["focus"]:
+                correct_key = inter["key"]
+                break
+        
+        canvas.create_text(x1 + 20, y1 + 80, anchor="nw", text=f"PRESS [{correct_key}] TO STABILIZE", fill="#1d3557", font=("Helvetica", 14, "bold"))
 
-        chair_x = x1 + 62
-        chair_y = y1 + room_h - 50
-        client_x = x2 - 66
-        client_y = y1 + room_h - 50
-        canvas.create_rectangle(chair_x - 18, chair_y - 10, chair_x + 18, chair_y + 18, fill="#8d99ae", outline="")
-        canvas.create_rectangle(client_x - 22, client_y - 14, client_x + 22, client_y + 22, fill=color, outline="#2f3e46", width=2)
-        canvas.create_text(client_x, client_y - 28, text=f"Distress {int(distress)}", fill="#1f2d3d", font=("Helvetica", 9, "bold"))
+        # Progress bar (Stabilize)
+        bar_w = room_w - 40
+        canvas.create_rectangle(x1 + 20, y2 - 40, x1 + 20 + bar_w, y2 - 20, fill="#dce7f3", outline="")
+        canvas.create_rectangle(x1 + 20, y2 - 40, x1 + 20 + bar_w * (float(patient["progress"]) / 100.0), y2 - 20, fill="#52b788", outline="")
+        canvas.create_text(x1 + 20 + bar_w / 2, y2 - 30, text="SESSION PROGRESS", fill="#1d3557", font=("Helvetica", 9, "bold"))
 
-        canvas.create_text(x1 + 14, y1 + 106, anchor="nw", text="Observed Cues", fill="#1d3557", font=("Helvetica", 9, "bold"))
-        canvas.create_text(x1 + 14, y1 + 121, anchor="nw", text=patient["notes"], fill="#44586d", font=("Helvetica", 8), width=room_w - 128)
-
-        bar_x1 = x1 + room_w - 110
-        rapport_top = y2 - 46
-        progress_top = y2 - 24
-        canvas.create_text(bar_x1, rapport_top - 15, anchor="nw", text="Rapport", fill="#1d3557", font=("Helvetica", 9, "bold"))
-        canvas.create_rectangle(bar_x1, rapport_top, x2 - 14, rapport_top + 10, fill="#dce7f3", outline="")
-        canvas.create_rectangle(bar_x1, rapport_top, bar_x1 + (x2 - 14 - bar_x1) * (float(patient["rapport"]) / 100.0), rapport_top + 10, fill="#4cc9f0", outline="")
-
-        canvas.create_text(bar_x1, progress_top - 15, anchor="nw", text="Stabilize", fill="#1d3557", font=("Helvetica", 9, "bold"))
-        canvas.create_rectangle(bar_x1, progress_top, x2 - 14, progress_top + 10, fill="#dce7f3", outline="")
-        canvas.create_rectangle(bar_x1, progress_top, bar_x1 + (x2 - 14 - bar_x1) * (float(patient["progress"]) / 100.0), progress_top + 10, fill="#52b788", outline="")
-
-        if is_active:
-            canvas.create_line(player.x, player.y, chair_x, chair_y - 4, fill="#5fa8ff", width=3, dash=(4, 3))
-            canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="SPACE", fill="#0d6efd", font=("Helvetica", 9, "bold"))
-            intervention = self.interventions[self.selected_intervention]
-            if intervention["focus"] == patient["focus"]:
-                status_text = "MATCH"
-                status_fill = "#2a9d8f"
-            elif intervention["focus"] == patient["secondary_focus"]:
-                status_text = "CLOSE"
-                status_fill = "#f4a261"
-            else:
-                status_text = "MISMATCH"
-                status_fill = "#d62828"
-            canvas.create_text(x2 - 14, y1 + 34, anchor="ne", text=status_text, fill=status_fill, font=("Helvetica", 9, "bold"))
+        if is_active and not patient["resolved"]:
+            canvas.create_line(player.x, player.y, icon_x, icon_y, fill="#5fa8ff", width=2, dash=(4, 2))
         elif patient["resolved"]:
-            canvas.create_text(x2 - 14, y1 + 16, anchor="ne", text="DONE", fill="#2a9d8f", font=("Helvetica", 9, "bold"))
+            canvas.create_text(x2 - 20, y1 + 20, anchor="ne", text="STABILIZED", fill="#2a9d8f", font=("Helvetica", 12, "bold"))
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")

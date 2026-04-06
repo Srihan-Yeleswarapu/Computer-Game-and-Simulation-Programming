@@ -182,8 +182,8 @@ class ElectricianWorld(BaseWorld):
                 if fault["state"] == "repaired":
                     fault["state"] = "online"
             self.restore_progress = 0.0
-            self.message = "Service restored to repaired branches."
-            self.message_timer = 1.6
+            self.message = "All repaired circuits are NOW ONLINE."
+            self.message_timer = 2.0
 
     def update_fault_effects(self, dt: float) -> None:
         overload = 0.0
@@ -198,18 +198,18 @@ class ElectricianWorld(BaseWorld):
 
     def evaluate_outcome(self) -> None:
         online_count = sum(1 for fault in self.faults if fault["state"] == "online")
-        if online_count == len(self.faults) and self.system_health >= 30.0:
+        if online_count == len(self.faults) and self.system_health >= 15.0:
             self.finished = True
             self.success = True
-            self.message = "Building stabilized. All circuits were repaired and safely re-energized."
-            if self.system_health >= 80.0 and self.timer >= 40.0:
+            self.message = "Building stabilized! All circuits re-energized successfully."
+            # Grade based more on quality and speed
+            if self.system_health >= 90.0:
                 self.grade = "S"
-            elif self.system_health >= 62.0 and self.timer >= 25.0:
+            elif self.system_health >= 75.0 and self.timer >= 15.0:
+                self.grade = "S"
+            elif self.system_health >= 60.0 or self.timer >= 35.0:
                 self.grade = "A"
-            elif self.system_health >= 45.0 or self.timer >= 15.0:
-                self.grade = "B"
             else:
-                # Success should never feel like a low rank if the building is stabilized.
                 self.grade = "B"
         elif self.system_health <= 0.0:
             self.finished = True
@@ -219,7 +219,7 @@ class ElectricianWorld(BaseWorld):
         elif self.timer <= 0.0:
             self.finished = True
             restored_ratio = online_count / max(1, len(self.faults))
-            self.success = restored_ratio >= 0.6 and self.system_health >= 35.0
+            self.success = restored_ratio >= 0.6 and self.system_health >= 25.0
             if self.success:
                 self.message = f"Shift ended with {online_count}/{len(self.faults)} circuits restored."
                 if restored_ratio >= 1.0:
@@ -230,7 +230,7 @@ class ElectricianWorld(BaseWorld):
                     self.grade = "C"
             else:
                 self.grade = "F"
-                self.message = "The building remained unsafe when the shift ended."
+                self.message = "Building failed safety inspections or was not fully restored."
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -271,7 +271,7 @@ class ElectricianWorld(BaseWorld):
             panel_color = "#ff6b6b" if fault["state"] == "fault" else "#ffd166" if fault["state"] == "repaired" else "#63e6be"
             canvas.create_rectangle(fault["x"] - 30, fault["y"] - 20, fault["x"] + 30, fault["y"] + 20, fill=panel_color, outline="#ffffff", width=2)
             canvas.create_text(fault["x"], fault["y"] - 32, text=fault["group"].upper(), fill="#dcecff", font=("Helvetica", 8, "bold"))
-            canvas.create_text(fault["x"], fault["y"], text="FAULT" if fault["state"] == "fault" else "FIX" if fault["state"] == "repaired" else "ON", fill="#102030", font=("Helvetica", 9, "bold"))
+            canvas.create_text(fault["x"], fault["y"], text="FAULT" if fault["state"] == "fault" else "READY" if fault["state"] == "repaired" else "ON", fill="#102030", font=("Helvetica", 9, "bold"))
             if fault["state"] == "fault":
                 progress = float(fault["repair_progress"]) / 100.0
                 canvas.create_rectangle(fault["x"] - 28, fault["y"] + 27, fault["x"] + 28, fault["y"] + 34, fill="#223546", outline="")
@@ -318,8 +318,14 @@ class ElectricianWorld(BaseWorld):
             canvas.create_text(x1 + 12, y1 + 28, anchor="w", text=label, fill="#9bc0da", font=("Helvetica", 9, "bold"))
             canvas.create_text(x1 + 12, y1 + 47, anchor="w", text=value, fill=color, font=("Helvetica", 12, "bold"))
         canvas.create_rectangle(18, y1 + 72, WIDTH - 18, HEIGHT - self.FOOTER_H - 10, fill="#101a27", outline="#2d4d67")
-        status = self.message if self.message_timer > 0.0 else "Inspect, isolate, repair, then re-energize."
-        canvas.create_text(30, y1 + 89, anchor="w", text=status, fill="#e5f3ff", font=("Helvetica", 10, "bold"), width=WIDTH - 70)
+        has_repaired = any(fault["state"] == "repaired" for fault in self.faults)
+        if self.message_timer > 0.0:
+            status = self.message
+        elif has_repaired:
+            status = ">> REPAIRS COMPLETE. RETURN TO MAIN PANEL TO RE-ENERGIZE <<"
+        else:
+            status = "Inspect, isolate, repair, then re-energize."
+        canvas.create_text(30, y1 + 89, anchor="w", text=status, fill="#ffd166" if has_repaired else "#e5f3ff", font=("Helvetica", 10, "bold"), width=WIDTH - 70)
 
     def draw_sidebar(self, canvas: tk.Canvas) -> None:
         x1 = self.BOARD_RIGHT + 10

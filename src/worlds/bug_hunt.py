@@ -75,12 +75,12 @@ class BugHuntWorld(BaseWorld):
             return
         self.tick_timer(dt)
         x1, y1, x2, y2 = self.bounds
-        player.speed = 260.0
+        player.speed = 420.0
         player.update(dt, keys, self.bounds)
         self.leak["r"] = clamp(self.leak["r"] + dt * 4.0, 40.0, 130.0)
         leak_dist = math.hypot(player.x - self.leak["x"], player.y - self.leak["y"])
         if leak_dist < self.leak["r"]:
-            player.speed = 180.0
+            player.speed = 280.0
             self.timer = max(0.0, self.timer - dt * 3)
         for glitch in self.glitches:
             glitch["x"] = float(glitch["x"]) + float(glitch.get("dx", 0.0)) * dt

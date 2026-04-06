@@ -7,16 +7,17 @@ class Player:
         self.x = WIDTH / 2
         self.y = HEIGHT / 2
         self.size = 22
-        self.speed = 260.0
+        self.speed = 400.0
         self.vx = 0.0
         self.vy = 0.0
-        self.accel = 12.0
+        self.accel = 15.0
 
     def reset(self, x: float, y: float) -> None:
         self.x = x
         self.y = y
         self.vx = 0.0
         self.vy = 0.0
+        self.speed = 400.0
 
     def update(self, dt: float, keys: set[str], bounds: tuple[float, float, float, float]) -> None:
         dx = (1 if "Right" in keys or "d" in keys else 0) - (

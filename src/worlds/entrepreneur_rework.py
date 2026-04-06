@@ -150,7 +150,8 @@ class TycoonWorld(BaseWorld):
         self.reset_market_state()
         self.active_tasks = []
         for _ in range(8):
-            self.properties.append(self.spawn_property())
+            prop = self.spawn_property()
+            if prop: self.properties.append(prop)
 
     def just_pressed(self, keys: set[str], key: str) -> bool:
         is_down = key in keys
@@ -163,10 +164,30 @@ class TycoonWorld(BaseWorld):
         catalog = list(zone["focus"]) + random.sample(list(self.asset_specs.keys()), 2)
         asset_type = random.choice(catalog)
         spec = self.asset_specs[asset_type]
-        angle = random.uniform(0.0, math.tau)
-        radius = random.uniform(0.0, zone["radius"])
-        x = clamp(zone["x"] + math.cos(angle) * radius, self.BOARD_LEFT + 52.0, self.BOARD_RIGHT - 52.0)
-        y = clamp(zone["y"] + math.sin(angle) * radius, self.BOARD_TOP + 18.0, self.BOARD_BOTTOM - 18.0)
+        
+        x, y = 0.0, 0.0
+        # Try to spawn in zone first
+        for _ in range(80):
+            angle = random.uniform(0.0, math.tau)
+            radius = random.uniform(0.0, zone["radius"])
+            tx = clamp(zone["x"] + math.cos(angle) * radius, self.BOARD_LEFT + 52.0, self.BOARD_RIGHT - 52.0)
+            ty = clamp(zone["y"] + math.sin(angle) * radius, self.BOARD_TOP + 18.0, self.BOARD_BOTTOM - 18.0)
+            
+            if not any(math.hypot(tx - p["x"], ty - p["y"]) < 95.0 for p in self.properties):
+                x, y = tx, ty
+                break
+        
+        # Global fallback if zone is too crowded
+        if x == 0.0:
+            for _ in range(100):
+                tx = random.uniform(self.BOARD_LEFT + 52.0, self.BOARD_RIGHT - 52.0)
+                ty = random.uniform(self.BOARD_TOP + 18.0, self.BOARD_BOTTOM - 18.0)
+                if not any(math.hypot(tx - p["x"], ty - p["y"]) < 95.0 for p in self.properties):
+                    x, y = tx, ty
+                    break
+        
+        if x == 0.0: return None # Don't spawn if literally no room
+
         market_price = self.market_prices[spec["price_key"]] * random.uniform(0.88, 1.12) * spec["price_scale"]
         annual_yield = random.uniform(*spec["yield_range"])
         annual_expense = random.uniform(*spec["expense_range"])
@@ -191,11 +212,15 @@ class TycoonWorld(BaseWorld):
             return gross_monthly - loan_service
 
         monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
+        
+        # User wants ~50% of deals to be positive. We force it for roughly half the spawns if it's not already.
+        is_hero_deal = random.random() < 0.55 
         boost_attempts = 0
-        while monthly_cash_flow < 0.0 and boost_attempts < 3:
-            annual_yield = min(spec["yield_range"][1], annual_yield + random.uniform(0.01, 0.05))
-            annual_expense = max(spec["expense_range"][0], annual_expense - random.uniform(0.001, 0.004))
-            occupancy = min(0.99, occupancy + random.uniform(0.01, 0.02))
+        max_boosts = 8 if is_hero_deal else 3
+        while (monthly_cash_flow < 0.0 if is_hero_deal else False) and boost_attempts < max_boosts:
+            annual_yield = min(spec["yield_range"][1], annual_yield + random.uniform(0.01, 0.06))
+            annual_expense = max(spec["expense_range"][0], annual_expense - random.uniform(0.001, 0.005))
+            occupancy = min(0.99, occupancy + random.uniform(0.01, 0.03))
             quality = min(1.25, quality + 0.05)
             risk = max(0.12, risk - 0.03)
             monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
@@ -251,9 +276,14 @@ class TycoonWorld(BaseWorld):
         down_payment_ratio = self.down_payment_ratio(risk)
         down_payment = price * down_payment_ratio
         financed_amount = price - down_payment
+        
+        # Take debt automatically if needed
         if self.cash < down_payment:
-            self.message = "Not enough cash for the down payment."
-            return
+            shortfall = down_payment - self.cash
+            self.loan_balance += shortfall
+            self.cash += shortfall
+            self.message = f"Took {self.money(shortfall)} in emergency debt to close deal."
+            
         annual_income = price * float(prop["annual_yield"]) * float(prop["occupancy"])
         annual_expense = price * float(prop["annual_expense"]) / max(0.70, float(prop["quality"]))
         annual_debt_service = financed_amount * self.loan_rate
@@ -287,7 +317,8 @@ class TycoonWorld(BaseWorld):
         self.buy_count += 1
         self.selected_detail_idx = -1
         self.ui_state = "game"
-        self.message = f"Acquired {holding['name']}."
+        if not self.message.startswith("Took"):
+            self.message = f"Acquired {holding['name']}."
         if "First Deal" not in self.achievements:
             self.achievements.append("First Deal")
         self.shake = 1.4
@@ -395,7 +426,8 @@ class TycoonWorld(BaseWorld):
         if self.spawn_timer <= 0.0:
             self.spawn_timer = random.uniform(2.7, 4.6)
             if len(self.properties) < 12:
-                self.properties.append(self.spawn_property())
+                prop = self.spawn_property()
+                if prop: self.properties.append(prop)
         kept: list[dict[str, Any]] = []
         for prop in self.properties:
             if random.random() < 0.012 * dt:
@@ -630,9 +662,9 @@ class TycoonWorld(BaseWorld):
             canvas.create_text(task["x"], task["y"], text="!", fill="#2b1400", font=("Helvetica", 10, "bold"))
 
     def draw_market_strip(self, canvas: tk.Canvas) -> None:
+        x2 = WIDTH - 18
         x1 = self.BOARD_RIGHT + 10
         y1 = self.BOARD_TOP
-        x2 = WIDTH - 18
         y2 = self.BOARD_BOTTOM
         canvas.create_text(x1 + 14, y1 + 14, anchor="nw", text="Market Snapshot", fill="#d8f0ff", font=("Helvetica", 11, "bold"))
         row_y = y1 + 38
@@ -702,9 +734,10 @@ class TycoonWorld(BaseWorld):
             y += 28
         down_payment_needed = float(prop["price"]) * (1.0 - float(prop.get("negotiated_discount", 0.0))) * self.down_payment_ratio(float(prop["risk"]))
         can_afford = self.cash >= down_payment_needed
-        button_fill = "#2f9e44" if can_afford else "#7f8c8d"
+        button_fill = "#2f9e44" if can_afford else "#ff922b"
         canvas.create_rectangle(x1 + 42, y2 - 76, x2 - 42, y2 - 34, fill=button_fill, outline="")
-        canvas.create_text((x1 + x2) / 2, y2 - 55, text="Press ENTER to acquire with financing" if can_afford else "Insufficient down payment", fill="#ffffff", font=("Helvetica", 12, "bold"))
+        btn_text = "Press ENTER to acquire with financing" if can_afford else "No cash? ENTER takes DEBT and buys"
+        canvas.create_text((x1 + x2) / 2, y2 - 55, text=btn_text, fill="#ffffff", font=("Helvetica", 12, "bold"))
         canvas.create_text((x1 + x2) / 2, y2 - 14, text="BACKSPACE closes the card", fill="#9bc0da", font=("Helvetica", 10))
 
     def draw_portfolio(self, canvas: tk.Canvas) -> None:
