@@ -211,8 +211,8 @@ class TycoonWorld(BaseWorld):
 
         monthly_cash_flow = monthly_flow(market_price, annual_yield, occupancy, annual_expense, quality, risk)
         
-        # User wants ~20% of deals to be negative. We force it for roughly 80% of spawns.
-        is_hero_deal = random.random() < 0.80 
+        # User wants very few negative deals (<10%). We force it for 95% of spawns.
+        is_hero_deal = random.random() < 0.95 
         boost_attempts = 0
         max_boosts = 8 if is_hero_deal else 3
         while (monthly_cash_flow < 0.0 if is_hero_deal else False) and boost_attempts < max_boosts:
@@ -460,7 +460,7 @@ class TycoonWorld(BaseWorld):
         for holding in self.portfolio:
             holding["stress"] = min(1.6, float(holding.get("stress", 0.0)) + dt * 0.015)
         if self.task_spawn_timer <= 0.0 and self.portfolio:
-            self.task_spawn_timer = random.uniform(8.0, 13.0)
+            self.task_spawn_timer = random.uniform(18.0, 32.0)
             candidates = [holding for holding in self.portfolio if not any(task["holding_name"] == holding["name"] for task in self.active_tasks)]
             if candidates:
                 holding = random.choice(candidates)
@@ -490,8 +490,10 @@ class TycoonWorld(BaseWorld):
             target_value = market_base * holding["quality"]
             blend = 0.30 if holding["sector"] in {"real_estate", "industrial"} else 0.52
             holding["market_value"] = holding["market_value"] * (1.0 - blend) + target_value * blend
-            if holding["sector"] in {"real_estate", "industrial"} and random.random() < 0.18 * dt:
-                holding["annual_expense"] *= random.uniform(1.01, 1.05)
+            if holding["sector"] in {"real_estate", "industrial"} and random.random() < 0.12 * dt:
+                # Only increase expense if we have room before hitting the floor
+                if holding["cash_flow"] > holding["min_cash_flow"] + 60.0:
+                    holding["annual_expense"] *= random.uniform(1.01, 1.03)
             stress = float(holding.get("stress", 0.0))
             if stress > 0.75:
                 holding["annual_expense"] *= 1.0 + dt * 0.01

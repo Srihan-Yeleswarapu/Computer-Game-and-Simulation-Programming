@@ -29,8 +29,8 @@ class ATCWorld(BaseWorld):
         ]
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.8
-        self.plane_limit = 18
+        self.spawn_timer = 0.4
+        self.plane_limit = 35
         self.is_drawing = False
         self.current_path = [] # list of (x,y)
         self.selected_plane = None
@@ -48,7 +48,7 @@ class ATCWorld(BaseWorld):
         self.message = ""
         self.planes = []
         self.landed_count = 0
-        self.spawn_timer = 0.8
+        self.spawn_timer = 0.4
         self.is_drawing = False
         self.current_path = []
         self.selected_plane = None
@@ -58,11 +58,11 @@ class ATCWorld(BaseWorld):
     def calculate_grade(self) -> str:
         if not self.success:
             return "F"
-        if self.landed_count >= 22:
+        if self.landed_count >= 24:
             return "S"
-        if self.landed_count >= 19:
+        if self.landed_count >= 21:
             return "A"
-        if self.landed_count >= 17:
+        if self.landed_count >= 19:
             return "B"
         return "C"
 
@@ -78,7 +78,7 @@ class ATCWorld(BaseWorld):
         # Spawn planes
         self.spawn_timer -= dt
         if self.spawn_timer <= 0 and len(self.planes) < self.plane_limit:
-            self.spawn_timer = random.uniform(0.9, 1.8)
+            self.spawn_timer = random.uniform(0.4, 1.1)
             side = random.randint(0, 3)
             if side == 0: x, y = random.uniform(20, WIDTH-20), 20
             elif side == 1: x, y = WIDTH-20, random.uniform(20, HEIGHT-20)
@@ -182,7 +182,7 @@ class ATCWorld(BaseWorld):
             
         if self.timer <= 0 and not crashed:
             self.finished = True
-            self.success = self.landed_count >= 15
+            self.success = self.landed_count >= 19
             if self.success:
                 self.message = f"Shift over! Successfully landed {self.landed_count} aircraft."
                 self.grade = self.calculate_grade()
@@ -221,7 +221,7 @@ class ATCWorld(BaseWorld):
             canvas.create_line(flat, fill="#ff0", width=2, dash=(4,4))
         canvas.create_line(player.x-10, player.y, player.x+10, player.y, fill="#ff0")
         canvas.create_line(player.x, player.y-10, player.x, player.y+10, fill="#ff0")
-        canvas.create_text(WIDTH-20, 60, anchor="e", text=f"Landed: {self.landed_count} / 15", fill="#0f0", font=("Helvetica", 14, "bold"))
+        canvas.create_text(WIDTH-20, 60, anchor="e", text=f"Landed: {self.landed_count} / 19", fill="#0f0", font=("Helvetica", 14, "bold"))
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)

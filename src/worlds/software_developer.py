@@ -21,13 +21,12 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.briefing = [
             "SHIP the release by completing the sprint board.",
             "INVESTIGATE incidents (SPACE) then CODE fixes (C) at the desk.",
-            "CLEAR PINGS (Q) to maintain high focus levels.",
             "DEPLOY the final release (E) when all tickets are done."
         ]
         self.hints = [
             "Investigate at the service node with SPACE, then code at the desk with C.",
             "Focus on high-priority tickets sequentially; avoid jumping around.",
-            "Aging tickets and unresolved pings drain your focus.",
+            "Aging tickets drain your focus.",
             "After all tickets are implemented, deploy the release at the console with E.",
         ]
         self.bounds = (40.0, 64.0, WIDTH - 40.0, HEIGHT - 48.0)
@@ -41,37 +40,12 @@ class SoftwareDeveloperWorld(BaseWorld):
             "desk": {"x": 150.0, "y": 480.0, "label": "IDE DESK", "key": "c"},
             "deploy": {"x": 810.0, "y": 480.0, "label": "DEPLOY", "key": "e"},
         }
-        self.pings = [
-            {"x": 100.0, "y": 280.0, "timer": 0.0},
-            {"x": 300.0, "y": 240.0, "timer": 0.0},
-            {"x": 500.0, "y": 260.0, "timer": 0.0},
-            {"x": 700.0, "y": 240.0, "timer": 0.0},
-            {"x": 860.0, "y": 280.0, "timer": 0.0},
-            {"x": 480.0, "y": 400.0, "timer": 0.0},
-            {"x": 300.0, "y": 520.0, "timer": 0.0},
-            {"x": 660.0, "y": 520.0, "timer": 0.0},
-            {"x": 480.0, "y": 560.0, "timer": 0.0},
-            {"x": 300.0, "y": 180.0, "timer": 0.0},
-            {"x": 660.0, "y": 180.0, "timer": 0.0},
-            {"x": 100.0, "y": 180.0, "timer": 0.0}, # Top Left Corner
-            {"x": 860.0, "y": 180.0, "timer": 0.0}, # Top Right Corner
-            {"x": 100.0, "y": 560.0, "timer": 0.0}, # Bottom Left Corner
-            {"x": 860.0, "y": 560.0, "timer": 0.0}, # Bottom Right Corner
-            {"x": 480.0, "y": 180.0, "timer": 0.0}, # Center Top
-            {"x": 200.0, "y": 380.0, "timer": 0.0}, # Left Mid
-            {"x": 760.0, "y": 380.0, "timer": 0.0}, # Right Mid
-            {"x": 50.0, "y": 320.0, "timer": 0.0},  # Edges
-            {"x": 910.0, "y": 320.0, "timer": 0.0}, # Edges
-            {"x": 400.0, "y": 480.0, "timer": 0.0}, # Filling gaps
-            {"x": 560.0, "y": 480.0, "timer": 0.0}, # Filling gaps
-        ]
 
         self.focus = 100.0
         self.completed_tickets = 0
         self.current_ticket_index = 0
         self.deploy_progress = 0.0
         self.message_timer = 0.0
-        self.ping_spawn_timer = 5.0
         self.context_switch_penalty = 0.0
         self.last_action = ""
 
@@ -110,18 +84,13 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.message_timer = 3.0
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
-        self.shake = 0.0
-        self.particles = []
         self.focus = 100.0
         self.completed_tickets = 0
         self.current_ticket_index = 0
         self.deploy_progress = 0.0
-        self.ping_spawn_timer = 4.0
         self.context_switch_penalty = 0.0
         self.last_action = ""
         self.tickets = self.build_ticket_queue()
-        for ping in self.pings:
-            ping["timer"] = 0.0
 
     def active_ticket(self) -> dict[str, Any] | None:
         if 0 <= self.current_ticket_index < len(self.tickets):
@@ -144,33 +113,8 @@ class SoftwareDeveloperWorld(BaseWorld):
                 self.message_timer = 0.5
 
         age_pressure = sum(max(0.0, ticket["age"] - 4.0) for ticket in self.tickets if ticket["stage"] != "done")
-        ping_pressure = sum(1 for ping in self.pings if ping["timer"] > 0.0)
-        self.focus = clamp(self.focus - dt * (open_incidents * 0.35 + ping_pressure * 1.0 + self.context_switch_penalty * 0.55 + age_pressure * 0.02), 0.0, 100.0)
+        self.focus = clamp(self.focus - dt * (open_incidents * 0.45 + self.context_switch_penalty * 0.75 + age_pressure * 0.03), 0.0, 100.0)
         self.context_switch_penalty = max(0.0, self.context_switch_penalty - dt * 0.8)
-
-    def update_pings(self, dt: float, player: Player, keys: set[str]) -> None:
-        self.ping_spawn_timer -= dt
-        inactive = [ping for ping in self.pings if ping["timer"] <= 0.0]
-        if self.ping_spawn_timer <= 0.0 and inactive:
-            ping = random.choice(inactive)
-            ping["timer"] = random.uniform(6.0, 9.0)
-            self.ping_spawn_timer = random.uniform(1.8, 3.2)
-
-        q_pressed = "q" in keys or "Q" in keys
-        for ping in self.pings:
-            if ping["timer"] <= 0.0:
-                continue
-            ping["timer"] = max(0.0, ping["timer"] - dt)
-            if self.near(player, float(ping["x"]), float(ping["y"]), 52.0) and q_pressed:
-                ping["timer"] = 0.0
-                self.focus = clamp(self.focus + 12.0, 0.0, 100.0)
-                self.message = "Q key: Inbox cleared! Focus restored."
-                self.message_timer = 1.4
-                self.shake = 1.5
-            elif ping["timer"] <= 0.0:
-                self.focus = clamp(self.focus - 8.0, 0.0, 100.0)
-                self.message = "A ping escalated! Focus lost."
-                self.message_timer = 1.5
 
     def work_ticket(self, dt: float, player: Player, keys: set[str]) -> None:
         ticket = self.active_ticket()
@@ -259,20 +203,17 @@ class SoftwareDeveloperWorld(BaseWorld):
             self.finished = True
             self.success = False
             self.grade = "F"
-            self.message = "Context switching and constant pings burned out the whole shift."
+            self.message = "The production environment became overwhelming. Focus lost."
         elif self.timer <= 0.0:
             self.finished = True
             reviewed = sum(1 for ticket in self.tickets if ticket["stage"] == "done")
-            self.success = reviewed >= 2
-            if self.success and reviewed == len(self.tickets):
+            self.success = reviewed >= len(self.tickets)
+            if self.success:
                 self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
                 if self.focus >= 80.0: self.grade = "S"
                 elif self.focus >= 60.0: self.grade = "A"
                 elif self.focus >= 40.0: self.grade = "B"
                 else: self.grade = "C"
-            elif self.success:
-                self.message = f"Shift ended with {reviewed}/{len(self.tickets)} tickets merged."
-                self.grade = "C" if reviewed >= 3 else "F"
             else:
                 self.grade = "F"
                 self.message = "The release train missed the window."
@@ -286,7 +227,6 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.message_timer = max(0.0, self.message_timer - dt)
         player.update(dt, keys, self.bounds)
         self.decay_focus_and_health(dt)
-        self.update_pings(dt, player, keys)
         self.work_ticket(dt, player, keys)
         self.handle_deploy(dt, player, keys)
         self.evaluate_failure()
@@ -359,15 +299,6 @@ class SoftwareDeveloperWorld(BaseWorld):
             bx, by = 380, 500
             canvas.create_rectangle(bx, by, bx + 200, by + 10, fill="#09111b", outline="#20384d")
             canvas.create_rectangle(bx, by, bx + 200 * (self.deploy_progress / 100.0), by + 10, fill="#4bd18b", outline="")
-
-        for ping in self.pings:
-            if ping["timer"] <= 0.0:
-                continue
-            px, py = float(ping["x"]), float(ping["y"])
-            pulse = 6.0 * math.sin(ping["timer"] * 7.0)
-            canvas.create_oval(px - 22 - pulse, py - 22 - pulse, px + 22 + pulse, py + 22 + pulse, fill="#ff8c42", outline="#fff2d8", width=2)
-            canvas.create_text(px, py - 4, text="PING", fill="#08111b", font=("Courier", 10, "bold"))
-            canvas.create_text(px, py + 12, text="Q", fill="#08111b", font=("Courier", 12, "bold"))
 
         canvas.create_rectangle(32, 520, 292, 540, fill="#0a111a", outline="")
         canvas.create_rectangle(34, 522, 34 + 256 * (self.focus / 100.0), 538, fill="#8ce99a" if self.focus > 35 else "#ffb703", outline="")

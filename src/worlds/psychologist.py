@@ -234,7 +234,7 @@ class PsychologistWorld(BaseWorld):
                 elif secondary_match:
                     effectiveness = 0.55
                 else:
-                    effectiveness = -0.35
+                    effectiveness = -0.75
 
                 if effectiveness > 0:
                     patient["rapport"] = clamp(float(patient["rapport"]) + 14.0 * dt * effectiveness, 0.0, 100.0)
@@ -243,12 +243,12 @@ class PsychologistWorld(BaseWorld):
                     patient["speaking"] = f"{intervention['name']} is helping..."
                     patient["bubble_timer"] = 0.8
                 else:
-                    patient["rapport"] = clamp(float(patient["rapport"]) + 16.0 * dt * effectiveness, 0.0, 100.0)
-                    patient["progress"] = clamp(float(patient["progress"]) + 10.0 * dt * effectiveness, 0.0, 100.0)
-                    patient["distress"] = clamp(float(patient["distress"]) + 9.0 * dt * abs(effectiveness), 0.0, 100.0)
-                    patient["speaking"] = f"{intervention['name']} does not fit right now."
-                    patient["bubble_timer"] = 1.0
-                    self.shake = max(self.shake, 1.0)
+                    patient["rapport"] = clamp(float(patient["rapport"]) + 26.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["progress"] = clamp(float(patient["progress"]) + 18.0 * dt * effectiveness, 0.0, 100.0)
+                    patient["distress"] = clamp(float(patient["distress"]) + 28.0 * dt * abs(effectiveness), 0.0, 100.0)
+                    patient["speaking"] = f"CRITICALLY WRONG: {intervention['name']} is CAUSING distress!"
+                    patient["bubble_timer"] = 1.4
+                    self.shake = max(self.shake, 2.4)
 
             if float(patient["progress"]) >= 100.0 and not patient["resolved"]:
                 patient["resolved"] = True
