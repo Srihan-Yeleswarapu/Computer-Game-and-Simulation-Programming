@@ -257,7 +257,6 @@ class BaseWorld:
             font=("Helvetica", 10, "bold"),
             text="Press H for help",
         )
-        self.draw_adaptive_hint(canvas, self._hud_player)
         
         # if self.intro_timer > 0.0 and not self.finished:
         #     # Box for simplified instructions

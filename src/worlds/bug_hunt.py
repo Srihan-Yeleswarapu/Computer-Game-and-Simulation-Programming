@@ -72,10 +72,16 @@ class BugHuntWorld(BaseWorld):
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.index < len(self.nodes):
             node = self.nodes[self.index]
-            return (f"Patch the {node['name']} node. Stay within the glowing circle.", (float(node["x"]), float(node["y"])))
+            target = (float(node["x"]), float(node["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < player.size + 18:
+                return (f"Hold your position inside the {node['name']} circle until the patch finishes.", target)
+            return (f"Move to the {node['name']} node and stand inside the glowing circle to patch it.", target)
             
         if self.deploy_progress < 1.0:
-            return ("All nodes patched! Head to the DEPLOY console to ship the build.", (float(self.deploy_point["x"]), float(self.deploy_point["y"])))
+            target = (float(self.deploy_point["x"]), float(self.deploy_point["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < player.size + 26:
+                return ("Stay on the DEPLOY console until the release finishes shipping.", target)
+            return ("All nodes are patched. Move to the DEPLOY console now.", target)
             
         return ("System stabilized. Deployment in progress.", None)
 

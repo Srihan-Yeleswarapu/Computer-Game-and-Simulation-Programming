@@ -999,29 +999,32 @@ class GameDeveloperWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.in_launch_window:
-            return ("STABILIZE the build! Use E to patch and Shift to dash until the launch timer ends.", (self.desk_pos[0], self.desk_pos[1]))
+            if self.bugs.count() > 0:
+                bug = min(self.bugs.bugs, key=lambda b: math.hypot(player.x - b.x, player.y - b.y))
+                return ("Launch window: dash through bugs with Shift or press E to patch before stability crashes.", (float(bug.x), float(bug.y)))
+            return ("Launch window: keep moving and use E if stability dips until the timer ends.", (self.desk_pos[0], self.desk_pos[1]))
             
         if self.bugs.count() >= 8:
-            # Target the nearest bug
             bug = min(self.bugs.bugs, key=lambda b: math.hypot(player.x - b.x, player.y - b.y))
-            return ("Bug infestation! Shift-Dash through red bugs to squash them and restore stability.", (float(bug.x), float(bug.y)))
+            return ("Too many bugs are active. Dash through this red cluster with Shift right now.", (float(bug.x), float(bug.y)))
             
         if self.complaints.count() >= 5:
-            # Target the nearest complaint
             popup = min(self.complaints.popups, key=lambda p: math.hypot(player.x - p.x, player.y - p.y))
-            return ("Community backlash! Run through the orange complaint cards to restore motivation.", (float(popup.x), float(popup.y)))
+            return ("Motivation is dropping. Run through this orange complaint card to clear it.", (float(popup.x), float(popup.y)))
             
         if self.slack_pings:
-            # Target the nearest ping
             ping = min(self.slack_pings, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
-            return ("Technical debt! Press Q near BLUE PINGS to clear them and boost motivation.", (float(ping["x"]), float(ping["y"])))
+            target = (float(ping["x"]), float(ping["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < 60:
+                return ("Press Q now to clear this blue ping and recover motivation.", target)
+            return ("Go clear this blue ping with Q before it expires.", target)
             
         if self.systems.progress < 100.0:
             if math.hypot(player.x - self.desk_pos[0], player.y - self.desk_pos[1]) > 100:
-                return ("Move to the glowing Dev Desk to code and build the next feature.", (self.desk_pos[0], self.desk_pos[1]))
-            return ("Hold SPACE at the Dev Desk to ship the next feature.", (self.desk_pos[0], self.desk_pos[1]))
+                return ("Move to the glowing Dev Desk to start building the next feature.", (self.desk_pos[0], self.desk_pos[1]))
+            return ("Hold SPACE at the Dev Desk to build progress on the next feature.", (self.desk_pos[0], self.desk_pos[1]))
             
-        return ("Ship the ready feature and monitor stability.", (self.desk_pos[0], self.desk_pos[1]))
+        return ("The feature bar is full. Stay stable until the next ship event triggers.", (self.desk_pos[0], self.desk_pos[1]))
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")

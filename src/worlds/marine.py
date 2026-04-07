@@ -83,17 +83,27 @@ class MarineWorld(BaseWorld):
         ]
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        nearby_shark = min(self.sharks, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]), default=None)
+        if nearby_shark and math.hypot(player.x - nearby_shark["x"], player.y - nearby_shark["y"]) < 85:
+            return ("Shark too close. Swim away before collecting anything else.", (float(nearby_shark["x"]), float(nearby_shark["y"])))
+
         if self.collected_count < 3:
             uncollected = [s for s in self.samples if not s["collected"]]
             if uncollected:
                 target = min(uncollected, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]))
-                return ("Dive to the seabed to collect glowing samples.", (float(target["x"]), float(target["y"])))
+                target_pos = (float(target["x"]), float(target["y"]))
+                if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 40:
+                    return ("Touch this glowing sample to collect it.", target_pos)
+                return ("Dive to this glowing seabed sample and collect it.", target_pos)
         
         if self.scanned_count < 3:
             unscanned = [f for f in self.fish if not f["scanned"]]
             if unscanned:
                 target = min(unscanned, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
-                return ("Hold SPACE near a fish to scan it for research.", (float(target["x"]), float(target["y"])))
+                target_pos = (float(target["x"]), float(target["y"]))
+                if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 80:
+                    return ("Hold SPACE next to this fish until the scan completes.", target_pos)
+                return ("Swim to this fish, then hold SPACE to scan it.", target_pos)
         
         return ("Expedition goals reached. Keep exploring or wait for surface-ascent.", None)
 

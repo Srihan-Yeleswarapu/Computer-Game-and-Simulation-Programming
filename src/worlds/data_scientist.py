@@ -43,16 +43,16 @@ class DataScientistWorld(BaseWorld):
         if not self.data_points:
             return ("Collect falling Green data packets to train your model.", None)
             
-        # Target the nearest good data
         good_data = [d for d in self.data_points if d["type"] in {"valid", "bonus"}]
         if good_data:
             target = min(good_data, key=lambda d: math.hypot(player.x - d["x"], player.y - d["y"]))
-            return (f"Catch the {target['type'].upper()} data point falling from the top.", (float(target["x"]), float(target["y"])))
+            target_pos = (float(target["x"]), float(target["y"]))
+            return (f"Move under this {target['type']} packet and catch it to raise model accuracy.", target_pos)
             
         anomalies = [d for d in self.data_points if d["type"] == "anomaly"]
         if anomalies:
             target = min(anomalies, key=lambda d: math.hypot(player.x - d["x"], player.y - d["y"]))
-            return ("AVOID Red Anomalies! They instantly ruin model accuracy.", (float(target["x"]), float(target["y"])))
+            return ("A red anomaly is incoming. Move away from its path and do not touch it.", (float(target["x"]), float(target["y"])))
             
         return ("Maintain model confidence by catching valid datasets.", None)
 

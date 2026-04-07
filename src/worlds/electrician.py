@@ -237,19 +237,30 @@ class ElectricianWorld(BaseWorld):
         if not unrepaired:
             ready = any(f["state"] == "repaired" for f in self.faults)
             if ready:
-                return ("Repairs done! Hold E at the Main Panel to energize the building.", (float(self.main_panel["x"]), float(self.main_panel["y"])))
+                target = (float(self.main_panel["x"]), float(self.main_panel["y"]))
+                if self.near_panel(player, self.main_panel):
+                    return ("Hold E here at the Main Panel until the repaired circuits come online.", target)
+                return ("All faults are repaired. Go to the Main Panel and hold E to restore power.", target)
             return ("All circuits stabilized. Monitor system health until end of shift.", None)
             
-        # Target the nearest fault
         fault = min(unrepaired, key=lambda f: math.hypot(player.x - float(f["x"]), player.y - float(f["y"])))
         target_pos = (float(fault["x"]), float(fault["y"]))
         
-        # Check if isolated
         if self.breaker_states[fault["group"]]:
-            # Not isolated
-            return (f"Isolate {fault['group'].title()} at the Breaker Panel before fixing {fault['name']}.", (float(self.breaker_panel["x"]), float(self.breaker_panel["y"])))
+            breaker_target = (float(self.breaker_panel["x"]), float(self.breaker_panel["y"]))
+            if self.near_panel(player, self.breaker_panel):
+                group_index = next((index + 1 for index, group in enumerate(self.groups) if group["id"] == fault["group"]), None)
+                if group_index is not None:
+                    return (f"Press {group_index} now to isolate the {fault['group']} circuit.", breaker_target)
+            return (f"Go to the Breaker Panel and isolate the {fault['group']} circuit before repairing {fault['name']}.", breaker_target)
             
-        return (f"Hold R to repair the isolated {fault['name']} safely.", target_pos)
+        if self.inspected_fault != self.faults.index(fault):
+            if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 46.0:
+                return (f"Press SPACE here to inspect {fault['name']} before repairing it.", target_pos)
+            return (f"Move to {fault['name']} and press SPACE to inspect it.", target_pos)
+        if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 46.0:
+            return (f"Hold R here until {fault['name']} is fully repaired.", target_pos)
+        return (f"Move to the isolated {fault['name']} and hold R to repair it.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys

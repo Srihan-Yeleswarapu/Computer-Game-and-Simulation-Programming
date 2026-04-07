@@ -236,28 +236,65 @@ class ArchitectWorld(BaseWorld):
             return ("Wait for the design review results.", (WIDTH / 2, HEIGHT / 2))
         
         counts = self.counts_by_type()
-        missing = []
         for room_name, minimum in self.requirements.items():
             if counts.get(room_name, 0) < minimum:
-                missing.append(room_name)
-        
-        if missing:
-            room_name = missing[0]
-            for i, room in enumerate(self.room_types):
-                if room["name"] == room_name:
-                    return (f"Press {room['key']} to select and SPACE to place {room_name}.", None)
-        
-        # Check adjacencies
+                for index, room in enumerate(self.room_types):
+                    if room["name"] != room_name:
+                        continue
+                    gx, gy = self.grid_position(player)
+                    on_open_cell = 0 <= gx < self.grid_w and 0 <= gy < self.grid_h and self.occupied_block(gx, gy) is None
+                    cell_center = (self.offset_x + gx * self.grid_size + self.grid_size / 2, self.offset_y + gy * self.grid_size + self.grid_size / 2)
+                    if self.selected_room != index:
+                        return (f"Press {room['key']} to select {room_name}, then place it on the grid.", None)
+                    if on_open_cell:
+                        return (f"Hold SPACE now to place the {room_name} on this empty grid cell.", cell_center)
+                    return (f"Move to an empty grid square, then hold SPACE to place the {room_name}.", None)
+
         lobby_blocks = [b for b in self.blocks if b["type"] == "Lobby"]
         core_blocks = [b for b in self.blocks if b["type"] == "Core"]
-        if lobby_blocks and core_blocks:
-            if not any(self.adjacent_to_type(b, "Core") for b in lobby_blocks):
-                lb = lobby_blocks[0]
-                return ("Connect the Lobby to the circulation Core.", (self.offset_x + lb["gx"] * self.grid_size, self.offset_y + lb["gy"] * self.grid_size))
-        
+        reading_blocks = [b for b in self.blocks if b["type"] == "Reading Room"]
+        archive_blocks = [b for b in self.blocks if b["type"] == "Archive"]
+        roof_blocks = [b for b in self.blocks if b["type"] == "Roof Garden"]
+
+        if lobby_blocks and core_blocks and not any(self.adjacent_to_type(b, "Core") for b in lobby_blocks):
+            lb = lobby_blocks[0]
+            return ("Place the Core or Lobby in a touching square so the entry connects to circulation.", (self.offset_x + lb["gx"] * self.grid_size, self.offset_y + lb["gy"] * self.grid_size))
+
+        if reading_blocks and not any(self.adjacent_to_type(b, "Lobby") or self.adjacent_to_type(b, "Core") for b in reading_blocks):
+            rb = reading_blocks[0]
+            return ("Move a Reading Room so it touches the Lobby or Core.", (self.offset_x + rb["gx"] * self.grid_size, self.offset_y + rb["gy"] * self.grid_size))
+
+        if archive_blocks and any(self.adjacent_to_type(b, "Lobby") for b in archive_blocks):
+            ab = next(block for block in archive_blocks if self.adjacent_to_type(block, "Lobby"))
+            return ("Remove or relocate this Archive so it is not next to the Lobby.", (self.offset_x + ab["gx"] * self.grid_size, self.offset_y + ab["gy"] * self.grid_size))
+
+        if core_blocks:
+            core_x = sum(block["gx"] for block in core_blocks) / len(core_blocks)
+            if not (3.0 <= core_x <= 6.0):
+                cb = core_blocks[0]
+                return ("Move the Core closer to the middle columns of the plan.", (self.offset_x + cb["gx"] * self.grid_size, self.offset_y + cb["gy"] * self.grid_size))
+
+        if roof_blocks:
+            top_row = min(block["gy"] for block in self.blocks) if self.blocks else 0
+            if not all(block["gy"] <= top_row + 1 for block in roof_blocks):
+                rb = roof_blocks[0]
+                return ("Move the Roof Garden to the top row of the building mass.", (self.offset_x + rb["gx"] * self.grid_size, self.offset_y + rb["gy"] * self.grid_size))
+
+        footprint = {(block["gx"], block["gy"]) for block in self.blocks}
+        for block in self.blocks:
+            below = (block["gx"], block["gy"] + 1)
+            if block["gy"] < self.grid_h - 1 and below not in footprint:
+                return ("This room is floating. Add support below it or remove it with BACKSPACE.", (self.offset_x + block["gx"] * self.grid_size, self.offset_y + block["gy"] * self.grid_size))
+
+        if len(self.blocks) < 7:
+            return ("Add more rooms. The library needs at least 7 placed spaces before review.", None)
+
+        if self.budget < 0:
+            return ("Budget is over. Move to an expensive room and press BACKSPACE to remove it.", None)
+
         if self.budget >= 0:
-            return ("Layout complete! Press ENTER to run the design review.", (WIDTH - 150, HEIGHT - 150))
-        
+            return ("The plan meets the brief. Press ENTER now to run the design review.", (WIDTH - 150, HEIGHT - 150))
+
         return ("Budget exceeded! Remove expensive rooms with BACKSPACE.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:

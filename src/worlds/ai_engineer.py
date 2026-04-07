@@ -115,18 +115,18 @@ class AIEngineerWorld(BaseWorld):
             if self.current_card_index < self.max_cards:
                 card = self.cards[self.current_card_index]
                 if card["bias"] > 60:
-                    return (f"Discard (A) highly biased data like {card['title']} to protect accuracy.", None)
+                    return (f"Press A now to discard {card['title']}; its bias is too high.", None)
                 if card["cred"] > 80:
-                    return (f"Keep (D) high-credibility data like {card['title']} for better results.", None)
-                return ("Swipe Right (D) to add data or Left (A) to discard it.", None)
+                    return (f"Press D now to keep {card['title']}; it is high-credibility data.", None)
+                return (f"Decide this card now: press D to keep {card['title']} or A to discard it.", None)
             
         if self.state == "ready_to_train":
-            return ("All data reviewed! Press SPACE to train the model.", None)
+            return ("All cards are reviewed. Press SPACE now to start training.", None)
             
         if self.state == "training":
-            return ("Wait for training to complete. Accuracy depends on your data choices.", None)
+            return ("Training is running. Wait for the progress bar to finish.", None)
             
-        return ("Review datasets and train a high-accuracy AI model.", None)
+        return ("Review each dataset card and decide whether to keep it or discard it.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:

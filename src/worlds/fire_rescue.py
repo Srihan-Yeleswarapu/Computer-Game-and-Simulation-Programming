@@ -79,23 +79,30 @@ class FireRescueWorld(BaseWorld):
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.carrying:
             dx1, dy1, dx2, dy2 = self.DOOR_ZONE
-            return ("Carry the survivor to the yellow Crew Door on the left.", ((dx1 + dx2) / 2, (dy1 + dy2) / 2))
+            door_center = ((dx1 + dx2) / 2, (dy1 + dy2) / 2)
+            if dx1 <= player.x <= dx2 and dy1 <= player.y <= dy2:
+                return ("Stay in the yellow Crew Door zone for a moment to evacuate the survivor.", door_center)
+            return ("Move left to the yellow Crew Door and deliver the survivor.", door_center)
             
         if not self.survivors:
             return ("All survivors cleared! Wait for the building to stabilize.", None)
             
-        # Target the nearest survivor
         survivor = min(self.survivors, key=lambda s: math.hypot(player.x - float(s["x"]), player.y - float(s["y"])))
         target_pos = (float(survivor["x"]), float(survivor["y"]))
+        dist = math.hypot(player.x - target_pos[0], player.y - target_pos[1])
         
         if survivor["state"] == "trapped":
-            return ("Stand near the trapped survivor to free them.", target_pos)
+            if dist < player.size + 16:
+                return ("Stay beside this trapped survivor until the debris clears.", target_pos)
+            return ("Move to the nearest trapped survivor to start the rescue.", target_pos)
         if survivor["state"] == "freeing":
             return ("Stay close! Freeing the survivor from the debris...", target_pos)
         if survivor["state"] == "freed":
-            return ("Touch the freed survivor to pick them up.", target_pos)
+            if dist < player.size + 14:
+                return ("Keep touching the freed survivor to pick them up.", target_pos)
+            return ("Move onto the freed survivor to pick them up.", target_pos)
             
-        return ("Navigate through the smoke and locate survivors.", None)
+        return ("Move to the next survivor marker and start the rescue.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.update_particles(dt)

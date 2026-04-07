@@ -51,10 +51,10 @@ class PilotWorld(BaseWorld):
         if self.fuel < 35:
             if self.fuels:
                 target = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
-                return ("Fuel levels low! Intercept the green fuel tank falling from the top.", (float(target["x"]), float(target["y"])))
+                target_pos = (float(target["x"]), float(target["y"]))
+                return ("Fuel is low. Fly into the green fuel pickup before doing anything else.", target_pos)
             return ("Out of fuel range. Maintain course and look for fuel pickups.", None)
             
-        # Check for nearby storm clouds
         danger_cloud = None
         for c in self.clouds:
             if c["bad"] and math.hypot(player.x - c["x"], player.y - c["y"]) < 180:
@@ -62,9 +62,13 @@ class PilotWorld(BaseWorld):
                 break
         
         if danger_cloud:
-            return ("Storm alert! Steer away from dark turbulence zones to avoid hull damage.", (float(danger_cloud["x"]), float(danger_cloud["y"])))
+            return ("A dark storm cloud is too close. Steer away from it immediately.", (float(danger_cloud["x"]), float(danger_cloud["y"])))
             
-        return ("Maintain altitude and avoid storm clusters while monitoring fuel.", None)
+        safe_fuel = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]), default=None)
+        if safe_fuel and self.fuel < 70:
+            return ("Top off your fuel by flying into this green pickup while the sky is clear.", (float(safe_fuel["x"]), float(safe_fuel["y"])))
+
+        return ("Hold a clear line through the gaps and avoid the next storm cloud.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:

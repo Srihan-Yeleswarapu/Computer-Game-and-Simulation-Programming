@@ -310,28 +310,45 @@ class SoftwareDeveloperWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.pings:
-            return ("Priority Alert! Press Q to clear pending system messages.", (player.x, player.y - 40))
+            ping = min((p for p in self.pings if p["timer"] > 0.0), key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]), default=None)
+            if ping is not None:
+                target = (float(ping["x"]), float(ping["y"]))
+                if self.near(player, target[0], target[1], self.PING_RADIUS):
+                    return ("Press Q now to clear this live ping and recover focus.", target)
+                return ("A live ping is active. Move to it first, then press Q.", target)
         
         if self.selected_ticket_index == -1:
-            return ("Check the Terminal for new JIRA tickets.", (140, 110))
+            return ("Press 1-4 to select a ticket from the sprint queue.", (140, 110))
             
         ticket = self.tickets[self.selected_ticket_index]
         if ticket["stage"] == "incident":
-            return (f"Urgent: Resolve incident {ticket['id']} at the {ticket['node']} node.", (float(ticket["x"]), float(ticket["y"])))
+            target = (float(ticket["x"]), float(ticket["y"]))
+            if self.near(player, target[0], target[1], self.INCIDENT_RADIUS):
+                return (f"Hold SPACE here to triage incident {ticket['id']} at {ticket['node']}.", target)
+            return (f"Move to the {ticket['node']} node, then hold SPACE to triage ticket {ticket['id']}.", target)
         
         if ticket["stage"] == "coding":
             desk = self.workstations["desk"]
-            return (f"Go to the IDE desk to work on {ticket['id']}.", (desk[0], desk[1]))
+            target = (float(desk["x"]), float(desk["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return (f"Hold C at the IDE desk to implement ticket {ticket['id']}.", target)
+            return (f"Take ticket {ticket['id']} to the IDE desk, then hold C.", target)
             
         if ticket["stage"] == "review":
             review = self.workstations["review"]
-            return (f"Submit code reviews at the PR station for {ticket['id']}.", (review[0], review[1]))
+            target = (float(review["x"]), float(review["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return (f"Hold R at the PR station to review ticket {ticket['id']}.", target)
+            return (f"Move to the PR station, then hold R to finish ticket {ticket['id']}.", target)
             
         if self.completed_tickets >= len(self.tickets):
             deploy = self.workstations["deploy"]
-            return ("All tickets merged. Head to DEPLOY to finish the release.", (deploy[0], deploy[1]))
+            target = (float(deploy["x"]), float(deploy["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return ("Hold E at DEPLOY until the release ships.", target)
+            return ("All tickets are merged. Move to DEPLOY and hold E to ship.", target)
             
-        return ("Follow the ticket workflow: Code -> Review -> Merge.", None)
+        return ("Select the next unfinished ticket with 1-4 and continue the workflow.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:

@@ -301,6 +301,7 @@ class GameEngine:
                 self.return_to_menu()
                 return
             self.active_world.update_adaptive_guidance(dt, self.player, self.keys)
+            self.active_world.draw_adaptive_hint(self.canvas, self.player)
 
             if self.active_world.finished:
                 self.active_world.grade = self.active_world.calculate_grade()

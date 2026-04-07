@@ -232,22 +232,30 @@ class DoctorWorld(BaseWorld):
         if not self.patients:
             return ("Wait for more patients to arrive in the ER.", None)
             
-        # Prioritize the most unstable patient
         patient = min(self.patients, key=lambda p: float(p["stability"]))
         target_pos = (float(patient["x"]), float(patient["y"]))
+        near_patient = math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 100.0
         
         if self.held_item == "":
             tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
             if tool_station:
-                return (f"Grab {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+                tool_pos = (float(tool_station["x"]), float(tool_station["y"]))
+                if math.hypot(player.x - tool_pos[0], player.y - tool_pos[1]) < 50.0:
+                    return (f"Hold SPACE here to pick up {patient['tool_name']} for {patient['condition']}.", tool_pos)
+                return (f"Go to the {patient['tool_name']} station, then hold SPACE to pick it up for {patient['condition']}.", tool_pos)
         elif self.held_item != patient["tool"]:
             tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
             if tool_station:
-                return (f"Swap to {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+                tool_pos = (float(tool_station["x"]), float(tool_station["y"]))
+                if math.hypot(player.x - tool_pos[0], player.y - tool_pos[1]) < 50.0:
+                    return (f"Hold SPACE to swap your item for {patient['tool_name']}.", tool_pos)
+                return (f"You are carrying the wrong tool. Go swap to {patient['tool_name']}.", tool_pos)
         else:
-            return (f"Hold SPACE at the bedside to treat {patient['condition']}.", target_pos)
+            if near_patient:
+                return (f"Hold SPACE at this bed to treat {patient['condition']} with {patient['tool_name']}.", target_pos)
+            return (f"Take {patient['tool_name']} to the {patient['condition']} patient, then hold SPACE at the bed.", target_pos)
             
-        return ("Monitor the ER and stabilize patients quickly.", None)
+        return (f"Move to the lowest-stability patient with {patient['condition']}.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
