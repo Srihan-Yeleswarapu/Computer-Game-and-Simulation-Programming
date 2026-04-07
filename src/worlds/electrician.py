@@ -198,7 +198,11 @@ class ElectricianWorld(BaseWorld):
 
     def evaluate_outcome(self) -> None:
         online_count = sum(1 for fault in self.faults if fault["state"] == "online")
-        if online_count == len(self.faults) and self.system_health >= 15.0:
+        repaired_count = sum(1 for fault in self.faults if fault["state"] == "repaired")
+        total_faults = max(1, len(self.faults))
+        
+        # Auto-finish if all are online, even with low health (as long as not 0)
+        if online_count == total_faults and self.system_health > 0.0:
             self.finished = True
             self.success = True
             self.message = "Building stabilized! All circuits re-energized successfully."
@@ -218,8 +222,10 @@ class ElectricianWorld(BaseWorld):
             self.message = "Critical fault escalation. The service panel failed under unsafe repair attempts."
         elif self.timer <= 0.0:
             self.finished = True
-            restored_ratio = online_count / max(1, len(self.faults))
-            self.success = restored_ratio >= 0.6 and self.system_health >= 25.0
+            # Allow repaired faults to count for 70% of success if they weren't re-energized in time
+            effective_online = online_count + (repaired_count * 0.7)
+            restored_ratio = effective_online / total_faults
+            self.success = restored_ratio >= 0.6 and self.system_health >= 10.0
             if self.success:
                 self.message = f"Shift ended with {online_count}/{len(self.faults)} circuits restored."
                 if restored_ratio >= 1.0:

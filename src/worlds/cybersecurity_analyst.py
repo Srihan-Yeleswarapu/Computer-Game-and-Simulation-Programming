@@ -70,17 +70,17 @@ class CybersecurityAnalystWorld(BaseWorld):
             return
 
         self.tick_timer(dt)
-        player.update(dt, keys, self.bounds)
+        player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
         
         # Spawn attacks
-        if random.random() < 1.2 * dt:
+        if random.random() < 1.4 * dt:
             side = random.randint(0, 3)
             if side == 0: x, y = random.uniform(0, WIDTH), -20
             elif side == 1: x, y = WIDTH+20, random.uniform(0, HEIGHT)
             elif side == 2: x, y = random.uniform(0, WIDTH), HEIGHT+20
             else: x, y = -20, random.uniform(0, HEIGHT)
             
-            speed = random.uniform(50.0, 90.0)
+            speed = random.uniform(55.0, 95.0)
             self.attacks.append({"x": x, "y": y, "speed": speed})
 
         new_attacks = []
@@ -89,51 +89,40 @@ class CybersecurityAnalystWorld(BaseWorld):
             a["x"] += math.cos(angle) * a["speed"] * dt
             a["y"] += math.sin(angle) * a["speed"] * dt
             
-            # Distance from server
             dist_server = math.hypot(self.server_x - a["x"], self.server_y - a["y"])
-            # Distance from player (firewall)
             dist_player = math.hypot(player.x - a["x"], player.y - a["y"])
             
             if dist_player < player.size + 15: # Intercepted!
-                 self.particles.append(Particle(a["x"], a["y"], "#00a8ff", 0, 0, 0.5, 5.0))
+                self.particles.append(Particle(a["x"], a["y"], "#00a8ff", 0, 0, 0.5, 5.0))
             elif dist_server < 30: # Hit server!
-                 self.integrity -= 10.0
-                 self.shake = 5.0
+                self.integrity -= 10.0
+                self.shake = 5.0
             else:
-                 new_attacks.append(a)
-                 
+                new_attacks.append(a)
         self.attacks = new_attacks
         
         if self.integrity <= 0:
             self.finished = True
             self.success = False
             self.message = "System compromised! Too many breaches."
-            
-        if self.timer <= 0 and self.integrity > 0:
+        elif self.timer <= 0:
             self.finished = True
             self.success = True
             self.message = "Attack averted! System secured."
-            if self.integrity > 80: self.grade = "S"
-            elif self.integrity > 50: self.grade = "A"
-            elif self.integrity > 20: self.grade = "B"
+            if self.integrity > 85: self.grade = "S"
+            elif self.integrity > 65: self.grade = "A"
+            elif self.integrity > 40: self.grade = "B"
             else: self.grade = "C"
 
-    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        return self._build_adaptive_hint(player)
-
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
-        self.keys = keys
-        if self.finished:
-            self.draw(canvas, player)
-            return
-
-        self.tick_timer(dt)
-        player.x, player.y = mouse_pos
-        player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
+        self.update_particles(dt)
         self.update_adaptive_guidance(dt, player, keys)
+        self.draw(canvas, player)
+
+    def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
         sx, sy = 0, 0
         if self.shake > 0:
+             self.shake = max(0, self.shake - 0.5)
              sx = random.uniform(-self.shake, self.shake)
              sy = random.uniform(-self.shake, self.shake)
              
