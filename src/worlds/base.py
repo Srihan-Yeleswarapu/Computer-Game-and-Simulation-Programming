@@ -39,7 +39,7 @@ class BaseWorld:
         self.adaptive_hint_target: tuple[float, float] | None = None
         self.adaptive_hint_timer = 0.0
         self.adaptive_hint_ready = True
-        self.adaptive_hint_threshold = 5.0
+        self.adaptive_hint_threshold = 3.0
         self.adaptive_hint_duration = 2.2
         self._last_player_position: tuple[float, float] | None = None
         self._hud_player: Player | None = None
