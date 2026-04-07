@@ -82,6 +82,21 @@ class MarineWorld(BaseWorld):
             {"x": WIDTH-200, "y": HEIGHT-65, "name": "Giant Clam", "found": False, "msg": "Look at the size of that pearl!"}
         ]
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.collected_count < 3:
+            uncollected = [s for s in self.samples if not s["collected"]]
+            if uncollected:
+                target = min(uncollected, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]))
+                return ("Dive to the seabed to collect glowing samples.", (float(target["x"]), float(target["y"])))
+        
+        if self.scanned_count < 3:
+            unscanned = [f for f in self.fish if not f["scanned"]]
+            if unscanned:
+                target = min(unscanned, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
+                return ("Hold SPACE near a fish to scan it for research.", (float(target["x"]), float(target["y"])))
+        
+        return ("Expedition goals reached. Keep exploring or wait for surface-ascent.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:
@@ -230,4 +245,5 @@ class MarineWorld(BaseWorld):
         canvas.create_text(WIDTH-100, 80, text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Arial", 12, "bold"))
         canvas.create_text(WIDTH-100, 105, text=f"Samples: {self.collected_count}/3", fill="#fff", font=("Arial", 12, "bold"))
 
+        self.draw_hud(canvas)
         if self.finished: self.draw_result(canvas)

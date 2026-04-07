@@ -43,6 +43,16 @@ class CybersecurityAnalystWorld(BaseWorld):
         self.attacks = []
         self.integrity = 100.0
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if not self.attacks:
+            return ("Shield the CORE from upcoming malicious packets.", (self.server_x, self.server_y))
+            
+        # Target the closest threat to server
+        threat = min(self.attacks, key=lambda a: math.hypot(self.server_x - a["x"], self.server_y - a["y"]))
+        target_pos = (float(threat["x"]), float(threat["y"]))
+        
+        return ("Intercept the incoming red threat packet before it breaches the CORE.", target_pos)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:

@@ -144,6 +144,28 @@ class PsychologistWorld(BaseWorld):
                 }
             )
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        unresolved = [p for p in self.patients if not p["resolved"]]
+        if not unresolved: return ("All clients stabilized. Keep monitoring until shift end.", None)
+        
+        # Target the one with highest distress
+        target = max(unresolved, key=lambda p: float(p["distress"]))
+        target_pos = (float(target["x"]), float(target["y"]))
+        
+        if self.active_patient == -1:
+            return (f"Assess {target['name']} immediately; their distress is climbing.", target_pos)
+            
+        patient = self.patients[self.active_patient]
+        if patient["resolved"]:
+            return (f"{patient['name']} is stable. Move to {target['name']}.", target_pos)
+            
+        # Find correct key
+        correct_inter = next((i for i in self.interventions if i["focus"] == patient["focus"]), None)
+        if correct_inter:
+            return (f"Press [{correct_inter['key']}] and hold SPACE for {correct_inter['name']} therapy.", target_pos)
+            
+        return ("Monitor the room and match interventions to cues.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:

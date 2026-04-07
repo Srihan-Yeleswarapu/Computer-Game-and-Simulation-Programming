@@ -83,6 +83,25 @@ class ChefRushWorld(BaseWorld):
              {"id": 2, "order": random.choice(list(self.recipes.keys())), "patience": 60.0, "max_patience": 60.0, "x": WIDTH/2 + 150, "y": 40}
         ]
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.active_order is None:
+            # Find the unhappiest customer
+            customer = min(self.customers, key=lambda c: float(c["patience"]))
+            return ("Move near a customer to take their order.", (float(customer["x"]), float(customer["y"])))
+        
+        customer = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
+        if not customer: return ("Take an order.", None)
+        
+        if self.step_progress == -1:
+            return (f"Return to the customer to serve the {customer['order']}.", (float(customer["x"]), float(customer["y"])))
+        
+        if len(self.current_steps) == 0:
+            return ("Check the Recipe Book (purple) to see the cooking route.", self.book_pos)
+        
+        next_station = self.current_steps[0]
+        station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
+        return (f"Go to the {self.station_labels[next_station]} for the next step.", station_pos)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)

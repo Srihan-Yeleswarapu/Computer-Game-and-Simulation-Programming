@@ -69,6 +69,16 @@ class BugHuntWorld(BaseWorld):
                 }
             )
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.index < len(self.nodes):
+            node = self.nodes[self.index]
+            return (f"Patch the {node['name']} node. Stay within the glowing circle.", (float(node["x"]), float(node["y"])))
+            
+        if self.deploy_progress < 1.0:
+            return ("All nodes patched! Head to the DEPLOY console to ship the build.", (float(self.deploy_point["x"]), float(self.deploy_point["y"])))
+            
+        return ("System stabilized. Deployment in progress.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)

@@ -232,6 +232,25 @@ class ElectricianWorld(BaseWorld):
                 self.grade = "F"
                 self.message = "Building failed safety inspections or was not fully restored."
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        unrepaired = [f for f in self.faults if f["state"] == "fault"]
+        if not unrepaired:
+            ready = any(f["state"] == "repaired" for f in self.faults)
+            if ready:
+                return ("Repairs done! Hold E at the Main Panel to energize the building.", (float(self.main_panel["x"]), float(self.main_panel["y"])))
+            return ("All circuits stabilized. Monitor system health until end of shift.", None)
+            
+        # Target the nearest fault
+        fault = min(unrepaired, key=lambda f: math.hypot(player.x - float(f["x"]), player.y - float(f["y"])))
+        target_pos = (float(fault["x"]), float(fault["y"]))
+        
+        # Check if isolated
+        if self.breaker_states[fault["group"]]:
+            # Not isolated
+            return (f"Isolate {fault['group'].title()} at the Breaker Panel before fixing {fault['name']}.", (float(self.breaker_panel["x"]), float(self.breaker_panel["y"])))
+            
+        return (f"Hold R to repair the isolated {fault['name']} safely.", target_pos)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:

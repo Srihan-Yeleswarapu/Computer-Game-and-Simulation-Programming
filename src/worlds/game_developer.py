@@ -997,6 +997,32 @@ class GameDeveloperWorld(BaseWorld):
         canvas.create_oval(x - size - 4, y - size + 6, x + size + 4, y + size + 8, fill="#0a2235", outline="")
         canvas.create_rectangle(x - size, y - size, x + size, y + size, fill="#61dafb", outline="#0d8db6", width=2)
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.in_launch_window:
+            return ("STABILIZE the build! Use E to patch and Shift to dash until the launch timer ends.", (self.desk_pos[0], self.desk_pos[1]))
+            
+        if self.bugs.count() >= 8:
+            # Target the nearest bug
+            bug = min(self.bugs.bugs, key=lambda b: math.hypot(player.x - b.x, player.y - b.y))
+            return ("Bug infestation! Shift-Dash through red bugs to squash them and restore stability.", (float(bug.x), float(bug.y)))
+            
+        if self.complaints.count() >= 5:
+            # Target the nearest complaint
+            popup = min(self.complaints.popups, key=lambda p: math.hypot(player.x - p.x, player.y - p.y))
+            return ("Community backlash! Run through the orange complaint cards to restore motivation.", (float(popup.x), float(popup.y)))
+            
+        if self.slack_pings:
+            # Target the nearest ping
+            ping = min(self.slack_pings, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
+            return ("Technical debt! Press Q near BLUE PINGS to clear them and boost motivation.", (float(ping["x"]), float(ping["y"])))
+            
+        if self.systems.progress < 100.0:
+            if math.hypot(player.x - self.desk_pos[0], player.y - self.desk_pos[1]) > 100:
+                return ("Move to the glowing Dev Desk to code and build the next feature.", (self.desk_pos[0], self.desk_pos[1]))
+            return ("Hold SPACE at the Dev Desk to ship the next feature.", (self.desk_pos[0], self.desk_pos[1]))
+            
+        return ("Ship the ready feature and monitor stability.", (self.desk_pos[0], self.desk_pos[1]))
+
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
 

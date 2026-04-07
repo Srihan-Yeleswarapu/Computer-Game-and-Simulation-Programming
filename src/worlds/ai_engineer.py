@@ -110,6 +110,24 @@ class AIEngineerWorld(BaseWorld):
         accuracy = avg_quality * size_penalty
         return clamp(accuracy, 0.0, 100.0)
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.state == "reviewing":
+            if self.current_card_index < self.max_cards:
+                card = self.cards[self.current_card_index]
+                if card["bias"] > 60:
+                    return (f"Discard (A) highly biased data like {card['title']} to protect accuracy.", None)
+                if card["cred"] > 80:
+                    return (f"Keep (D) high-credibility data like {card['title']} for better results.", None)
+                return ("Swipe Right (D) to add data or Left (A) to discard it.", None)
+            
+        if self.state == "ready_to_train":
+            return ("All data reviewed! Press SPACE to train the model.", None)
+            
+        if self.state == "training":
+            return ("Wait for training to complete. Accuracy depends on your data choices.", None)
+            
+        return ("Review datasets and train a high-accuracy AI model.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)

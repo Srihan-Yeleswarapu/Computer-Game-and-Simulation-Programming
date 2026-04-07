@@ -308,6 +308,31 @@ class SoftwareDeveloperWorld(BaseWorld):
                 self.grade = "F"
                 self.message = "The release window closed before the board was stabilized."
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.pings:
+            return ("Priority Alert! Press Q to clear pending system messages.", (player.x, player.y - 40))
+        
+        if self.selected_ticket_index == -1:
+            return ("Check the Terminal for new JIRA tickets.", (140, 110))
+            
+        ticket = self.tickets[self.selected_ticket_index]
+        if ticket["stage"] == "incident":
+            return (f"Urgent: Resolve incident {ticket['id']} at the {ticket['node']} node.", (float(ticket["x"]), float(ticket["y"])))
+        
+        if ticket["stage"] == "coding":
+            desk = self.workstations["desk"]
+            return (f"Go to the IDE desk to work on {ticket['id']}.", (desk[0], desk[1]))
+            
+        if ticket["stage"] == "review":
+            review = self.workstations["review"]
+            return (f"Submit code reviews at the PR station for {ticket['id']}.", (review[0], review[1]))
+            
+        if self.completed_tickets >= len(self.tickets):
+            deploy = self.workstations["deploy"]
+            return ("All tickets merged. Head to DEPLOY to finish the release.", (deploy[0], deploy[1]))
+            
+        return ("Follow the ticket workflow: Code -> Review -> Merge.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)

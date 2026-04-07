@@ -228,6 +228,27 @@ class DoctorWorld(BaseWorld):
             return "B"
         return "C"
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if not self.patients:
+            return ("Wait for more patients to arrive in the ER.", None)
+            
+        # Prioritize the most unstable patient
+        patient = min(self.patients, key=lambda p: float(p["stability"]))
+        target_pos = (float(patient["x"]), float(patient["y"]))
+        
+        if self.held_item == "":
+            tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
+            if tool_station:
+                return (f"Grab {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+        elif self.held_item != patient["tool"]:
+            tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
+            if tool_station:
+                return (f"Swap to {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+        else:
+            return (f"Hold SPACE at the bedside to treat {patient['condition']}.", target_pos)
+            
+        return ("Monitor the ER and stabilize patients quickly.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:

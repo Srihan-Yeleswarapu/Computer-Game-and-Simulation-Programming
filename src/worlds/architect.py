@@ -1,5 +1,6 @@
 import tkinter as tk
 from typing import Any
+import math
 
 from src.player import Player
 from src.utils import HEIGHT, TEXT, WIDTH, clamp
@@ -230,6 +231,35 @@ class ArchitectWorld(BaseWorld):
             return "B"
         return "C"
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.phase == "review":
+            return ("Wait for the design review results.", (WIDTH / 2, HEIGHT / 2))
+        
+        counts = self.counts_by_type()
+        missing = []
+        for room_name, minimum in self.requirements.items():
+            if counts.get(room_name, 0) < minimum:
+                missing.append(room_name)
+        
+        if missing:
+            room_name = missing[0]
+            for i, room in enumerate(self.room_types):
+                if room["name"] == room_name:
+                    return (f"Press {room['key']} to select and SPACE to place {room_name}.", None)
+        
+        # Check adjacencies
+        lobby_blocks = [b for b in self.blocks if b["type"] == "Lobby"]
+        core_blocks = [b for b in self.blocks if b["type"] == "Core"]
+        if lobby_blocks and core_blocks:
+            if not any(self.adjacent_to_type(b, "Core") for b in lobby_blocks):
+                lb = lobby_blocks[0]
+                return ("Connect the Lobby to the circulation Core.", (self.offset_x + lb["gx"] * self.grid_size, self.offset_y + lb["gy"] * self.grid_size))
+        
+        if self.budget >= 0:
+            return ("Layout complete! Press ENTER to run the design review.", (WIDTH - 150, HEIGHT - 150))
+        
+        return ("Budget exceeded! Remove expensive rooms with BACKSPACE.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)
@@ -392,6 +422,7 @@ class ArchitectWorld(BaseWorld):
         self.draw_grid(canvas, player)
         self.draw_brief_panel(canvas)
         self.draw_message_bar(canvas)
+        self.draw_hud(canvas)
 
         if self.finished:
             self.draw_result(canvas)

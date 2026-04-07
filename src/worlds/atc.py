@@ -66,6 +66,28 @@ class ATCWorld(BaseWorld):
             return "B"
         return "C"
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if not self.planes:
+            return ("Wait for aircraft to enter the controlled airspace.", None)
+            
+        # Check for near collisions
+        danger_plane = None
+        for i, p1 in enumerate(self.planes):
+            for p2 in self.planes[i+1:]:
+                if math.hypot(p1["x"] - p2["x"], p1["y"] - p2["y"]) < self.collision_radius * 2.5:
+                    danger_plane = p1
+                    break
+            if danger_plane: break
+            
+        if danger_plane:
+            return ("Collision Warning! SPACE-DRAIN a new path to create separation.", (float(danger_plane["x"]), float(danger_plane["y"])))
+            
+        # Target the one furthest from runway
+        runway = self.runways[0]
+        far_plane = max(self.planes, key=lambda p: math.hypot(p["x"] - runway["x"], p["y"] - runway["y"]))
+        
+        return (f"Vector aircraft FLT towards the runway center to land.", (float(far_plane["x"]), float(far_plane["y"])))
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
             self.draw(canvas, player)

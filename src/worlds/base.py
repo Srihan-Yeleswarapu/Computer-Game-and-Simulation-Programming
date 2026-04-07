@@ -137,103 +137,51 @@ class BaseWorld:
         self.adaptive_hint_timer = self.adaptive_hint_duration if hint_text else 0.0
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        # Fire rescue style carry objective.
-        if hasattr(self, "carrying") and hasattr(self, "DOOR_ZONE") and hasattr(self, "survivors"):
-            carrying = getattr(self, "carrying", None)
-            door = getattr(self, "DOOR_ZONE", None)
-            if carrying and door:
-                x1, y1, x2, y2 = door
-                return ("Carry the survivor to the crew door.", ((x1 + x2) / 2, (y1 + y2) / 2))
-
-            survivors = [s for s in getattr(self, "survivors", []) if s.get("state") != "saved"]
-            if survivors:
-                target = min(survivors, key=lambda s: math.hypot(player.x - float(s["x"]), player.y - float(s["y"])))
-                state = str(target.get("state", "trapped"))
-                if state == "trapped":
-                    return ("Move onto a survivor to start freeing them.", (float(target["x"]), float(target["y"])))
-                if state == "freeing":
-                    return ("Stay close until the trapped survivor is freed.", (float(target["x"]), float(target["y"])))
-                return ("Touch the freed survivor, then evacuate them.", (float(target["x"]), float(target["y"])))
-
-        # Doctor-style station -> patient workflow.
-        if hasattr(self, "patients") and hasattr(self, "tool_catalog"):
-            patients = [p for p in getattr(self, "patients", []) if p.get("status") == "waiting"]
-            if patients:
-                patient = min(patients, key=lambda p: float(p.get("stability", 100.0)))
-                patient_target = (float(patient["x"]), float(patient["y"]))
-                held_item = getattr(self, "held_item", "")
-                if not held_item:
-                    tool = next((t for t in getattr(self, "tool_catalog", []) if t.get("type") == patient.get("tool")), None)
-                    if tool:
-                        return (f"Grab {patient['tool_name']} for the weakest patient.", (float(tool["x"]), float(tool["y"])))
-                    return (f"Read the chart and prepare {patient['tool_name']}.", patient_target)
-                if held_item != patient.get("tool"):
-                    tool = next((t for t in getattr(self, "tool_catalog", []) if t.get("type") == patient.get("tool")), None)
-                    if tool:
-                        return (f"Swap to {patient['tool_name']} for {patient['condition']}.", (float(tool["x"]), float(tool["y"])))
-                return (f"Hold SPACE at {patient['condition']} to stabilize them.", patient_target)
-
-        # Ordered node / deploy objective.
-        if hasattr(self, "nodes") and hasattr(self, "index"):
-            nodes = getattr(self, "nodes", [])
-            index = int(getattr(self, "index", 0))
-            if 0 <= index < len(nodes):
-                node = nodes[index]
-                return (f"Move to {node['name']} and stay inside the glowing node.", (float(node["x"]), float(node["y"])))
-            deploy = getattr(self, "deploy_point", None)
-            if deploy:
-                return ("Head to DEPLOY and hold position to ship the fix.", (float(deploy["x"]), float(deploy["y"])))
-
-        # Studio chaos world.
-        if hasattr(self, "desk_pos") and hasattr(self, "systems") and hasattr(self, "bugs") and hasattr(self, "complaints"):
-            desk_x, desk_y = getattr(self, "desk_pos")
-            if getattr(self, "in_launch_window", False):
-                if getattr(self.bugs, "count")() > 0:
-                    nearest_bug = min(self.bugs.bugs, key=lambda bug: math.hypot(player.x - bug.x, player.y - bug.y))
-                    return ("Squash nearby bugs and survive until launch finishes.", (nearest_bug.x, nearest_bug.y))
-                return ("Stay mobile and protect the build until launch ends.", (desk_x, desk_y))
-            if self.bugs.count() >= 6:
-                nearest_bug = min(self.bugs.bugs, key=lambda bug: math.hypot(player.x - bug.x, player.y - bug.y))
-                return ("Dash through the bug swarm before stability collapses.", (nearest_bug.x, nearest_bug.y))
-            if self.complaints.count() >= 4 and self.complaints.popups:
-                nearest_popup = min(self.complaints.popups, key=lambda popup: math.hypot(player.x - popup.x, player.y - popup.y))
-                return ("Run through orange complaint cards to calm the feed.", (nearest_popup.x, nearest_popup.y))
-            if self.systems.progress >= 100.0:
-                return ("The feature is ready. Ship it from the Dev Desk.", (desk_x, desk_y))
-            if math.hypot(player.x - desk_x, player.y - desk_y) > 96.0:
-                return ("Move back to the Dev Desk and hold SPACE to build.", (desk_x, desk_y))
-            return ("Hold SPACE at the Dev Desk to keep progress climbing.", (desk_x, desk_y))
-
+        """Override this in specific worlds to provide context-aware help."""
         status = self.message.strip() if self.message else ""
         if status:
             return (status, None)
-        return ("Keep moving toward the current objective. Press H again anytime.", None)
+        return ("Follow the mission briefing objectives. Press H again for help.", None)
 
     def draw_adaptive_hint(self, canvas: tk.Canvas, player: Player | None) -> None:
         if self.adaptive_hint_timer <= 0.0 or not self.adaptive_hint_text or self.finished or player is None:
             return
 
-        panel_w = min(620, WIDTH - 120)
-        panel_h = 82
-        x1 = WIDTH / 2 - panel_w / 2
-        y1 = HEIGHT - 134
-        x2 = WIDTH / 2 + panel_w / 2
+        panel_w = min(680.0, WIDTH - 120.0)
+        panel_h = 100.0
+        x1 = WIDTH / 2.0 - panel_w / 2.0
+        y1 = HEIGHT - 150.0
+        x2 = WIDTH / 2.0 + panel_w / 2.0
         y2 = y1 + panel_h
-        canvas.create_rectangle(x1, y1, x2, y2, fill="#0d2417", outline="#50fa7b", width=4)
+        
+        # Premium glassmorphism-style panel
+        bg_col = "#0a1f14" if not self.high_contrast else "#000000"
+        border_col = "#00ff88" if not self.high_contrast else "#ffffff"
+        
+        # Subtle shadow/glow
+        if not self.high_contrast:
+            canvas.create_rectangle(x1+4, y1+4, x2+4, y2+4, fill="#000000", outline="", stipple="gray50")
+            
+        canvas.create_rectangle(x1, y1, x2, y2, fill=bg_col, outline=border_col, width=3)
+        
+        # Header text
         canvas.create_text(
-            WIDTH / 2,
+            WIDTH / 2.0,
             y1 + 24,
-            text="ADAPTIVE HINT",
-            fill="#8dffae",
-            font=("Helvetica", 14, "bold"),
+            text="ADAPTIVE GUIDANCE",
+            fill="#50fa7b" if not self.high_contrast else "#ffffff",
+            font=("Helvetica", 11, "bold"),
+            letterspacing=2
         )
+        
+        # Main hint text
         canvas.create_text(
-            WIDTH / 2,
-            y1 + 53,
+            WIDTH / 2.0,
+            y1 + 58,
             text=self.adaptive_hint_text,
-            fill="#d9ffe5",
-            font=("Helvetica", 18, "bold"),
-            width=panel_w - 36,
+            fill="#ffffff",
+            font=("Helvetica", 15, "bold"),
+            width=panel_w - 40.0,
             justify="center",
         )
 

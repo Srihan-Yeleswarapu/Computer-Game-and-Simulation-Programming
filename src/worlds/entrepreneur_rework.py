@@ -561,6 +561,26 @@ class TycoonWorld(BaseWorld):
             if self.just_pressed(keys, "BackSpace") or self.just_pressed(keys, "m"):
                 self.ui_state = "game"
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.active_tasks:
+            task = self.active_tasks[0]
+            return (f"Resolve the priority {task['title']} call immediately (E).", (float(task["x"]), float(task["y"])))
+        
+        if self.cash < 5000:
+            return ("Cash reserves low. Press L to borrow working capital.", None)
+        
+        if self.portfolio and self.monthly_cash_flow < 200:
+            # Recommend research or better deals
+            return ("Portfolio yields are thin. Research (R) your assets to improve quality.", None)
+            
+        if self.net_worth < self.target_net_worth:
+            if self.properties:
+                best_deal = min(self.properties, key=lambda p: float(p["price"]))
+                return ("Scout the board for profitable deals and hold SPACE to inspect.", (float(best_deal["x"]), float(best_deal["y"])))
+            return ("Wait for more high-yield deals to appear on the market.", None)
+            
+        return ("Target reached! Keep managing cash flow until the quarter ends.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:

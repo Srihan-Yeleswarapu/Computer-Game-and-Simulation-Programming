@@ -76,6 +76,27 @@ class FireRescueWorld(BaseWorld):
             for _ in range(10)
         ]
 
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.carrying:
+            dx1, dy1, dx2, dy2 = self.DOOR_ZONE
+            return ("Carry the survivor to the yellow Crew Door on the left.", ((dx1 + dx2) / 2, (dy1 + dy2) / 2))
+            
+        if not self.survivors:
+            return ("All survivors cleared! Wait for the building to stabilize.", None)
+            
+        # Target the nearest survivor
+        survivor = min(self.survivors, key=lambda s: math.hypot(player.x - float(s["x"]), player.y - float(s["y"])))
+        target_pos = (float(survivor["x"]), float(survivor["y"]))
+        
+        if survivor["state"] == "trapped":
+            return ("Stand near the trapped survivor to free them.", target_pos)
+        if survivor["state"] == "freeing":
+            return ("Stay close! Freeing the survivor from the debris...", target_pos)
+        if survivor["state"] == "freed":
+            return ("Touch the freed survivor to pick them up.", target_pos)
+            
+        return ("Navigate through the smoke and locate survivors.", None)
+
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.update_particles(dt)
         if self.finished:
