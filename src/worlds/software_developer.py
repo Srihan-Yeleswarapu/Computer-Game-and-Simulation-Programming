@@ -310,44 +310,45 @@ class SoftwareDeveloperWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.pings:
-            return ("Priority Alert! Press Q while near a ping to clear system messages and restore focus.", (player.x, player.y - 40))
+            ping = min((p for p in self.pings if p["timer"] > 0.0), key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]), default=None)
+            if ping is not None:
+                target = (float(ping["x"]), float(ping["y"]))
+                if self.near(player, target[0], target[1], self.PING_RADIUS):
+                    return ("Press Q now to clear this live ping and recover focus.", target)
+                return ("A live ping is active. Move to it first, then press Q.", target)
         
         if self.selected_ticket_index == -1:
-            return ("Check the Terminal on the left. Hover over a ticket and press 1-4 to assign it to yourself.", (140, 110))
+            return ("Press 1-4 to select a ticket from the sprint queue.", (140, 110))
             
         ticket = self.tickets[self.selected_ticket_index]
+        if ticket["stage"] == "incident":
+            target = (float(ticket["x"]), float(ticket["y"]))
+            if self.near(player, target[0], target[1], self.INCIDENT_RADIUS):
+                return (f"Hold SPACE here to triage incident {ticket['id']} at {ticket['node']}.", target)
+            return (f"Move to the {ticket['node']} node, then hold SPACE to triage ticket {ticket['id']}.", target)
         
-        if self.active_ticket and ticket["stage"] == "incident":
-            dist = math.hypot(player.x - float(ticket["x"]), player.y - float(ticket["y"]))
-            if dist > 80:
-                return (f"Go to the {ticket['service']} node (flashing circle) to investigate the incident.", (float(ticket["x"]), float(ticket["y"])))
-            else:
-                return (f"Hold SPACE at the {ticket['service']} node to patch the bug.", (float(ticket["x"]), float(ticket["y"])))
-
         if ticket["stage"] == "coding":
             desk = self.workstations["desk"]
-            dist_desk = math.hypot(player.x - desk["x"], player.y - desk["y"])
-            if dist_desk > 60:
-                return (f"Ticket assigned. Move to your IDE desk to implement the {ticket['name']} fix.", (float(desk["x"]), float(desk["y"])))
-            else:
-                return (f"Hold C at your desk to write the code for the {ticket['name']} ticket.", (float(desk["x"]), float(desk["y"])))
+            target = (float(desk["x"]), float(desk["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return (f"Hold C at the IDE desk to implement ticket {ticket['id']}.", target)
+            return (f"Take ticket {ticket['id']} to the IDE desk, then hold C.", target)
             
         if ticket["stage"] == "review":
             review = self.workstations["review"]
-            dist_rev = math.hypot(player.x - review["x"], player.y - review["y"])
-            if dist_rev > 60:
-                return ("Code written! Head to the PR station to submit your changes for peer review.", (float(review["x"]), float(review["y"])))
-            else:
-                return ("Hold R at the PR station to process the code review tasks.", (float(review["x"]), float(review["y"])))
-
-        if ticket["stage"] == "done":
-            if self.completed_tickets < len(self.tickets):
-                return ("Ticket merged! Return to the Terminal to pick up your next JIRA assignment.", (140, 110))
-            else:
-                deploy = self.workstations["deploy"]
-                return ("Release ready! Head to the DEPLOY console to ship the new build to production.", (float(deploy["x"]), float(deploy["y"])))
+            target = (float(review["x"]), float(review["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return (f"Hold R at the PR station to review ticket {ticket['id']}.", target)
+            return (f"Move to the PR station, then hold R to finish ticket {ticket['id']}.", target)
             
-        return ("Follow the developer workflow: Assignment -> Code -> Review -> Merge.", None)
+        if self.completed_tickets >= len(self.tickets):
+            deploy = self.workstations["deploy"]
+            target = (float(deploy["x"]), float(deploy["y"]))
+            if self.near(player, target[0], target[1], self.STATION_RADIUS):
+                return ("Hold E at DEPLOY until the release ships.", target)
+            return ("All tickets are merged. Move to DEPLOY and hold E to ship.", target)
+            
+        return ("Select the next unfinished ticket with 1-4 and continue the workflow.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -364,7 +365,6 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.handle_deploy(dt, player, keys)
         self.evaluate_failure()
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw_ticket_card(self, canvas: tk.Canvas, index: int, ticket: dict[str, Any]) -> None:

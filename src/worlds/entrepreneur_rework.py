@@ -562,38 +562,39 @@ class TycoonWorld(BaseWorld):
                 self.ui_state = "game"
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.ui_state == "detail":
+            return ("You are inspecting a deal card. Press ENTER to buy it or BACKSPACE to close it.", None)
+        if self.ui_state == "portfolio":
+            return ("Use UP or DOWN to choose a holding, then press ENTER to sell or P to return.", None)
+        if self.ui_state == "market":
+            return ("Review the market board, then press M or BACKSPACE to return to the floor.", None)
+
         if self.active_tasks:
-            task = self.active_tasks[0]
-            dist_task = math.hypot(player.x - float(task["x"]), player.y - float(task["y"]))
-            if dist_task > 60:
-                return (f"Emergency service call at {task['holding_name']} ({task['title']})! Head to the orange '!' immediately.", (float(task["x"]), float(task["y"])))
-            else:
-                return (f"Press E to resolve the {task['title']} at {task['holding_name']} and protect your yields.", (float(task["x"]), float(task["y"])))
+            task = min(self.active_tasks, key=lambda t: math.hypot(player.x - float(t["x"]), player.y - float(t["y"])))
+            target = (float(task["x"]), float(task["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < 58.0:
+                return (f"Press E now to resolve the {task['title']} at {task['holding_name']}.", target)
+            return (f"Move to the orange {task['title']} marker and press E to resolve it.", target)
         
-        if self.loan_balance > 80000 and self.cash < 10000:
-            return ("Your debt burden is high. Sell an asset from your portfolio (P) to deleverage and restore liquidity.", None)
+        if self.cash < 5000:
+            return ("Cash reserves low. Press L to borrow working capital.", None)
         
-        if self.cash < 25000:
-            return ("Working capital is low. Press L to borrow funds or consider selling a high-value asset.", None)
-        
-        if self.portfolio and self.monthly_cash_flow < 150:
-            return ("Monthly cash flow is thin. Research (R) your assets to improve quality or scout for higher-yield deals.", None)
-
-        if self.highlighted_property >= 0:
-            prop = self.properties[self.highlighted_property]
-            if prop.get("research", 0) < 1:
-                return (f"This deal at {prop['name']} looks promising. Press R to research its hidden quality and reveal ROI.", (float(prop["x"]), float(prop["y"])))
-            if float(prop.get("negotiated_discount", 0.0)) < 0.04:
-                return (f"The asking price is high. Negotiate (F) to secure a better entry cap rate for {prop['name']}.", (float(prop["x"]), float(prop["y"])))
-            return (f"Ready to acquire? Press SPACE to inspect the {prop['name']} detail card and SPACE again to buy.", (float(prop["x"]), float(prop["y"])))
-
+        if self.portfolio and self.monthly_cash_flow < 200:
+            if self.highlighted_property >= 0 and self.highlighted_property < len(self.properties):
+                prop = self.properties[self.highlighted_property]
+                return (f"Press R to research {prop['name']} or F to negotiate it before buying.", (float(prop["x"]), float(prop["y"])))
+            return ("Cash flow is weak. Move to a property, press SPACE to inspect it, then use R or F.", None)
+            
         if self.net_worth < self.target_net_worth:
             if self.properties:
                 best_deal = min(self.properties, key=lambda p: float(p["price"]))
-                return ("Scout the board for profitable deals (circles). Research (R) and Negotiate (F) before buying.", (float(best_deal["x"]), float(best_deal["y"])))
-            return ("Wait for more high-yield deals to appear on the market board.", None)
+                if self.highlighted_property >= 0 and self.highlighted_property < len(self.properties):
+                    prop = self.properties[self.highlighted_property]
+                    return (f"Press SPACE to inspect {prop['name']}. Use R to research or F to negotiate first.", (float(prop["x"]), float(prop["y"])))
+                return ("Move to a property token and press SPACE to inspect the deal card.", (float(best_deal["x"]), float(best_deal["y"])))
+            return ("Wait for more high-yield deals to appear on the market.", None)
             
-        return ("Target reached! Continue managing cash flow and service calls until the quarter ends.", None)
+        return ("Net worth target reached. Keep cash flow positive and clear any new service calls.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -635,7 +636,6 @@ class TycoonWorld(BaseWorld):
                 self.message = f"Quarter ended at {self.money(self.net_worth)} with {self.money(self.monthly_cash_flow)}/mo cash flow."
 
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def money(self, value: float) -> str:
@@ -850,7 +850,6 @@ class TycoonWorld(BaseWorld):
         self.draw_background(canvas)
         self.draw_top_bar(canvas)
         self.draw_footer(canvas)
-        self.draw_hud(canvas)
         if self.ui_state == "game":
             self.draw_properties(canvas)
             self.draw_tasks(canvas)

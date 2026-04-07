@@ -50,20 +50,21 @@ class RoboticsEngineerWorld(BaseWorld):
         player.speed = 450.0
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        # Target the requested part on the belt
         matching_parts = [p for p in self.active_parts if p["type"] == self.current_req]
         if matching_parts:
             target = min(matching_parts, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
-            return (f"Collect the {self.current_req} part from the {target['side'].upper()} conveyor belt.", (float(target["x"]), float(target["y"])))
+            target_pos = (float(target["x"]), float(target["y"]))
+            if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 30:
+                return (f"Touch this {self.current_req} part now to collect it.", target_pos)
+            return (f"Move to the {target['side']} belt and collect this {self.current_req} part.", target_pos)
             
-        # Check if an incorrect part is about to be hit
         wrong_parts = [p for p in self.active_parts if p["type"] != self.current_req]
         if wrong_parts:
             closest_wrong = min(wrong_parts, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
             if math.hypot(player.x - closest_wrong["x"], player.y - closest_wrong["y"]) < 100:
-                return (f"AVOID the {closest_wrong['type']}! The blueprint only requires a {self.current_req}.", (float(closest_wrong["x"]), float(closest_wrong["y"])))
+                return (f"Do not touch this {closest_wrong['type']}. Wait for a {self.current_req} part instead.", (float(closest_wrong["x"]), float(closest_wrong["y"])))
                 
-        return (f"Monitor the factory belts for a {self.current_req} part.", (WIDTH/2, HEIGHT/2))
+        return (f"No {self.current_req} is in reach yet. Stay centered and watch both belts.", (WIDTH / 2, HEIGHT / 2))
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:

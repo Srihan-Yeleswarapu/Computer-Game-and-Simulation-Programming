@@ -70,8 +70,7 @@ class MarineWorld(BaseWorld):
         for _ in range(2):
             self.sharks.append({
                 "x": random.uniform(100, WIDTH-100), "y": random.uniform(300, HEIGHT-100),
-                "dx": random.choice([-1, 1]) * 120, "dy": random.uniform(-18, 18), "w": 60,
-                "bite_cooldown": 0.0
+                "dx": random.choice([-1, 1]) * 120, "dy": random.uniform(-18, 18), "w": 60
             })
 
         self.samples = []
@@ -84,34 +83,29 @@ class MarineWorld(BaseWorld):
         ]
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        if self.oxygen < 20:
-             return ("OXYGEN CRITICAL! Ascend to the surface immediately to replenish your supply.", (player.x, 40))
-             
-        for shark in self.sharks:
-             if math.hypot(player.x - shark["x"], player.y - shark["y"]) < 120:
-                  return ("Predator Alert! Avoid the red Great White sharks at the lower depths to save oxygen.", (float(shark["x"]), float(shark["y"])))
+        nearby_shark = min(self.sharks, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]), default=None)
+        if nearby_shark and math.hypot(player.x - nearby_shark["x"], player.y - nearby_shark["y"]) < 85:
+            return ("Shark too close. Swim away before collecting anything else.", (float(nearby_shark["x"]), float(nearby_shark["y"])))
 
         if self.collected_count < 3:
             uncollected = [s for s in self.samples if not s["collected"]]
             if uncollected:
                 target = min(uncollected, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]))
-                dist = math.hypot(player.x - target["x"], player.y - target["y"])
-                if dist > 60:
-                     return ("Dive to the seabed (bottom of the screen) to collect glowing bioluminescent samples.", (float(target["x"]), float(target["y"])))
-                else:
-                     return ("You are near a sample! Touch the glowing purple node to collect it.", (float(target["x"]), float(target["y"])))
+                target_pos = (float(target["x"]), float(target["y"]))
+                if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 40:
+                    return ("Touch this glowing sample to collect it.", target_pos)
+                return ("Dive to this glowing seabed sample and collect it.", target_pos)
         
         if self.scanned_count < 3:
             unscanned = [f for f in self.fish if not f["scanned"]]
             if unscanned:
                 target = min(unscanned, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
-                dist = math.hypot(player.x - target["x"], player.y - target["y"])
-                if dist > 80:
-                     return ("Locate and scan rare marine species. Look for moving fish bubbles.", (float(target["x"]), float(target["y"])))
-                else:
-                     return (f"Near a {target.get('color', 'fish')}! Hold SPACE and stay close to complete the biological scan.", (float(target["x"]), float(target["y"])))
+                target_pos = (float(target["x"]), float(target["y"]))
+                if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 80:
+                    return ("Hold SPACE next to this fish until the scan completes.", target_pos)
+                return ("Swim to this fish, then hold SPACE to scan it.", target_pos)
         
-        return ("Expedition goals reached. Keep exploring the deep or wait for the timer to end research.", None)
+        return ("Expedition goals reached. Keep exploring or wait for surface-ascent.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -122,7 +116,7 @@ class MarineWorld(BaseWorld):
         self.tick_timer(dt)
         player.update(dt, keys, self.bounds)
 
-        # Buoyancy logic
+        # Buoyancy: Player.update overwrites velocity each frame, so apply a simple positional lift.
         if "Down" not in keys and "s" not in keys:
             player.y -= 80.0 * dt
             x1, y1, x2, y2 = self.bounds
@@ -153,10 +147,11 @@ class MarineWorld(BaseWorld):
             # Shark Bite Logic
             dist = math.hypot(player.x - s["x"], player.y - s["y"])
             if dist < 50:
+                 # Check for recent bite to prevent instant death
                  if not s.get("bite_cooldown", 0) > 0:
-                      self.oxygen = max(0.0, self.oxygen - 15.0)
+                      self.oxygen = max(0.0, self.oxygen - 15.0) # BIG HIT
                       self.shake = 8.0
-                      s["bite_cooldown"] = 2.0
+                      s["bite_cooldown"] = 2.0 # Wait 2s before biting again
             
             if s.get("bite_cooldown", 0) > 0:
                  s["bite_cooldown"] -= dt
@@ -204,21 +199,20 @@ class MarineWorld(BaseWorld):
              self.success = self.collected_count + self.scanned_count >= 2
              if self.success:
                  self.message = f"Shift Over! Data uploaded: {self.scanned_count} scans & {self.collected_count} samples."
-                 if self.collected_count + self.scanned_count >= 5: self.grade = "A"
-                 else: self.grade = "C"
+                 self.grade = self.calculate_grade()
              else:
                  self.message = "Expedition failure! Too little data collected before blackout."
 
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
+        # Water
         for i in range(5):
              shade = 180 - i*30
              canvas.create_rectangle(0, i*(HEIGHT/5), WIDTH, (i+1)*(HEIGHT/5), fill=f"#00{shade:02x}ff", outline="")
-        canvas.create_rectangle(0, HEIGHT-60, WIDTH, HEIGHT, fill="#d2b48c")
+        canvas.create_rectangle(0, HEIGHT-60, WIDTH, HEIGHT, fill="#d2b48c") # Seabed
 
         for d in self.discoveries:
              color = "#f1c40f" if not d["found"] else "#7f8c8d"
@@ -234,22 +228,28 @@ class MarineWorld(BaseWorld):
 
         for s in self.sharks:
              sx_p, sy_p = s["x"], s["y"]
+             # Shark Body
              canvas.create_oval(sx_p-s["w"]/2, sy_p-20, sx_p+s["w"]/2, sy_p+20, fill="#ff4757", outline="#000")
+             # Tail
              tail_dir = -1 if s["dx"] > 0 else 1
              canvas.create_polygon(sx_p + tail_dir*s["w"]/2, sy_p, sx_p + tail_dir*(s["w"]/2+20), sy_p-15, sx_p + tail_dir*(s["w"]/2+20), sy_p+15, fill="#ff4757", outline="#000")
+             # Dorsal Fin
              canvas.create_polygon(sx_p-10, sy_p-15, sx_p+10, sy_p-15, sx_p, sy_p-40, fill="#ff4757", outline="#000")
 
         player.draw(canvas)
         
+        # Scanning Progress Bar
         if self.scan_target and "space" in self.keys:
              canvas.create_rectangle(player.x-30, player.y+35, player.x+30, player.y+42, fill="#333", outline="#fff")
              canvas.create_rectangle(player.x-28, player.y+37, player.x-28 + 56 * (self.scan_timer/1.2), player.y+40, fill="#2ecc71", outline="")
              canvas.create_text(player.x, player.y+50, text="SCANNING...", fill="#fff", font=("Arial", 8, "bold"))
 
+        # Discovery Bubble
         if self.msg_timer > 0:
              canvas.create_rectangle(player.x-60, player.y-90, player.x+60, player.y-50, fill="#fff", outline="#000")
              canvas.create_text(player.x, player.y-70, text=self.discovery_msg, fill="#000", font=("Arial", 8))
 
+        # HUD
         canvas.create_rectangle(20, HEIGHT-40, 220, HEIGHT-20, outline="#fff")
         canvas.create_rectangle(22, HEIGHT-38, 22+196*(self.oxygen/100), HEIGHT-22, fill="#0af")
         canvas.create_text(WIDTH-100, 80, text=f"Scans: {self.scanned_count}/3", fill="#fff", font=("Arial", 12, "bold"))

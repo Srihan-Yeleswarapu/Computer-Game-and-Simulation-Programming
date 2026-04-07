@@ -85,40 +85,32 @@ class ChefRushWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.active_order is None:
-            # Find the unhappiest customer
             customer = min(self.customers, key=lambda c: float(c["patience"]))
-            dist = math.hypot(player.x - customer["x"], player.y - customer["y"])
-            if dist > 80:
-                return ("Order required! Move near a customer at the top counter to accept their order.", (float(customer["x"]), float(customer["y"])))
-            else:
-                return ("Interact with the customer to start their order ticket.", (float(customer["x"]), float(customer["y"])))
+            target = (float(customer["x"]), float(customer["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < 60:
+                return (f"Stay beside this customer to lock in the {customer['order']} order.", target)
+            return ("Move to the most impatient customer to take their order.", target)
         
         customer = next((cust for cust in self.customers if cust["id"] == self.active_order), None)
-        if not customer: return ("The order was cancelled. Take a new order.", None)
+        if not customer:
+            return ("Move to a customer and take a new order.", None)
         
         if self.step_progress == -1:
-            dist_cust = math.hypot(player.x - customer["x"], player.y - customer["y"])
-            if dist_cust > 60:
-                return (f"The {customer['order']} is ready! Return to the customer immediately to serve and earn tips.", (float(customer["x"]), float(customer["y"])))
-            else:
-                return ("Hold position near the customer to deliver the finished meal.", (float(customer["x"]), float(customer["y"])))
+            target = (float(customer["x"]), float(customer["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < 60:
+                return (f"Stay beside the customer to serve the finished {customer['order']}.", target)
+            return (f"Carry the finished {customer['order']} back to the customer now.", target)
         
         if len(self.current_steps) == 0:
-            dist_book = math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1])
-            if dist_book > 60:
-                return (f"Order taken: {customer['order']}. Head to the Recipe Book (purple) to see the required prep route.", self.book_pos)
-            else:
-                return ("Read the Recipe Book to reveal the cooking steps and station sequence.", self.book_pos)
+            if math.hypot(player.x - self.book_pos[0], player.y - self.book_pos[1]) < 60:
+                return (f"Stay at the Recipe Book to load the {customer['order']} route.", self.book_pos)
+            return (f"Go to the purple Recipe Book to reveal the {customer['order']} steps.", self.book_pos)
         
         next_station = self.current_steps[0]
         station_pos = {"PANTRY": self.pantry_pos, "PREP": self.prep_pos, "STOVE": self.stove_pos}[next_station]
-        station_name = self.station_labels[next_station]
-        dist_stat = math.hypot(player.x - station_pos[0], player.y - station_pos[1])
-        
-        if dist_stat > 50:
-            return (f"Next step: Go to the {station_name} station to continue the {customer['order']} prep.", station_pos)
-        else:
-            return (f"Stay steady at the {station_name} to complete the prep logic.", station_pos)
+        if math.hypot(player.x - station_pos[0], player.y - station_pos[1]) < 50:
+            return (f"Stay on the {self.station_labels[next_station]} to complete this {customer['order']} step.", station_pos)
+        return (f"Go straight to the {self.station_labels[next_station]} for the next {customer['order']} step.", station_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -222,7 +214,6 @@ class ChefRushWorld(BaseWorld):
                 self.grade = "F"
 
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:

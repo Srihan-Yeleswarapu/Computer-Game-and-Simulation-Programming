@@ -68,42 +68,26 @@ class ATCWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if not self.planes:
-            return ("No active signals. Aircraft will arrive from the screen edges shortly.", None)
+            return ("Wait for aircraft to enter the controlled airspace.", None)
+
+        if self.is_drawing and self.selected_plane is not None:
+            return ("Keep holding SPACE and drag a safe route. Release SPACE to assign it to this aircraft.", (float(self.selected_plane["x"]), float(self.selected_plane["y"])))
             
-        # Collision Check first
-        threats = []
+        danger_plane = None
         for i, p1 in enumerate(self.planes):
             for p2 in self.planes[i+1:]:
-                dist = math.hypot(p1["x"] - p2["x"], p1["y"] - p2["y"])
-                if dist < self.collision_radius * 3.5:
-                    threats.append(p1)
-        
-        if threats:
-            threat = threats[0]
-            return ("COLLISION THREAT! Hold SPACE on the blinking aircraft and draw a path to create separation.", (float(threat["x"]), float(threat["y"])))
+                if math.hypot(p1["x"] - p2["x"], p1["y"] - p2["y"]) < self.collision_radius * 2.5:
+                    danger_plane = p1
+                    break
+            if danger_plane: break
             
-        # Landing assistance
+        if danger_plane:
+            return ("Collision warning: move the cursor onto this plane, hold SPACE, drag a new route, then release.", (float(danger_plane["x"]), float(danger_plane["y"])))
+            
         runway = self.runways[0]
-        # Any aircraft flying AWAY from center?
-        stray = None
-        for p in self.planes:
-            # check the dot product of velocity and vector to center
-            dx, dy = runway["x"] - p["x"], runway["y"] - p["y"]
-            dot = p["vx"] * dx + p["vy"] * dy
-            if dot < 0: # Moving away
-                stray = p
-                break
+        far_plane = max(self.planes, key=lambda p: math.hypot(p["x"] - runway["x"], p["y"] - runway["y"]))
         
-        if stray:
-             return ("Flight leaving controlled sector. Reroute aircraft 'FLT' toward the runway (center box).", (float(stray["x"]), float(stray["y"])))
-             
-        # Help landing the ones near the runway
-        waiting = min(self.planes, key=lambda p: math.hypot(p["x"] - runway["x"], p["y"] - runway["y"]))
-        dist = math.hypot(waiting["x"] - runway["x"], waiting["y"] - runway["y"])
-        if dist > 200:
-             return ("Guide the nearest aircraft towards the runway zone to clear them for landing.", (float(waiting["x"]), float(waiting["y"])))
-        else:
-             return ("Aircraft on approach! Ensure the vector touches the runway to finalize its landing path.", (float(waiting["x"]), float(waiting["y"])))
+        return ("Move the cursor onto this plane, hold SPACE, and draw a path into the runway box.", (float(far_plane["x"]), float(far_plane["y"])))
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -230,7 +214,6 @@ class ATCWorld(BaseWorld):
                 self.grade = "F"
             
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:

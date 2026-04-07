@@ -202,6 +202,7 @@ class ElectricianWorld(BaseWorld):
             self.finished = True
             self.success = True
             self.message = "Building stabilized! All circuits re-energized successfully."
+            # Grade based more on quality and speed
             if self.system_health >= 90.0:
                 self.grade = "S"
             elif self.system_health >= 75.0 and self.timer >= 15.0:
@@ -236,29 +237,30 @@ class ElectricianWorld(BaseWorld):
         if not unrepaired:
             ready = any(f["state"] == "repaired" for f in self.faults)
             if ready:
-                dist_main = math.hypot(player.x - self.main_panel["x"], player.y - self.main_panel["y"])
-                if dist_main > 50:
-                    return ("All faults repaired! Head to the Main Panel (right) to re-energize the building.", (float(self.main_panel["x"]), float(self.main_panel["y"])))
-                else:
-                    return ("Ready to restore power. Hold E at the Main Panel to energize the repaired circuits.", (float(self.main_panel["x"]), float(self.main_panel["y"])))
-            return ("Building service is stable. Monitor the circuit loads until the shift ends.", None)
+                target = (float(self.main_panel["x"]), float(self.main_panel["y"]))
+                if self.near_panel(player, self.main_panel):
+                    return ("Hold E here at the Main Panel until the repaired circuits come online.", target)
+                return ("All faults are repaired. Go to the Main Panel and hold E to restore power.", target)
+            return ("All circuits stabilized. Monitor system health until end of shift.", None)
             
         fault = min(unrepaired, key=lambda f: math.hypot(player.x - float(f["x"]), player.y - float(f["y"])))
-        dist_fault = math.hypot(player.x - float(f["x"]), player.y - float(f["y"]))
-        target_pos = (float(f["x"]), float(f["y"]))
+        target_pos = (float(fault["x"]), float(fault["y"]))
         
-        if self.breaker_states[f["group"]]:
-            dist_breaker = math.hypot(player.x - self.breaker_panel["x"], player.y - self.breaker_panel["y"])
-            if dist_breaker > 50:
-                return (f"The {f['name']} is LIVE! Go to the Breaker Panel (1-3) to isolate the {f['group'].upper()} circuit.", (float(self.breaker_panel["x"]), float(self.breaker_panel["y"])))
-            else:
-                group_num = {"lighting": "1", "sockets": "2", "hvac": "3"}[f["group"]]
-                return (f"Press {group_num} at the Breaker Panel to isolate the {f['group'].upper()} circuit safely.", (float(self.breaker_panel["x"]), float(self.breaker_panel["y"])))
+        if self.breaker_states[fault["group"]]:
+            breaker_target = (float(self.breaker_panel["x"]), float(self.breaker_panel["y"]))
+            if self.near_panel(player, self.breaker_panel):
+                group_index = next((index + 1 for index, group in enumerate(self.groups) if group["id"] == fault["group"]), None)
+                if group_index is not None:
+                    return (f"Press {group_index} now to isolate the {fault['group']} circuit.", breaker_target)
+            return (f"Go to the Breaker Panel and isolate the {fault['group']} circuit before repairing {fault['name']}.", breaker_target)
             
-        if dist_fault > 50:
-            return (f"Circuit isolated. Move to the {f['name']} on the infrastructure net.", target_pos)
-        else:
-            return (f"Safety confirmed. Hold R to repair the {f['name']}.", target_pos)
+        if self.inspected_fault != self.faults.index(fault):
+            if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 46.0:
+                return (f"Press SPACE here to inspect {fault['name']} before repairing it.", target_pos)
+            return (f"Move to {fault['name']} and press SPACE to inspect it.", target_pos)
+        if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 46.0:
+            return (f"Hold R here until {fault['name']} is fully repaired.", target_pos)
+        return (f"Move to the isolated {fault['name']} and hold R to repair it.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -276,7 +278,6 @@ class ElectricianWorld(BaseWorld):
         self.update_fault_effects(dt)
         self.evaluate_outcome()
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw_background(self, canvas: tk.Canvas) -> None:
@@ -290,6 +291,47 @@ class ElectricianWorld(BaseWorld):
         canvas.create_text(14, 21, anchor="w", text="Electrician", fill="#eef7ff", font=("Helvetica", 14, "bold"))
         canvas.create_text(WIDTH / 2, 21, text=f"System Health {int(self.system_health)}%", fill="#9bd1ff", font=("Helvetica", 11, "bold"))
         canvas.create_text(WIDTH - 16, 21, anchor="e", text=f"Time {self.timer:05.1f}s", fill="#eef7ff", font=("Helvetica", 12, "bold"))
+
+    def draw_footer(self, canvas: tk.Canvas) -> None:
+        canvas.create_rectangle(0, HEIGHT - self.FOOTER_H, WIDTH, HEIGHT, fill="#08111b", outline="")
+        canvas.create_text(WIDTH / 2, HEIGHT - self.FOOTER_H / 2, text=self.hints[self.current_hint_index], fill="#8ec7ec", font=("Helvetica", 10, "italic"), width=WIDTH - 80)
+
+    def draw_fault_network(self, canvas: tk.Canvas) -> None:
+        for fault in self.faults:
+            panel_color = "#ff6b6b" if fault["state"] == "fault" else "#ffd166" if fault["state"] == "repaired" else "#63e6be"
+            canvas.create_rectangle(fault["x"] - 30, fault["y"] - 20, fault["x"] + 30, fault["y"] + 20, fill=panel_color, outline="#ffffff", width=2)
+            canvas.create_text(fault["x"], fault["y"] - 32, text=fault["group"].upper(), fill="#dcecff", font=("Helvetica", 8, "bold"))
+            canvas.create_text(fault["x"], fault["y"], text="FAULT" if fault["state"] == "fault" else "READY" if fault["state"] == "repaired" else "ON", fill="#102030", font=("Helvetica", 9, "bold"))
+            if fault["state"] == "fault":
+                progress = float(fault["repair_progress"]) / 100.0
+                canvas.create_rectangle(fault["x"] - 28, fault["y"] + 27, fault["x"] + 28, fault["y"] + 34, fill="#223546", outline="")
+                canvas.create_rectangle(fault["x"] - 28, fault["y"] + 27, fault["x"] - 28 + 56 * progress, fault["y"] + 34, fill="#4dabf7", outline="")
+
+        for group in self.groups:
+            group_faults = [fault for fault in self.faults if fault["group"] == group["id"]]
+            if not group_faults:
+                continue
+            source_x = self.breaker_panel["x"]
+            source_y = self.breaker_panel["y"]
+            for fault in group_faults:
+                energized = self.breaker_states[group["id"]] and fault["state"] == "online"
+                line_color = group["color"] if energized else "#3c4f60"
+                canvas.create_line(source_x, source_y, fault["x"], fault["y"], fill=line_color, width=3, dash=(4, 3) if not energized else ())
+
+        canvas.create_rectangle(self.breaker_panel["x"] - 38, self.breaker_panel["y"] - 52, self.breaker_panel["x"] + 38, self.breaker_panel["y"] + 52, fill="#1f3344", outline="#8ec7ec", width=2)
+        canvas.create_text(self.breaker_panel["x"], self.breaker_panel["y"] - 64, text="Breaker Panel", fill="#dcecff", font=("Helvetica", 10, "bold"))
+        for index, group in enumerate(self.groups):
+            y = self.breaker_panel["y"] - 24 + index * 24
+            state = self.breaker_states[group["id"]]
+            fill = group["color"] if state else "#495866"
+            canvas.create_rectangle(self.breaker_panel["x"] - 26, y - 8, self.breaker_panel["x"] + 26, y + 8, fill=fill, outline="#ffffff")
+            canvas.create_text(self.breaker_panel["x"], y, text=f"[{index+1}] {group['label'][0]}", fill="#102030", font=("Helvetica", 8, "bold"))
+
+        canvas.create_rectangle(self.main_panel["x"] - 42, self.main_panel["y"] - 44, self.main_panel["x"] + 42, self.main_panel["y"] + 44, fill="#243647", outline="#8ec7ec", width=2)
+        canvas.create_text(self.main_panel["x"], self.main_panel["y"] - 54, text="Main Panel", fill="#dcecff", font=("Helvetica", 10, "bold"))
+        canvas.create_text(self.main_panel["x"], self.main_panel["y"] - 6, text="Hold E", fill="#ffffff", font=("Helvetica", 9, "bold"))
+        canvas.create_rectangle(self.main_panel["x"] - 28, self.main_panel["y"] + 10, self.main_panel["x"] + 28, self.main_panel["y"] + 20, fill="#162431", outline="")
+        canvas.create_rectangle(self.main_panel["x"] - 28, self.main_panel["y"] + 10, self.main_panel["x"] - 28 + 56 * (self.restore_progress / 100.0), self.main_panel["y"] + 20, fill="#63e6be", outline="")
 
     def draw_status_panels(self, canvas: tk.Canvas) -> None:
         y1 = HEIGHT - self.LOWER_PANEL_H - self.FOOTER_H
@@ -355,43 +397,6 @@ class ElectricianWorld(BaseWorld):
             canvas.create_text(x1 + 14, y, anchor="nw", text=label, fill="#dcecff", font=("Helvetica", 9), width=self.SIDE_PANEL_W - 28)
             y += 18
 
-    def draw_fault_network(self, canvas: tk.Canvas) -> None:
-        for fault in self.faults:
-            panel_color = "#ff6b6b" if fault["state"] == "fault" else "#ffd166" if fault["state"] == "repaired" else "#63e6be"
-            canvas.create_rectangle(fault["x"] - 30, fault["y"] - 20, fault["x"] + 30, fault["y"] + 20, fill=panel_color, outline="#ffffff", width=2)
-            canvas.create_text(fault["x"], fault["y"] - 32, text=fault["group"].upper(), fill="#dcecff", font=("Helvetica", 8, "bold"))
-            canvas.create_text(fault["x"], fault["y"], text="FAULT" if fault["state"] == "fault" else "READY" if fault["state"] == "repaired" else "ON", fill="#102030", font=("Helvetica", 9, "bold"))
-            if fault["state"] == "fault":
-                progress = float(fault["repair_progress"]) / 100.0
-                canvas.create_rectangle(fault["x"] - 28, fault["y"] + 27, fault["x"] + 28, fault["y"] + 34, fill="#223546", outline="")
-                canvas.create_rectangle(fault["x"] - 28, fault["y"] + 27, fault["x"] - 28 + 56 * progress, fault["y"] + 34, fill="#4dabf7", outline="")
-
-        for group in self.groups:
-            group_faults = [fault for fault in self.faults if fault["group"] == group["id"]]
-            if not group_faults:
-                continue
-            source_x = self.breaker_panel["x"]
-            source_y = self.breaker_panel["y"]
-            for fault in group_faults:
-                energized = self.breaker_states[group["id"]] and fault["state"] == "online"
-                line_color = group["color"] if energized else "#3c4f60"
-                canvas.create_line(source_x, source_y, fault["x"], fault["y"], fill=line_color, width=3, dash=(4, 3) if not energized else ())
-
-        canvas.create_rectangle(self.breaker_panel["x"] - 38, self.breaker_panel["y"] - 52, self.breaker_panel["x"] + 38, self.breaker_panel["y"] + 52, fill="#1f3344", outline="#8ec7ec", width=2)
-        canvas.create_text(self.breaker_panel["x"], self.breaker_panel["y"] - 64, text="Breaker Panel", fill="#dcecff", font=("Helvetica", 10, "bold"))
-        for index, group in enumerate(self.groups):
-            y = self.breaker_panel["y"] - 24 + index * 24
-            state = self.breaker_states[group["id"]]
-            fill = group["color"] if state else "#495866"
-            canvas.create_rectangle(self.breaker_panel["x"] - 26, y - 8, self.breaker_panel["x"] + 26, y + 8, fill=fill, outline="#ffffff")
-            canvas.create_text(self.breaker_panel["x"], y, text=f"[{index+1}] {group['label'][0]}", fill="#102030", font=("Helvetica", 8, "bold"))
-
-        canvas.create_rectangle(self.main_panel["x"] - 42, self.main_panel["y"] - 44, self.main_panel["x"] + 42, self.main_panel["y"] + 44, fill="#243647", outline="#8ec7ec", width=2)
-        canvas.create_text(self.main_panel["x"], self.main_panel["y"] - 54, text="Main Panel", fill="#dcecff", font=("Helvetica", 10, "bold"))
-        canvas.create_text(self.main_panel["x"], self.main_panel["y"] - 6, text="Hold E", fill="#ffffff", font=("Helvetica", 9, "bold"))
-        canvas.create_rectangle(self.main_panel["x"] - 28, self.main_panel["y"] + 10, self.main_panel["x"] + 28, self.main_panel["y"] + 20, fill="#162431", outline="")
-        canvas.create_rectangle(self.main_panel["x"] - 28, self.main_panel["y"] + 10, self.main_panel["x"] - 28 + 56 * (self.restore_progress / 100.0), self.main_panel["y"] + 20, fill="#63e6be", outline="")
-
     def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
         self.draw_background(canvas)
@@ -400,6 +405,6 @@ class ElectricianWorld(BaseWorld):
         player.draw(canvas)
         self.draw_sidebar(canvas)
         self.draw_status_panels(canvas)
-        self.draw_hud(canvas)
+        self.draw_footer(canvas)
         if self.finished:
             self.draw_result(canvas)

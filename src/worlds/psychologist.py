@@ -126,7 +126,6 @@ class PsychologistWorld(BaseWorld):
                 {
                     "x": x,
                     "y": y,
-                    "id": index,
                     "name": template["name"],
                     "issue": template["presenting_issue"],
                     "cue": template["cue"],
@@ -148,35 +147,33 @@ class PsychologistWorld(BaseWorld):
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         unresolved = [p for p in self.patients if not p["resolved"]]
         if not unresolved:
-            return ("All clients stabilized. Keep monitoring until the shift ends.", None)
-            
-        # Target the most distressed patient
-        patient = min(unresolved, key=lambda p: float(p["distress"]))
-        target_pos = (float(patient["x"]), float(patient["y"]))
-        dist = math.hypot(player.x - patient["x"], player.y - patient["y"])
+            return ("All clients stabilized. Keep monitoring until shift end.", None)
         
-        if patient["distress"] < 15:
-            if dist > 80:
-                return (f"EMERGENCY: {patient['name']} is in critical crisis! Head to their room IMMEDIATELY.", target_pos)
-            else:
-                return (f"CRITICAL: {patient['name']} needs urgent stabilization. Hold Key 2 (Stabilization) and use SPACE.", target_pos)
+        target = max(unresolved, key=lambda p: float(p["distress"]))
+        target_pos = (float(target["x"]), float(target["y"]))
         
-        if dist > 120:
-            return (f"Navigate to {patient['name']}'s room to begin therapeutic intervention.", target_pos)
-            
         if self.active_patient == -1:
-             return (f"In position at {patient['name']}'s room. Press keys 1-4 to select a therapeutic approach.", target_pos)
-             
-        # Find correct key for the player
+            if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 125:
+                correct_inter = next((i for i in self.interventions if i["focus"] == target["focus"]), None)
+                if correct_inter:
+                    return (f"Press [{correct_inter['key']}] for {correct_inter['name']}, then hold SPACE with {target['name']}.", target_pos)
+            return (f"Go to {target['name']}; they are the highest-risk client right now.", target_pos)
+            
+        patient = self.patients[self.active_patient]
+        if patient["resolved"]:
+            return (f"{patient['name']} is stable. Move to {target['name']}.", target_pos)
+            
         correct_inter = next((i for i in self.interventions if i["focus"] == patient["focus"]), None)
-        
-        if patient["rapport"] < 50:
-             msg = f"Building rapport with {patient['name']} is key. "
-             if correct_inter:
-                 msg += f"Try the {correct_inter['name']} intervention (Key {correct_inter['key']})."
-             return (msg, target_pos)
-        else:
-             return (f"Progressing therapy for {patient['name']}. Maintain the correct intervention to reach clinical resolution.", target_pos)
+        if correct_inter:
+            patient_pos = (float(patient["x"]), float(patient["y"]))
+            selected = self.interventions[self.selected_intervention]
+            if selected["focus"] != correct_inter["focus"]:
+                return (f"Switch to [{correct_inter['key']}] {correct_inter['name']} for {patient['name']}.", patient_pos)
+            if math.hypot(player.x - patient_pos[0], player.y - patient_pos[1]) < 125:
+                return (f"Hold SPACE with {patient['name']} to apply {correct_inter['name']} now.", patient_pos)
+            return (f"Move back to {patient['name']} and hold SPACE with {correct_inter['name']}.", patient_pos)
+            
+        return ("Move to the active client and match their cue words to the right intervention key.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -333,7 +330,6 @@ class PsychologistWorld(BaseWorld):
                 self.grade = "F"
 
         self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def get_patient_color(self, distress: float) -> str:
@@ -434,6 +430,5 @@ class PsychologistWorld(BaseWorld):
         canvas.create_text(WIDTH / 2, HEIGHT - 110, text=self.hints[self.current_hint_index], fill="#4f6d86", font=("Helvetica", 8, "italic"))
         player.draw(canvas)
 
-        self.draw_hud(canvas)
         if self.finished:
             self.draw_result(canvas)

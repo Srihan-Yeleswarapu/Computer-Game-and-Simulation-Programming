@@ -72,37 +72,16 @@ class BugHuntWorld(BaseWorld):
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.index < len(self.nodes):
             node = self.nodes[self.index]
-            dist = math.hypot(player.x - float(node["x"]), player.y - float(node["y"]))
-            
-            # Check if player is on the wrong node
-            for other_node in self.nodes:
-                if other_node == node: continue
-                if math.hypot(player.x - float(other_node["x"]), player.y - float(other_node["y"])) < 40:
-                    return (f"Wrong node! Patch the {node['name']} node first to maintain network integrity.", (float(node["x"]), float(node["y"])))
-
-            if dist < 45:
-                if self.patch_progress < 0.5:
-                    return (f"Patching {node['name']}... Keep your terminal link active by staying inside the glow.", (float(node["x"]), float(node["y"])))
-                else:
-                    return (f"Almost there! Finish patching the {node['name']} hex-vectors.", (float(node["x"]), float(node["y"])))
-            
-            # Hazardous conditions
-            leak_dist = math.hypot(player.x - self.leak["x"], player.y - self.leak["y"])
-            if leak_dist < self.leak["r"] + 20:
-                return ("You're in a memory leak! Your speed is compromised. Maneuver out immediately.", (float(self.leak["x"]), float(self.leak["y"])))
-                
-            for glitch in self.glitches:
-                if math.hypot(player.x - glitch["x"], player.y - glitch["y"]) < 100:
-                    return ("Glitch incoming! Evade the red data-leak blocks to prevent time penalties.", (float(glitch["x"]), float(glitch["y"])))
-
-            return (f"Head to the {node['name']} node (glowing circle) to start the patch sequence.", (float(node["x"]), float(node["y"])))
+            target = (float(node["x"]), float(node["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < player.size + 18:
+                return (f"Hold your position inside the {node['name']} circle until the patch finishes.", target)
+            return (f"Move to the {node['name']} node and stand inside the glowing circle to patch it.", target)
             
         if self.deploy_progress < 1.0:
-            dist_deploy = math.hypot(player.x - self.deploy_point["x"], player.y - self.deploy_point["y"])
-            if dist_deploy > 60:
-                return ("All nodes patched! Head to the DEPLOY console at the bottom to finalize the fix.", (float(self.deploy_point["x"]), float(self.deploy_point["y"])))
-            else:
-                return ("Hold position at the DEPLOY console to ship the stabilized architecture.", (float(self.deploy_point["x"]), float(self.deploy_point["y"])))
+            target = (float(self.deploy_point["x"]), float(self.deploy_point["y"]))
+            if math.hypot(player.x - target[0], player.y - target[1]) < player.size + 26:
+                return ("Stay on the DEPLOY console until the release finishes shipping.", target)
+            return ("All nodes are patched. Move to the DEPLOY console now.", target)
             
         return ("System stabilized. Deployment in progress.", None)
 
@@ -134,7 +113,7 @@ class BugHuntWorld(BaseWorld):
             target = self.nodes[self.index]
             tx = float(target["x"])
             ty = float(target["y"])
-            on_target = math.hypot(player.x - tx, player.y - ty) < player.size + 24
+            on_target = math.hypot(player.x - tx, player.y - ty) < player.size + 18
             if on_target:
                 self.patch_progress = clamp(self.patch_progress + dt * 1.6, 0.0, 1.0)
             else:
@@ -175,8 +154,7 @@ class BugHuntWorld(BaseWorld):
             ny = float(node["y"])
             if math.hypot(player.x - nx, player.y - ny) < player.size + 18:
                 self.timer = max(0.0, self.timer - dt * 0.5)
-        self.update_particles(dt)
-        self.update_adaptive_guidance(dt, player, keys)
+                self.warning = "Wrong Node!"
         self.draw(canvas, player)
 
     def draw(self, canvas: tk.Canvas, player: Player) -> None:

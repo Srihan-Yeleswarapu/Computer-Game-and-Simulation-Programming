@@ -47,11 +47,12 @@ class CybersecurityAnalystWorld(BaseWorld):
         if not self.attacks:
             return ("Shield the CORE from upcoming malicious packets.", (self.server_x, self.server_y))
             
-        # Target the closest threat to server
         threat = min(self.attacks, key=lambda a: math.hypot(self.server_x - a["x"], self.server_y - a["y"]))
         target_pos = (float(threat["x"]), float(threat["y"]))
+        if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < player.size + 15:
+            return ("Keep overlapping this red threat packet to intercept it before it reaches the CORE.", target_pos)
         
-        return ("Intercept the incoming red threat packet before it breaches the CORE.", target_pos)
+        return ("Move into this red threat packet now to block it before it reaches the CORE.", target_pos)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
