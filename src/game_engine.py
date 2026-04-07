@@ -34,15 +34,25 @@ class GameEngine:
         self.root = tk.Tk()
         self.root.title("Career Worlds")
         self.root.configure(bg="#04111f")
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
+        self.fullscreen = True
+        self.screen_width = max(self.root.winfo_screenwidth(), WIDTH)
+        self.screen_height = max(self.root.winfo_screenheight(), HEIGHT)
+        self.render_scale = 1.0
+        self.viewport_x = 0.0
+        self.viewport_y = 0.0
+        self.viewport_w = float(WIDTH)
+        self.viewport_h = float(HEIGHT)
+        self.root.attributes("-fullscreen", self.fullscreen)
         self.canvas = tk.Canvas(
             self.root,
-            width=WIDTH,
-            height=HEIGHT,
-            bg=BG,
+            width=self.screen_width,
+            height=self.screen_height,
+            bg="#000000",
             highlightthickness=0,
         )
-        self.canvas.pack(expand=True)
+        self.canvas.pack(fill="both", expand=True)
+        self.update_viewport(self.screen_width, self.screen_height)
 
         self.player = Player()
         self.save_system = SaveSystem()
@@ -101,17 +111,62 @@ class GameEngine:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.bind("<KeyPress>", self.on_key_press)
         self.root.bind("<KeyRelease>", self.on_key_release)
+        self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<Configure>", self.on_configure)
         self.canvas.bind("<Button-1>", self.on_click)
         self.canvas.bind("<Motion>", self.on_mouse_move)
         self.root.after(16, self.loop)
 
+    def update_viewport(self, width: int, height: int) -> None:
+        self.screen_width = max(width, WIDTH)
+        self.screen_height = max(height, HEIGHT)
+        self.render_scale = min(self.screen_width / WIDTH, self.screen_height / HEIGHT)
+        self.viewport_w = WIDTH * self.render_scale
+        self.viewport_h = HEIGHT * self.render_scale
+        self.viewport_x = (self.screen_width - self.viewport_w) / 2.0
+        self.viewport_y = (self.screen_height - self.viewport_h) / 2.0
+        self.canvas.configure(width=self.screen_width, height=self.screen_height)
+        self.root.tk.call("tk", "scaling", max(1.0, self.render_scale))
+
+    def on_configure(self, event: tk.Event) -> None:
+        if event.widget != self.root:
+            return
+        self.update_viewport(int(event.width), int(event.height))
+
+    def toggle_fullscreen(self, event: tk.Event | None = None) -> None:
+        self.fullscreen = not self.fullscreen
+        self.root.attributes("-fullscreen", self.fullscreen)
+        if not self.fullscreen:
+            self.root.geometry(f"{WIDTH}x{HEIGHT}")
+        self.update_viewport(self.root.winfo_width(), self.root.winfo_height())
+
+    def to_virtual_coords(self, x: float, y: float) -> tuple[float, float]:
+        vx = (x - self.viewport_x) / self.render_scale
+        vy = (y - self.viewport_y) / self.render_scale
+        return (
+            max(0.0, min(float(WIDTH), vx)),
+            max(0.0, min(float(HEIGHT), vy)),
+        )
+
+    def point_in_viewport(self, x: float, y: float) -> bool:
+        return (
+            self.viewport_x <= x <= self.viewport_x + self.viewport_w
+            and self.viewport_y <= y <= self.viewport_y + self.viewport_h
+        )
+
+    def apply_viewport_transform(self) -> None:
+        self.canvas.addtag_all("scene")
+        self.canvas.scale("scene", 0.0, 0.0, self.render_scale, self.render_scale)
+        self.canvas.move("scene", self.viewport_x, self.viewport_y)
+
     def on_mouse_move(self, event: tk.Event) -> None:
-        self.mouse_x = event.x
-        self.mouse_y = event.y
+        if not self.point_in_viewport(event.x, event.y):
+            return
+        self.mouse_x, self.mouse_y = self.to_virtual_coords(event.x, event.y)
         if self.state != "menu":
             return
 
-        hovered = self.get_menu_key_at(event.x, event.y)
+        hovered = self.get_menu_key_at(self.mouse_x, self.mouse_y)
         if hovered and hovered in self.world_order:
             self.selected_world_index = self.world_order.index(hovered)
 
@@ -197,8 +252,11 @@ class GameEngine:
     def on_click(self, event: tk.Event) -> None:
         if self.state != "menu":
             return
+        if not self.point_in_viewport(event.x, event.y):
+            return
 
-        key = self.get_menu_key_at(event.x, event.y)
+        x, y = self.to_virtual_coords(event.x, event.y)
+        key = self.get_menu_key_at(x, y)
         if key is None:
             return
 
@@ -316,6 +374,8 @@ class GameEngine:
             self.draw_about()
         elif self.state == "victory":
             self.draw_victory()
+
+        self.apply_viewport_transform()
 
         if self.debug_mode:
             self.draw_debug()
