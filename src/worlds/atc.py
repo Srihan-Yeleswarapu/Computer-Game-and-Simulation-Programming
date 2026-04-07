@@ -57,6 +57,8 @@ class ATCWorld(BaseWorld):
 
     def calculate_grade(self) -> str:
         if not self.success:
+            if self.landed_count >= 17:
+                return "C"
             return "F"
         if self.landed_count >= 24:
             return "S"

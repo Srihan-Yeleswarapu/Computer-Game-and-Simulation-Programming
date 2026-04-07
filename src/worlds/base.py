@@ -43,6 +43,7 @@ class BaseWorld:
         self.adaptive_hint_duration = 2.2
         self._last_player_position: tuple[float, float] | None = None
         self._hud_player: Player | None = None
+        self._timer_ticked_this_frame = False
 
     def reset(self, player: Player) -> None:  # pragma: no cover - interface
         raise NotImplementedError
@@ -58,6 +59,9 @@ class BaseWorld:
         raise NotImplementedError
 
     def tick_timer(self, dt: float) -> None:
+        if self._timer_ticked_this_frame:
+            return
+        self._timer_ticked_this_frame = True
         if self.finished:
             return
 
@@ -75,6 +79,9 @@ class BaseWorld:
         if self.hint_display_timer > 3.0:
             self.hint_display_timer = 0.0
             self.current_hint_index = (self.current_hint_index + 1) % len(self.hints)
+
+    def begin_frame(self) -> None:
+        self._timer_ticked_this_frame = False
 
     def clear_input_state(self) -> None:
         self.keys.clear()
@@ -213,7 +220,7 @@ class BaseWorld:
         if self.grade != "-":
             return self.grade
         if not self.success:
-            return "-"
+            return "F"
 
         ratio = self.timer / self.duration
         if ratio > 0.5:

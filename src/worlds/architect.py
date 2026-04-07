@@ -222,7 +222,9 @@ class ArchitectWorld(BaseWorld):
 
     def calculate_grade(self) -> str:
         if not self.success:
-            return "-"
+            if self.review_score >= 60:
+                return "C"
+            return "F"
         if self.review_score >= 92:
             return "S"
         if self.review_score >= 82:

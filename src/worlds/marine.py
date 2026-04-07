@@ -191,7 +191,8 @@ class MarineWorld(BaseWorld):
             self.success = True
             if self.oxygen > 60: self.grade = "S"
             elif self.oxygen > 40: self.grade = "A"
-            else: self.grade = "B"
+            elif self.oxygen > 20: self.grade = "B"
+            else: self.grade = "C"
             self.message = "Mission Success! Marine data uploaded."
 
         if self.timer <= 0:
