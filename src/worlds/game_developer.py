@@ -4,6 +4,7 @@ import json
 import math
 import os
 import random
+import time
 import tkinter as tk
 from dataclasses import dataclass
 

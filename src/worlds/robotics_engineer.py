@@ -128,10 +128,32 @@ class RoboticsEngineerWorld(BaseWorld):
             else:
                 self.message = "Deadline missed! The assembly line failed to produce a working unit."
 
-        self.update_particles(dt)
-        self.draw(canvas, player)
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if not self.parts:
+            return ("Assembly line paused. Monitor the incoming component stream.", None)
+            
+        # Target the most critical part (lowest life or highest complexity)
+        part = min(self.parts, key=lambda p: p.get("life", 100))
+        target_pos = (float(part["x"]), float(part["y"]))
+        dist_p = math.hypot(player.x - part["x"], player.y - part["y"])
+        
+        if self.robot_stability < 35:
+             return ("CRITICAL STABILITY! Ignore small parts and focus on the blue 'Core' units to stabilize the build.", target_pos)
+             
+        if dist_p > 100:
+             return (f"Component detected! Intercept the {part.get('type','part')} and hold SPACE to integrate it into the chassis.", target_pos)
+        else:
+             return ("Integrating... Maintain structural alignment to ensure high-grade prototype assembly.", target_pos)
 
-    def draw(self, canvas: tk.Canvas, player: Player) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
+        if self.finished:
+            self.draw(canvas, player)
+            return
+
+        self.tick_timer(dt)
+        player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
+        self.update_adaptive_guidance(dt, player, keys)
         canvas.delete("all")
         sx, sy = 0, 0
         if self.shake > 0:

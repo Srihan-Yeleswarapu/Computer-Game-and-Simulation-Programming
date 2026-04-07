@@ -145,11 +145,37 @@ class PilotWorld(BaseWorld):
             self.message = "Mission Accomplished! Destination reached."
             
             
-        self.update_particles(dt)
-        self.draw(canvas, player)
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.fuel < 25:
+            if self.fuels:
+                target_f = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
+                return ("FUEL CRITICAL! intercept the green canisters immediately to maintain flight.", (float(target_f["x"]), float(target_f["y"])))
+            else:
+                return ("Low Fuel: Scouring horizon for emergency replenishment nodes.", None)
+                
+        if self.hull < 40:
+             return ("Hull integrity compromised. Prioritize evasion (WASD) over cloud collection.", None)
+             
+        # Look for clouds
+        if self.clouds:
+             target_c = min(self.clouds, key=lambda c: math.hypot(player.x - c["x"], player.y - c["y"]))
+             dist_p = math.hypot(player.x - target_c["x"], player.y - target_c["y"])
+             if dist_p > 120:
+                  return ("Navigation Goal: Fly through clear sky nodes (white) for mission progression points.", (float(target_c["x"]), float(target_c["y"])))
+             else:
+                  return ("Maintain course! Holding in cloud centers maximizes biological research data.", (float(target_c["x"]), float(target_c["y"])))
+                  
+        return ("Flight vector stable. Maintain current heading until the mission clock runs out.", None)
 
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
+        if self.finished:
+            self.draw(canvas, player)
+            return
 
-    def draw(self, canvas: tk.Canvas, player: Player) -> None:
+        self.tick_timer(dt)
+        player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
+        self.update_adaptive_guidance(dt, player, keys)
         canvas.delete("all")
         
         sx, sy = 0, 0
