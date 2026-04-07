@@ -37,7 +37,7 @@
 
 ---
 
-## 🚀 How to Run
+## How to Run
 1.  **Requirement**: Python 3.12+ (includes `tkinter` on standard Windows installs).
 2.  **Music Support**: Ensure `pygame` is installed if you want background music.
 3.  **Command**: From this folder, run:
@@ -47,7 +47,7 @@
 
 ---
 
-## 🎮 The Hub (Main Menu)
+## The Hub (Main Menu)
 -   **Navigate**: Use **Arrow Keys** or hover your mouse over career cards.
 -   **Launch**: Press **Enter** or **Space** to enter a profession's briefing.
 -   **Shortcuts**: Keys **1-0** and **Q-U** instantly launch worlds.
@@ -56,7 +56,7 @@
 
 ---
 
-## 🏛️ Comprehensive Career Manifest (17 Worlds)
+## Comprehensive Career Manifest (17 Worlds)
 
 | Key | Career | Skill-Based Challenge |
 |---|---|---|
@@ -80,7 +80,7 @@
 
 ---
 
-## 📄 Technical Report & Rationale (For Judges)
+## Technical Report & Rationale (For Judges)
 
 ### 1. Topic Adherence: "Career Quest"
 We strictly followed the FBLA 2025-2026 topic developed with Code.org. Players "jump into mini-worlds" that include a **Scenario Briefing** (job description) and **Skill-Based Tasks** unique to that profession. By the end of the 17-career tour, players understand the core competencies and pressures of each role.
@@ -103,7 +103,7 @@ To maximize portability and performance, we used **Native `tkinter.Canvas` Primi
 
 ---
 
-## ♿ Accessibility & UX Design
+## Accessibility & UX Design
 
 ### 1. User Journey
 -   **Zero-Friction Re-entry**: Players can hit `Esc` to abort and `Space` to return. The "Hub" remains active in memory for instant transitions between careers.
@@ -131,27 +131,27 @@ The About/Rationale panel restates the **design rationale**, calling out the pol
 
 ---
 
-## 📜 Game Rules Documentation (Key Worlds)
+## Game Rules Documentation (Key Worlds)
 
-### 🔥 World 1: Firefighter Rescue
+### World 1: Firefighter Rescue
 -   **Objective**: Rescue 5 survivors (free them by staying near, then carry to the red door).
 -   **Hazard**: Flames drain the timer 3x faster and spread randomly. High heat resets your position.
 
-### 👨‍🍳 World 2: Chef Rush
+### World 2: Chef Rush
 -   **Objective**: Complete a 4-step recipe at highlighted stations.
 -   **Mechanic**: Progress bars fill while on-station; clearing "Expedite Tickets" at the pass window adds time.
 
-### 🏗️ World 5: Architect
+### World 5: Architect
 -   **Objective**: Build an Eco-Library on a budget ($1,000) that survives a 10s wind test.
 -   **Rules**: Must include an Eco-Roof. Wind drag increases with height. BFS validates structural connection to ground.
 
-### 🧠 World 0: Psychologist
+### World 0: Psychologist
 -   **Objective**: Stabilize 4 patients using Grounding (1), Breathing (2), Reflection (3), or Reframing (4).
 -   **Logic**: Match the intervention to the patient's "Cue words". Mismatched interventions spike distress and fail the session.
 
 ---
 
-## 📝 Notes for Judges
+## Notes for Judges
 -   **110/110 Goal**: This project intentionally targets every point on the Rating Sheet.
 -   **Implementation**: No external libraries/engines were used (Pure Python Standard Library).
 -   **Originality**: Every mechanic, from the wind-drag simulation to the ALM ticket flow, was custom built for this event.
