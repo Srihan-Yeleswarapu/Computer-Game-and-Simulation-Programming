@@ -73,71 +73,6 @@ class RoboticsEngineerWorld(BaseWorld):
         return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
-        if self.finished:
-            self.draw(canvas, player)
-            return
-
-        player.update(dt, keys, self.bounds)
-        
-        # Spawn parts on left and right belts
-        if random.random() < 2.5 * dt:
-            typ = random.choice(self.parts)
-            side = random.choice(["left", "right"])
-            x = 50 if side == "left" else WIDTH - 50
-            y = -40
-            
-            # Prevent overlap
-            overlap = False
-            for p in self.active_parts:
-                if p["side"] == side and abs(p["y"] - y) < 60:
-                    overlap = True
-                    break
-            
-            if not overlap:
-                self.active_parts.append({"x": x, "y": y, "type": typ, "speed": 100.0, "side": side})
-
-        new_parts = []
-        for p in self.active_parts:
-            p["y"] += p["speed"] * dt
-            
-            # Collection
-            if math.hypot(player.x - p["x"], player.y - p["y"]) < 30:
-                 if p["type"] == self.current_req:
-                      self.robot_stability = min(100.0, self.robot_stability + 10.0)
-                      self.current_req = random.choice(self.parts)
-                      self.robots_built += 0.34 # 3 parts per robot completion for better pacing
-                 else:
-                      self.robot_stability -= 25.0
-                      self.shake = 4.0
-            elif p["y"] < HEIGHT + 20:
-                 new_parts.append(p)
-                 
-        self.active_parts = new_parts
-        
-        if self.robot_stability <= 0:
-            self.finished = True
-            self.success = False
-            self.message = "Critical Failure! The prototype exploded."
-            
-        if self.robots_built >= 3.0:
-            self.finished = True
-            self.success = True
-            self.message = "Assembly complete! 2 functional prototypes built."
-            self.grade = self.calculate_grade()
-            
-        if self.timer <= 0:
-            self.finished = True
-            self.success = self.robots_built >= 1.0
-            if self.success:
-                self.message = f"Shift Over! Factory produced {int(self.robots_built)} functional prototypes."
-                self.grade = self.calculate_grade()
-            else:
-                self.message = "Deadline missed! The assembly line failed to produce a working unit."
-
-    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        return self._build_adaptive_hint(player)
-
-    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
         if self.finished:
             self.draw(canvas, player)
@@ -146,6 +81,59 @@ class RoboticsEngineerWorld(BaseWorld):
         self.tick_timer(dt)
         player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
         self.update_adaptive_guidance(dt, player, keys)
+
+        if random.random() < 2.5 * dt:
+            typ = random.choice(self.parts)
+            side = random.choice(["left", "right"])
+            x = 50 if side == "left" else WIDTH - 50
+            y = -40
+
+            overlap = False
+            for part in self.active_parts:
+                if part["side"] == side and abs(part["y"] - y) < 60:
+                    overlap = True
+                    break
+
+            if not overlap:
+                self.active_parts.append({"x": x, "y": y, "type": typ, "speed": 100.0, "side": side})
+
+        new_parts = []
+        for part in self.active_parts:
+            part["y"] += part["speed"] * dt
+
+            if math.hypot(player.x - part["x"], player.y - part["y"]) < 30:
+                if part["type"] == self.current_req:
+                    self.robot_stability = min(100.0, self.robot_stability + 10.0)
+                    self.current_req = random.choice(self.parts)
+                    self.robots_built += 0.34
+                else:
+                    self.robot_stability -= 25.0
+                    self.shake = 4.0
+            elif part["y"] < HEIGHT + 20:
+                new_parts.append(part)
+
+        self.active_parts = new_parts
+
+        if self.robot_stability <= 0:
+            self.finished = True
+            self.success = False
+            self.message = "Critical Failure! The prototype exploded."
+
+        if self.robots_built >= 3.0:
+            self.finished = True
+            self.success = True
+            self.message = "Assembly complete! 2 functional prototypes built."
+            self.grade = self.calculate_grade()
+
+        if self.timer <= 0 and not self.finished:
+            self.finished = True
+            self.success = self.robots_built >= 1.0
+            if self.success:
+                self.message = f"Shift Over! Factory produced {int(self.robots_built)} functional prototypes."
+                self.grade = self.calculate_grade()
+            else:
+                self.message = "Deadline missed! The assembly line failed to produce a working unit."
+
         canvas.delete("all")
         sx, sy = 0, 0
         if self.shake > 0:
