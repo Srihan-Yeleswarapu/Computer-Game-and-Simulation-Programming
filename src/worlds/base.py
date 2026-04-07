@@ -147,6 +147,12 @@ class BaseWorld:
         if self.adaptive_hint_timer <= 0.0 or not self.adaptive_hint_text or self.finished or player is None:
             return
 
+        # Refresh the active hint while it is visible so arrows keep following moving targets.
+        hint_text, hint_target = self.get_adaptive_hint(player)
+        if hint_text:
+            self.adaptive_hint_text = hint_text
+            self.adaptive_hint_target = hint_target
+
         panel_w = min(680.0, WIDTH - 120.0)
         panel_h = 100.0
         x1 = WIDTH / 2.0 - panel_w / 2.0
