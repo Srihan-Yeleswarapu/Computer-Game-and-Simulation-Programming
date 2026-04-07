@@ -171,7 +171,6 @@ class BaseWorld:
             text="ADAPTIVE GUIDANCE",
             fill="#50fa7b" if not self.high_contrast else "#ffffff",
             font=("Helvetica", 11, "bold"),
-            letterspacing=2
         )
         
         # Main hint text
