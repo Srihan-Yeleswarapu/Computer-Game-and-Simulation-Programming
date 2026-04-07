@@ -134,6 +134,9 @@ class RoboticsEngineerWorld(BaseWorld):
             else:
                 self.message = "Deadline missed! The assembly line failed to produce a working unit."
 
+        self.draw(canvas, player)
+
+    def draw(self, canvas: tk.Canvas, player: Player) -> None:
         canvas.delete("all")
         sx, sy = 0, 0
         if self.shake > 0:
