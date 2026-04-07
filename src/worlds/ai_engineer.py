@@ -111,22 +111,34 @@ class AIEngineerWorld(BaseWorld):
         return clamp(accuracy, 0.0, 100.0)
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        kept_count = len(self.selected_cards)
+        kept_size = sum(card["size"] for card in self.selected_cards)
+
         if self.state == "reviewing":
             if self.current_card_index < self.max_cards:
                 card = self.cards[self.current_card_index]
-                if card["bias"] > 60:
-                    return (f"Press A now to discard {card['title']}; its bias is too high.", None)
-                if card["cred"] > 80:
-                    return (f"Press D now to keep {card['title']}; it is high-credibility data.", None)
-                return (f"Decide this card now: press D to keep {card['title']} or A to discard it.", None)
-            
+                reviewed = self.current_card_index
+                if card["bias"] >= 70 and card["cred"] < 70:
+                    return (f"Reviewed {reviewed}/{self.max_cards}. Kept {kept_count} sets. Discard {card['title']} with A; bias is too high.", None)
+                if card["cred"] >= 85 and card["bias"] <= 25:
+                    return (f"Reviewed {reviewed}/{self.max_cards}. Kept {kept_count} sets. Keep {card['title']} with D; it is strong data.", None)
+                if kept_size < 260 and card["size"] >= 75 and card["bias"] <= 45:
+                    return (f"Your dataset is still thin at size {kept_size}. Keep {card['title']} with D to build training volume.", None)
+                return (f"Reviewed {reviewed}/{self.max_cards}. Card in hand: {card['title']}. Press D to keep it or A to discard it.", None)
+
         if self.state == "ready_to_train":
-            return ("All cards are reviewed. Press SPACE now to start training.", None)
-            
+            projected = self.evaluate_model()
+            if kept_size < 300:
+                return (f"Review complete. You kept {kept_count} datasets but only {kept_size} total size. Press SPACE to train and hope quality carries it.", None)
+            return (f"Review complete. You kept {kept_count} datasets with projected accuracy around {projected:.0f}%. Press SPACE to train.", None)
+
         if self.state == "training":
-            return ("Training is running. Wait for the progress bar to finish.", None)
-            
-        return ("Review each dataset card and decide whether to keep it or discard it.", None)
+            return (f"Training is running at {int(self.training_progress)}%. Wait for the model evaluation to finish.", None)
+
+        if self.state == "done":
+            return (f"Training finished at {self.accuracy:.1f}% accuracy. Wait for the mission result.", None)
+
+        return ("Review each dataset card, keep strong low-bias sources, and discard weak ones.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:

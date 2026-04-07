@@ -43,16 +43,25 @@ class CybersecurityAnalystWorld(BaseWorld):
         self.attacks = []
         self.integrity = 100.0
 
-    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+    def _build_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if not self.attacks:
-            return ("Shield the CORE from upcoming malicious packets.", (self.server_x, self.server_y))
-            
+            return ("No active breach. Hover near the CORE so you can cut off the next packet fast.", (self.server_x, self.server_y))
+
         threat = min(self.attacks, key=lambda a: math.hypot(self.server_x - a["x"], self.server_y - a["y"]))
         target_pos = (float(threat["x"]), float(threat["y"]))
-        if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < player.size + 15:
-            return ("Keep overlapping this red threat packet to intercept it before it reaches the CORE.", target_pos)
-        
-        return ("Move into this red threat packet now to block it before it reaches the CORE.", target_pos)
+        dist_player = math.hypot(player.x - target_pos[0], player.y - target_pos[1])
+        dist_server = math.hypot(self.server_x - target_pos[0], self.server_y - target_pos[1])
+
+        if self.integrity < 40 and dist_server < 120:
+            return (f"Integrity critical at {int(self.integrity)}%. Fall back to the CORE and body-block this packet.", (self.server_x, self.server_y))
+        if dist_player < player.size + 18:
+            return ("You are on the threat line. Keep overlapping this packet until it dissipates.", target_pos)
+        if dist_server < 120:
+            return ("This packet is closest to the CORE. Intercept it now before it breaches the server.", target_pos)
+        return ("Move your firewall ring onto this inbound packet and neutralize it before it closes in.", target_pos)
+
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -110,21 +119,7 @@ class CybersecurityAnalystWorld(BaseWorld):
             else: self.grade = "C"
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        if not self.attacks:
-            return ("Firewall status: Stable. Monitor incoming packet streams for potential breaches.", None)
-            
-        # Target the nearest attack to the server
-        threat = min(self.attacks, key=lambda a: math.hypot(self.server_x - a["x"], self.server_y - a["y"]))
-        dist_threat = math.hypot(player.x - threat["x"], player.y - threat["y"])
-        target_pos = (float(threat["x"]), float(threat["y"]))
-        
-        if self.integrity < 40:
-             return ("CRITICAL BREACH: Shield the central server immediately to prevent system failure!", (float(self.server_x), float(self.server_y)))
-             
-        if dist_threat > 100:
-             return ("Malicious packets detected! Use your firewall (cursor) to intercept the red nodes.", target_pos)
-        else:
-             return ("Intercepting... Stay on the threat path to neutralize the unauthorized access attempt.", target_pos)
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys

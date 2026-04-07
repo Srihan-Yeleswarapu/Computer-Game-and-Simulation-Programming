@@ -47,28 +47,34 @@ class PilotWorld(BaseWorld):
         self.particles = []
         player.speed = 600.0
 
-    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        if self.fuel < 35:
+    def _build_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.fuel <= 25:
             if self.fuels:
                 target = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
                 target_pos = (float(target["x"]), float(target["y"]))
-                return ("Fuel is low. Fly into the green fuel pickup before doing anything else.", target_pos)
-            return ("Out of fuel range. Maintain course and look for fuel pickups.", None)
-            
-        danger_cloud = None
-        for c in self.clouds:
-            if c["bad"] and math.hypot(player.x - c["x"], player.y - c["y"]) < 180:
-                danger_cloud = c
-                break
-        
-        if danger_cloud:
-            return ("A dark storm cloud is too close. Steer away from it immediately.", (float(danger_cloud["x"]), float(danger_cloud["y"])))
-            
-        safe_fuel = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]), default=None)
-        if safe_fuel and self.fuel < 70:
-            return ("Top off your fuel by flying into this green pickup while the sky is clear.", (float(safe_fuel["x"]), float(safe_fuel["y"])))
+                return (f"Fuel critical at {int(self.fuel)}%. Intercept this green pickup before you do anything else.", target_pos)
+            return (f"Fuel critical at {int(self.fuel)}%. Hold a safe line and scan for the next pickup.", None)
 
-        return ("Hold a clear line through the gaps and avoid the next storm cloud.", None)
+        danger_cloud = min((c for c in self.clouds if c["bad"]), key=lambda c: math.hypot(player.x - c["x"], player.y - c["y"]), default=None)
+        if danger_cloud is not None:
+            target_pos = (float(danger_cloud["x"]), float(danger_cloud["y"]))
+            dist = math.hypot(player.x - target_pos[0], player.y - target_pos[1])
+            if dist < 130:
+                return (f"Hull at {int(self.hull)}%. Break away from this dark storm cloud immediately.", target_pos)
+
+        if self.fuel < 65:
+            safe_fuel = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]), default=None)
+            if safe_fuel is not None:
+                target_pos = (float(safe_fuel["x"]), float(safe_fuel["y"]))
+                return (f"Fuel is down to {int(self.fuel)}%. Top off with this pickup while the sky is clear.", target_pos)
+
+        if danger_cloud is not None:
+            return ("A storm front is ahead. Thread the open gap and keep your hull out of the dark cloud.", (float(danger_cloud["x"]), float(danger_cloud["y"])))
+
+        return ("Airspace is clear right now. Stay centered, preserve fuel, and be ready for the next storm line.", None)
+
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -146,26 +152,7 @@ class PilotWorld(BaseWorld):
             
             
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        if self.fuel < 25:
-            if self.fuels:
-                target_f = min(self.fuels, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
-                return ("FUEL CRITICAL! intercept the green canisters immediately to maintain flight.", (float(target_f["x"]), float(target_f["y"])))
-            else:
-                return ("Low Fuel: Scouring horizon for emergency replenishment nodes.", None)
-                
-        if self.hull < 40:
-             return ("Hull integrity compromised. Prioritize evasion (WASD) over cloud collection.", None)
-             
-        # Look for clouds
-        if self.clouds:
-             target_c = min(self.clouds, key=lambda c: math.hypot(player.x - c["x"], player.y - c["y"]))
-             dist_p = math.hypot(player.x - target_c["x"], player.y - target_c["y"])
-             if dist_p > 120:
-                  return ("Navigation Goal: Fly through clear sky nodes (white) for mission progression points.", (float(target_c["x"]), float(target_c["y"])))
-             else:
-                  return ("Maintain course! Holding in cloud centers maximizes biological research data.", (float(target_c["x"]), float(target_c["y"])))
-                  
-        return ("Flight vector stable. Maintain current heading until the mission clock runs out.", None)
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys

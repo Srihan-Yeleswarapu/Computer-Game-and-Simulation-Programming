@@ -49,22 +49,28 @@ class RoboticsEngineerWorld(BaseWorld):
         self.robot_stability = 100.0
         player.speed = 450.0
 
-    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+    def _build_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         matching_parts = [p for p in self.active_parts if p["type"] == self.current_req]
         if matching_parts:
             target = min(matching_parts, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
             target_pos = (float(target["x"]), float(target["y"]))
+            if self.robot_stability < 35:
+                return (f"Stability is down to {int(self.robot_stability)}%. Grab this requested {self.current_req} part now.", target_pos)
             if math.hypot(player.x - target_pos[0], player.y - target_pos[1]) < 30:
-                return (f"Touch this {self.current_req} part now to collect it.", target_pos)
-            return (f"Move to the {target['side']} belt and collect this {self.current_req} part.", target_pos)
-            
+                return (f"Blueprint matched: touch this {self.current_req} part now to advance the prototype.", target_pos)
+            return (f"Next required part is {self.current_req}. Move to the {target['side']} belt and collect it.", target_pos)
+
         wrong_parts = [p for p in self.active_parts if p["type"] != self.current_req]
         if wrong_parts:
             closest_wrong = min(wrong_parts, key=lambda p: math.hypot(player.x - p["x"], player.y - p["y"]))
-            if math.hypot(player.x - closest_wrong["x"], player.y - closest_wrong["y"]) < 100:
-                return (f"Do not touch this {closest_wrong['type']}. Wait for a {self.current_req} part instead.", (float(closest_wrong["x"]), float(closest_wrong["y"])))
-                
-        return (f"No {self.current_req} is in reach yet. Stay centered and watch both belts.", (WIDTH / 2, HEIGHT / 2))
+            wrong_pos = (float(closest_wrong["x"]), float(closest_wrong["y"]))
+            if math.hypot(player.x - wrong_pos[0], player.y - wrong_pos[1]) < 90:
+                return (f"Do not grab this {closest_wrong['type']}. Wait for a {self.current_req} on the belts.", wrong_pos)
+
+        return (f"No {self.current_req} part is in range yet. Hold near center and watch both conveyors.", (WIDTH / 2, HEIGHT / 2))
+
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -129,21 +135,7 @@ class RoboticsEngineerWorld(BaseWorld):
                 self.message = "Deadline missed! The assembly line failed to produce a working unit."
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
-        if not self.parts:
-            return ("Assembly line paused. Monitor the incoming component stream.", None)
-            
-        # Target the most critical part (lowest life or highest complexity)
-        part = min(self.parts, key=lambda p: p.get("life", 100))
-        target_pos = (float(part["x"]), float(part["y"]))
-        dist_p = math.hypot(player.x - part["x"], player.y - part["y"])
-        
-        if self.robot_stability < 35:
-             return ("CRITICAL STABILITY! Ignore small parts and focus on the blue 'Core' units to stabilize the build.", target_pos)
-             
-        if dist_p > 100:
-             return (f"Component detected! Intercept the {part.get('type','part')} and hold SPACE to integrate it into the chassis.", target_pos)
-        else:
-             return ("Integrating... Maintain structural alignment to ensure high-grade prototype assembly.", target_pos)
+        return self._build_adaptive_hint(player)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys

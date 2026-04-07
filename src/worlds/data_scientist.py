@@ -41,20 +41,38 @@ class DataScientistWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if not self.data_points:
-            return ("Collect falling Green data packets to train your model.", None)
-            
+            return (f"Accuracy is {int(self.model_accuracy)}%. Hold near center and prepare for the next clean packet.", (WIDTH / 2, HEIGHT / 2))
+
+        anomalies = [d for d in self.data_points if d["type"] == "anomaly"]
+        dangerous_anomaly = min(
+            (d for d in anomalies if d["y"] > player.y - 140 and abs(player.x - d["x"]) < 70),
+            key=lambda d: abs(player.y - d["y"]),
+            default=None,
+        )
+        if dangerous_anomaly is not None:
+            target_pos = (float(dangerous_anomaly["x"]), float(dangerous_anomaly["y"]))
+            return (f"Red anomaly crossing your lane. Slide away now or you lose 20% accuracy.", target_pos)
+
         good_data = [d for d in self.data_points if d["type"] in {"valid", "bonus"}]
         if good_data:
-            target = min(good_data, key=lambda d: math.hypot(player.x - d["x"], player.y - d["y"]))
+            target = min(
+                good_data,
+                key=lambda d: (
+                    0 if d["type"] == "bonus" and self.model_accuracy < 95.0 else 1,
+                    math.hypot(player.x - d["x"], player.y - d["y"]),
+                ),
+            )
             target_pos = (float(target["x"]), float(target["y"]))
-            return (f"Move under this {target['type']} packet and catch it to raise model accuracy.", target_pos)
-            
-        anomalies = [d for d in self.data_points if d["type"] == "anomaly"]
+            packet_name = "bonus" if target["type"] == "bonus" else "valid"
+            if abs(player.x - target_pos[0]) < 35:
+                return (f"Accuracy {int(self.model_accuracy)}%. Hold your lane and catch this {packet_name} packet.", target_pos)
+            return (f"Accuracy {int(self.model_accuracy)}%. Move under this {packet_name} packet and catch it cleanly.", target_pos)
+
         if anomalies:
             target = min(anomalies, key=lambda d: math.hypot(player.x - d["x"], player.y - d["y"]))
-            return ("A red anomaly is incoming. Move away from its path and do not touch it.", (float(target["x"]), float(target["y"])))
-            
-        return ("Maintain model confidence by catching valid datasets.", None)
+            return ("Only anomalies are visible right now. Stay clear of this red packet and reset for the next safe drop.", (float(target["x"]), float(target["y"])))
+
+        return ("Maintain model confidence by catching valid and bonus datasets.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
