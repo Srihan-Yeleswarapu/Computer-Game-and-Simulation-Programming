@@ -310,28 +310,44 @@ class SoftwareDeveloperWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.pings:
-            return ("Priority Alert! Press Q to clear pending system messages.", (player.x, player.y - 40))
+            return ("Priority Alert! Press Q while near a ping to clear system messages and restore focus.", (player.x, player.y - 40))
         
         if self.selected_ticket_index == -1:
-            return ("Check the Terminal for new JIRA tickets.", (140, 110))
+            return ("Check the Terminal on the left. Hover over a ticket and press 1-4 to assign it to yourself.", (140, 110))
             
         ticket = self.tickets[self.selected_ticket_index]
-        if ticket["stage"] == "incident":
-            return (f"Urgent: Resolve incident {ticket['id']} at the {ticket['node']} node.", (float(ticket["x"]), float(ticket["y"])))
         
+        if self.active_ticket and ticket["stage"] == "incident":
+            dist = math.hypot(player.x - float(ticket["x"]), player.y - float(ticket["y"]))
+            if dist > 80:
+                return (f"Go to the {ticket['service']} node (flashing circle) to investigate the incident.", (float(ticket["x"]), float(ticket["y"])))
+            else:
+                return (f"Hold SPACE at the {ticket['service']} node to patch the bug.", (float(ticket["x"]), float(ticket["y"])))
+
         if ticket["stage"] == "coding":
             desk = self.workstations["desk"]
-            return (f"Go to the IDE desk to work on {ticket['id']}.", (desk[0], desk[1]))
+            dist_desk = math.hypot(player.x - desk["x"], player.y - desk["y"])
+            if dist_desk > 60:
+                return (f"Ticket assigned. Move to your IDE desk to implement the {ticket['name']} fix.", (float(desk["x"]), float(desk["y"])))
+            else:
+                return (f"Hold C at your desk to write the code for the {ticket['name']} ticket.", (float(desk["x"]), float(desk["y"])))
             
         if ticket["stage"] == "review":
             review = self.workstations["review"]
-            return (f"Submit code reviews at the PR station for {ticket['id']}.", (review[0], review[1]))
+            dist_rev = math.hypot(player.x - review["x"], player.y - review["y"])
+            if dist_rev > 60:
+                return ("Code written! Head to the PR station to submit your changes for peer review.", (float(review["x"]), float(review["y"])))
+            else:
+                return ("Hold R at the PR station to process the code review tasks.", (float(review["x"]), float(review["y"])))
+
+        if ticket["stage"] == "done":
+            if self.completed_tickets < len(self.tickets):
+                return ("Ticket merged! Return to the Terminal to pick up your next JIRA assignment.", (140, 110))
+            else:
+                deploy = self.workstations["deploy"]
+                return ("Release ready! Head to the DEPLOY console to ship the new build to production.", (float(deploy["x"]), float(deploy["y"])))
             
-        if self.completed_tickets >= len(self.tickets):
-            deploy = self.workstations["deploy"]
-            return ("All tickets merged. Head to DEPLOY to finish the release.", (deploy[0], deploy[1]))
-            
-        return ("Follow the ticket workflow: Code -> Review -> Merge.", None)
+        return ("Follow the developer workflow: Assignment -> Code -> Review -> Merge.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -348,6 +364,7 @@ class SoftwareDeveloperWorld(BaseWorld):
         self.handle_deploy(dt, player, keys)
         self.evaluate_failure()
         self.update_particles(dt)
+        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw_ticket_card(self, canvas: tk.Canvas, index: int, ticket: dict[str, Any]) -> None:

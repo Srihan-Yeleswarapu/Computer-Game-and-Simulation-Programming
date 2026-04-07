@@ -167,17 +167,46 @@ class FireRescueWorld(BaseWorld):
                 if self.heat > 40:
                     player.reset(self.bounds[0] + 20, HEIGHT / 2)
                     self.heat = 0.0
-        if self.timer <= 0:
-            self.finished = True
-            self.success = self.saved >= 2
-            if self.success:
-                self.message = f"Shift Over! {self.saved}/5 survivors rescued from the fire."
-                if self.saved == 5: self.grade = "S"
-                elif self.saved == 4: self.grade = "A"
-                elif self.saved == 3: self.grade = "B"
-                else: self.grade = "C"
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if self.carrying:
+            dist_door = math.hypot(player.x - 40, player.y - HEIGHT/2)
+            if dist_door > 80:
+                return ("Survivor on board! Carry them to the Fire Exit (left door) for immediate evacuation.", (40.0, HEIGHT/2.0))
             else:
-                self.message = f"Fire out of control! Only {self.saved}/5 survivors evacuated."
+                return ("Evacuate! Drop the survivor at the exit zone to clear them.", (20.0, HEIGHT/2.0))
+                
+        # Any trapped survivors?
+        trapped = [s for s in self.survivors if s["state"] == "trapped"]
+        if trapped:
+             survivor = min(trapped, key=lambda s: math.hypot(player.x - s["x"], player.y - s["y"]))
+             dist_s = math.hypot(player.x - survivor["x"], player.y - survivor["y"])
+             target_pos = (float(survivor["x"]), float(survivor["y"]))
+             
+             if dist_s > 80:
+                  return ("Search and Rescue: Locate trapped civilians (yellow) deep in the burning structure.", target_pos)
+             else:
+                  return ("Victim located! Stay near the survivor until you can lift them for evacuation.", target_pos)
+
+        # No trapped survivors, deal with fire
+        if self.flames:
+             nearest_flame = min(self.flames, key=lambda f: math.hypot(player.x - f["x"], player.y - f["y"]))
+             dist_f = math.hypot(player.x - nearest_flame["x"], player.y - nearest_flame["y"])
+             if dist_f > 100:
+                  return ("Fire Containment: Use your hose (SPACE) to clear paths and suppress the spread.", (float(nearest_flame["x"]), float(nearest_flame["y"])))
+             else:
+                  return ("Suppression in progress! Hold SPACE to hit the flame core with water.", (float(nearest_flame["x"]), float(nearest_flame["y"])))
+                  
+        return ("Fire contained. Monitor for hot spots and maintain structural safety.", None)
+
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
+        if self.finished:
+            self.draw(canvas, player)
+            return
+
+        self.tick_timer(dt)
+        player.update(dt, keys, self.bounds)
+        self.update_adaptive_guidance(dt, player, keys)
                 self.grade = "F"
             
         if self.saved >= 5:

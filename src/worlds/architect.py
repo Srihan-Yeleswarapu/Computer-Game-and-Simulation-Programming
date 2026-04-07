@@ -83,7 +83,6 @@ class ArchitectWorld(BaseWorld):
         self.last_enter_down = False
         self.place_hold_timer = 0.0
         self.last_place_cell = None
-        self.tutorial_timer = 4.0
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
 
@@ -233,7 +232,7 @@ class ArchitectWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if self.phase == "review":
-            return ("Wait for the design review results.", (WIDTH / 2, HEIGHT / 2))
+            return ("Wait for the design review results.", None)
         
         counts = self.counts_by_type()
         missing = []
@@ -243,9 +242,10 @@ class ArchitectWorld(BaseWorld):
         
         if missing:
             room_name = missing[0]
-            for i, room in enumerate(self.room_types):
-                if room["name"] == room_name:
-                    return (f"Press {room['key']} to select and SPACE to place {room_name}.", None)
+            room_key = "?"
+            for r in self.room_types:
+                 if r["name"] == room_name: room_key = r["key"]; break
+            return (f"The brief requires more {room_name}s. Press {room_key} to select and SPACE to place on the blueprint.", None)
         
         # Check adjacencies
         lobby_blocks = [b for b in self.blocks if b["type"] == "Lobby"]
@@ -253,12 +253,21 @@ class ArchitectWorld(BaseWorld):
         if lobby_blocks and core_blocks:
             if not any(self.adjacent_to_type(b, "Core") for b in lobby_blocks):
                 lb = lobby_blocks[0]
-                return ("Connect the Lobby to the circulation Core.", (self.offset_x + lb["gx"] * self.grid_size, self.offset_y + lb["gy"] * self.grid_size))
+                return ("Public access check: Place the Lobby block adjacent to the circulation Core.", (self.offset_x + lb["gx"] * self.grid_size, self.offset_y + lb["gy"] * self.grid_size))
         
+        # Check structural support
+        footprint = {(b["gx"], b["gy"]) for b in self.blocks}
+        for b in self.blocks:
+             if b["gy"] < self.grid_h - 1 and (b["gx"], b["gy"] + 1) not in footprint:
+                  return (f"Structural Warning: The {b['type']} at ({b['gx']},{b['gy']}) is floating. Add a block below it or move it.", (self.offset_x + b["gx"] * self.grid_size, self.offset_y + b["gy"] * self.grid_size))
+
+        if self.budget < 0:
+             return ("Budget Exceeded! Use BACKSPACE over expensive blocks to refund costs or optimize the layout.", None)
+
         if self.budget >= 0:
-            return ("Layout complete! Press ENTER to run the design review.", (WIDTH - 150, HEIGHT - 150))
+            return ("Design requirements satisfied. Press ENTER to submit your concept for professional review.", (WIDTH - 150, HEIGHT - 150))
         
-        return ("Budget exceeded! Remove expensive rooms with BACKSPACE.", None)
+        return ("Design restricted. Ensure logical flow and structural integrity before submission.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         if self.finished:
@@ -316,6 +325,7 @@ class ArchitectWorld(BaseWorld):
                     self.message = f"Design rejected. Review score: {int(self.review_score)}."
 
         self.update_particles(dt)
+        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw_workspace(self, canvas: tk.Canvas) -> None:

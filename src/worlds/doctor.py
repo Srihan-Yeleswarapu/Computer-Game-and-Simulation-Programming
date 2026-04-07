@@ -77,7 +77,6 @@ class DoctorWorld(BaseWorld):
             "Tip: Use the correct treatment on the matching patient to fill the cure bar.",
             "Tip: If a patient's stability hits zero, the mission fails immediately.",
         ]
-        self.tutorial_timer = 4.0
         self.held_item = ""
         self.message = ""
         self.patients: list[dict[str, Any]] = []
@@ -101,7 +100,6 @@ class DoctorWorld(BaseWorld):
         self.message = ""
         self.shake = 0.0
         self.particles = []
-        self.tutorial_timer = 4.0
         self.hint_display_timer = 0.0
         self.current_hint_index = 0
 
@@ -230,24 +228,35 @@ class DoctorWorld(BaseWorld):
 
     def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
         if not self.patients:
-            return ("Wait for more patients to arrive in the ER.", None)
+            return ("ER currently quiet. Wait for new emergency admits to arrive.", None)
             
-        # Prioritize the most unstable patient
+        # Target the most unstable patient
         patient = min(self.patients, key=lambda p: float(p["stability"]))
         target_pos = (float(patient["x"]), float(patient["y"]))
+        dist_patient = math.hypot(player.x - patient["x"], player.y - patient["y"])
+        
+        if patient["stability"] < 25:
+             if dist_patient > 100:
+                  return (f"EMERGENCY! {patient['condition']} at bed {patient['bed']+1} is coding. Move there NOW.", target_pos)
+             elif self.held_item != patient["tool"]:
+                  tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
+                  return (f"URGENT: {patient['condition']} needs {patient['tool_name']} immediately to stabilize.", (float(tool_station["x"]), float(tool_station["y"])))
         
         if self.held_item == "":
             tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
             if tool_station:
-                return (f"Grab {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+                return (f"Clinical logic: Patient has {patient['condition']}. Grab {patient['tool_name']} from the supply bar.", (float(tool_station["x"]), float(tool_station["y"])))
         elif self.held_item != patient["tool"]:
             tool_station = next((t for t in self.tool_catalog if t["type"] == patient["tool"]), None)
             if tool_station:
-                return (f"Swap to {patient['tool_name']} for {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
+                return (f"Inventory Mismatch: Swap held item for {patient['tool_name']} to treat the {patient['condition']}.", (float(tool_station["x"]), float(tool_station["y"])))
         else:
-            return (f"Hold SPACE at the bedside to treat {patient['condition']}.", target_pos)
+            if dist_patient > 100:
+                 return (f"Correct item held. Move to the bedside of the {patient['condition']} patient.", target_pos)
+            else:
+                 return (f"In position. Hold SPACE to administer the {patient['tool_name']} and stabilize the patient.", target_pos)
             
-        return ("Monitor the ER and stabilize patients quickly.", None)
+        return ("Monitor ER occupancy and prioritize patients with low stability.", None)
 
     def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
         self.keys = keys
@@ -278,6 +287,7 @@ class DoctorWorld(BaseWorld):
             return
 
         self.update_particles(dt)
+        self.update_adaptive_guidance(dt, player, keys)
         self.draw(canvas, player)
 
     def draw_bed(self, canvas: tk.Canvas, bed: dict[str, float], sx: float, sy: float) -> None:
@@ -372,3 +382,4 @@ class DoctorWorld(BaseWorld):
         if self.finished:
             self.draw_result(canvas)
         self.draw_hud(canvas)
+

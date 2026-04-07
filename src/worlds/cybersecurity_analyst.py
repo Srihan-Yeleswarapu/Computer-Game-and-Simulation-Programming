@@ -108,10 +108,33 @@ class CybersecurityAnalystWorld(BaseWorld):
             elif self.integrity > 20: self.grade = "B"
             else: self.grade = "C"
 
-        self.update_particles(dt)
-        self.draw(canvas, player)
+    def get_adaptive_hint(self, player: Player) -> tuple[str, tuple[float, float] | None]:
+        if not self.attacks:
+            return ("Firewall status: Stable. Monitor incoming packet streams for potential breaches.", None)
+            
+        # Target the nearest attack to the server
+        threat = min(self.attacks, key=lambda a: math.hypot(self.server_x - a["x"], self.server_y - a["y"]))
+        dist_threat = math.hypot(player.x - threat["x"], player.y - threat["y"])
+        target_pos = (float(threat["x"]), float(threat["y"]))
+        
+        if self.integrity < 40:
+             return ("CRITICAL BREACH: Shield the central server immediately to prevent system failure!", (float(self.server_x), float(self.server_y)))
+             
+        if dist_threat > 100:
+             return ("Malicious packets detected! Use your firewall (cursor) to intercept the red nodes.", target_pos)
+        else:
+             return ("Intercepting... Stay on the threat path to neutralize the unauthorized access attempt.", target_pos)
 
-    def draw(self, canvas: tk.Canvas, player: Player) -> None:
+    def update(self, dt: float, canvas: tk.Canvas, player: Player, keys: set[str], mouse_pos: tuple[int, int]) -> None:
+        self.keys = keys
+        if self.finished:
+            self.draw(canvas, player)
+            return
+
+        self.tick_timer(dt)
+        player.x, player.y = mouse_pos
+        player.update(dt, keys, (0, 0, WIDTH, HEIGHT))
+        self.update_adaptive_guidance(dt, player, keys)
         canvas.delete("all")
         sx, sy = 0, 0
         if self.shake > 0:
